@@ -1198,6 +1198,8 @@ export type TranslationKey =
     | 'admin.drips.template'
     | 'admin.drips.title'
     | 'admin.edit_page.add'
+    | 'admin.edit_page.add_first'
+    | 'admin.edit_page.add_picture'
     | 'admin.edit_page.alt'
     | 'admin.edit_page.alt_placeholder'
     | 'admin.edit_page.bold'
@@ -1231,12 +1233,20 @@ export type TranslationKey =
     | 'admin.edit_page.redo'
     | 'admin.edit_page.replace'
     | 'admin.edit_page.replace_image'
+    | 'admin.edit_page.row_add_after'
+    | 'admin.edit_page.row_move_down'
+    | 'admin.edit_page.row_move_left'
+    | 'admin.edit_page.row_move_right'
+    | 'admin.edit_page.row_move_up'
+    | 'admin.edit_page.row_removed'
+    | 'admin.edit_page.rows_locked'
     | 'admin.edit_page.saved'
     | 'admin.edit_page.saving'
     | 'admin.edit_page.strip'
     | 'admin.edit_page.subheading'
     | 'admin.edit_page.undo'
     | 'admin.edit_page.unsaved'
+    | 'admin.edit_page.use_video'
     | 'admin.email_brand.add_social'
     | 'admin.email_brand.colors'
     | 'admin.email_brand.content_background'
@@ -5524,6 +5534,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.drips.template',
     'admin.drips.title',
     'admin.edit_page.add',
+    'admin.edit_page.add_first',
+    'admin.edit_page.add_picture',
     'admin.edit_page.alt',
     'admin.edit_page.alt_placeholder',
     'admin.edit_page.bold',
@@ -5557,12 +5569,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.redo',
     'admin.edit_page.replace',
     'admin.edit_page.replace_image',
+    'admin.edit_page.row_add_after',
+    'admin.edit_page.row_move_down',
+    'admin.edit_page.row_move_left',
+    'admin.edit_page.row_move_right',
+    'admin.edit_page.row_move_up',
+    'admin.edit_page.row_removed',
+    'admin.edit_page.rows_locked',
     'admin.edit_page.saved',
     'admin.edit_page.saving',
     'admin.edit_page.strip',
     'admin.edit_page.subheading',
     'admin.edit_page.undo',
     'admin.edit_page.unsaved',
+    'admin.edit_page.use_video',
     'admin.email_brand.add_social',
     'admin.email_brand.colors',
     'admin.email_brand.content_background',

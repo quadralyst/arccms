@@ -10,8 +10,14 @@
  * - popover: number, date, dropdown, radio, checkbox, yes/no, colour, icon, file,
  *   and a value in an attribute (`href="{{ link }}"`), the form editor's own
  *   control in a small box on the element;
- * - panel: anything else the editor fills (tags, author, rows of a repeating
- *   field): the Page settings panel, opened on the field.
+ * - panel: anything else the editor fills (tags, author, a file field's rows):
+ *   the Page settings panel, opened on the field.
+ *
+ * A repeating field's rows (VE-D30 to VE-D35) are edited value by value: a row's
+ * text is typed in place, its picture is picked, and a section heading is typed
+ * in place. The renderer marks each value with the field, the row's id and the
+ * value's key; the row itself is not a spot, but hovering it asks the screen for
+ * its bar (add, move, remove). An empty list shows "Add the first {row}".
  *
  * Values the site works out (dates, related entries) are not spots. Tab moves
  * between spots in page order, Enter opens a spot that has the focus, and
@@ -21,6 +27,7 @@
  * This runs in the admin document on the frame's document (same origin).
  */
 import { resolvePreviewField } from '../../../core/preview/preview-channel';
+import { headingFieldOf, repeaterFieldOf, rowSubField } from '../../../core/preview/row-fields';
 import { ContentType } from '../contents/content-types/content-types.model';
 
 export type SpotKind = 'text' | 'rich' | 'image' | 'popover' | 'panel';
@@ -37,6 +44,19 @@ export interface SpotInfo {
     attr: string;
     /** The row of a repeating field, or null. */
     row: number | null;
+    /** The row's id, when the row is edited value by value (VE-D30), else null. */
+    rowId?: string | null;
+    /** The row value this is (`question`, `image`), or null. */
+    sub?: string | null;
+    /** The field's section heading (`{key}_heading`), typed in place. */
+    heading?: boolean;
+    /** Typed over several lines (an FAQ answer): Enter starts a new line. */
+    multiline?: boolean;
+}
+
+/** A value in a row, or a section heading: typed through the row, not as a field of its own. */
+export function isRowPart(info: SpotInfo): boolean {
+    return !!info.heading || (info.rowId != null && info.sub != null);
 }
 
 export interface Spot extends SpotInfo {
@@ -81,6 +101,13 @@ export function spotInfo(el: Element, type: ContentType | null): SpotInfo | null
     const attr = (el.getAttribute('data-arc-field-attr') || '').toLowerCase();
     const rowAttr = el.getAttribute('data-arc-row');
     const row = rowAttr !== null && /^\d+$/.test(rowAttr) ? Number(rowAttr) : null;
+    const rowId = el.getAttribute('data-arc-row-id');
+    if (rowId !== null) return rowSpotInfo(el, key, rowId, attr, row, type);
+    // A section heading of a repeating field, typed in place (VE-D31).
+    const heading = !attr ? headingFieldOf(key, type) : null;
+    if (heading && !VOID_TAGS.has(el.tagName.toLowerCase())) {
+        return { key, field: heading.key, builtin: false, attr, row: null, kind: 'text', heading: true };
+    }
     const field = resolved.field;
     const base = { key, field, builtin: resolved.builtin, attr, row };
     // The marked key is the field itself, not a value made from it (`price_formatted`).
@@ -108,6 +135,32 @@ export function spotInfo(el: Element, type: ContentType | null): SpotInfo | null
     }
 }
 
+/**
+ * A value in a row of a repeating field (VE-D30, VE-D31): its text typed in place
+ * (an FAQ answer over several lines, though the page shows it as paragraphs), its
+ * picture picked; a map's location in Page settings. Null for the row itself and
+ * for a value no row holds.
+ */
+function rowSpotInfo(el: Element, key: string, rowId: string, attr: string, row: number | null, type: ContentType): SpotInfo | null {
+    const ref = repeaterFieldOf(key, type);
+    const sub = el.getAttribute('data-arc-sub');
+    if (!ref || sub === null) return null;
+    const found = rowSubField(ref.schema, sub);
+    if (!found) return null;
+    const base = { key, field: ref.key, builtin: false, attr, row, rowId, sub: found.sub.key };
+    switch (found.sub.type) {
+        case 'text':
+            return !attr && found.exact ? { ...base, kind: 'text' } : null;
+        case 'textarea':
+            // `answer_html` shows the answer: the answer is typed there.
+            return !attr ? { ...base, kind: 'text', multiline: true } : null;
+        case 'media':
+            return { ...base, kind: 'image' };
+        default:
+            return { ...base, kind: 'panel' };
+    }
+}
+
 /** What the rich text editor is mounted for: the field, and the placed fields as drawn (VE-D28). */
 export interface RichContext {
     field: string;
@@ -121,6 +174,18 @@ export interface InPlaceHost {
     value(field: string): unknown;
     /** Writes a typed value into the draft, as the form editor does. */
     setText(field: string, value: string): void;
+    /** A row's value or a section heading as the draft holds it, in the language on screen (VE-D31). */
+    partText?(info: SpotInfo): string;
+    /** Writes a row's value or a section heading, as the form editor's row boxes do. */
+    setPartText?(info: SpotInfo, value: string): void;
+    /** In a translation, a row value not translated yet: drawn faintly, typed in from empty (VE-D35). */
+    untranslated?(info: SpotInfo): boolean;
+    /** The pointer (or the keyboard) is on a row of a repeating field, or on none: its bar (VE-D32). */
+    rowHover?(row: HTMLElement | null): void;
+    /** An empty list's line: "Add the first {row}", or in a translation where rows are arranged (VE-D33, VE-D35). */
+    emptyList?(field: string): { text: string; add: boolean } | null;
+    /** The empty list's line was clicked: its first row. */
+    addFirst?(field: string): void;
     setRich(field: string, html: string): void;
     /** While a spot is typed in, the page is not redrawn. */
     hold(on: boolean): void;
@@ -134,8 +199,8 @@ export interface InPlaceHost {
     panel(spot: Spot): void;
     /** The spot being edited changed (null: none), for the strip's formatting buttons. */
     activeChanged(spot: Spot | null, rich: RichHandle | null): void;
-    /** An empty field's placeholder, "Add {label}" (VE-D18), in the admin's language. */
-    placeholder(field: string, label: string | null): string;
+    /** An empty field's placeholder, "Add {label}" (VE-D18), in the admin's language; a row value's or a heading's from `info`. */
+    placeholder(field: string, label: string | null, info?: SpotInfo): string;
     /** The hover text on a value that is not edited in place (VE-D17). */
     hint(kind: HintKind): string;
     /** Escape, first: the screen closes a box of its own (a picture's) and says so. */
@@ -144,7 +209,7 @@ export interface InPlaceHost {
      * While a translation is on screen, a field every language shares (a picture, a
      * number, a choice): shown, marked "Same in every language", not edited here (VE3.8).
      */
-    shared?(field: string, builtin: boolean): boolean;
+    shared?(field: string, builtin: boolean, info?: SpotInfo): boolean;
 }
 
 /**
@@ -181,6 +246,16 @@ export const IN_PLACE_CSS = `
 [data-arc-empty][data-arc-ph] { padding: 8px 12px; }
 [data-arc-ph]::before { content: attr(data-arc-ph); font-style: italic; opacity: .6; }
 [data-arc-editing] { text-transform: none !important; }
+/* An FAQ answer typed in place: its lines as typed (VE-D31). */
+[data-arc-editing][data-arc-multiline] { white-space: pre-wrap; }
+/* A row value not translated yet: the default language's words, faint (VE-D35). */
+[data-arc-untranslated] { opacity: .6; }
+/* A row's empty picture: a box to click (VE-D31). */
+img[data-arc-empty][data-arc-sub] { display: block !important; width: 100%; min-width: 48px; min-height: 48px; aspect-ratio: 4 / 3; max-height: 200px; object-fit: cover;
+  background: repeating-linear-gradient(45deg, rgba(0,0,0,.04) 0 8px, rgba(0,0,0,.08) 8px 16px); }
+/* An empty list: the line that adds its first row (VE-D33). */
+[data-arc-empty-loop][data-arc-ph] { display: block !important; padding: 12px 16px; outline: 1px dashed var(--arc-edit-accent); outline-offset: 2px; opacity: .75; }
+[data-arc-empty-loop][data-arc-edit-kind="add"] { cursor: pointer; }
 [data-arc-editing]:empty { display: inline-block; min-width: 1ch; }
 /* A value worked out by the site (VE-D17): its title says where it comes from. */
 [data-arc-field][data-arc-hint] { cursor: help; }
@@ -210,6 +285,12 @@ export class InPlaceEditing {
     private richShown: { before: string; typed: string | null } | null = null;
     /** The text spot's words when it was opened: leaving writes them back only when changed. */
     private textAtStart: string | null = null;
+    /** A text spot drawn differently while typed (an FAQ answer's paragraphs): put back when left unchanged. */
+    private textShown: string | null = null;
+    /** A row just added: its first text spot opens once the page draws it (VE-D32). */
+    private pendingRow: { id: string; until: number } | null = null;
+    /** The row the pointer is on, for its bar. */
+    private hoverRow: HTMLElement | null = null;
     private observer: MutationObserver | null = null;
     private markTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly listeners: [string, EventListener, boolean][] = [];
@@ -222,6 +303,11 @@ export class InPlaceEditing {
         this.on('keydown', (e) => this.onKey(e as KeyboardEvent), true);
         this.on('input', (e) => this.onInput(e), true);
         this.on('submit', (e) => e.preventDefault(), true);
+        this.on('pointerover', (e) => this.onPointer(e as PointerEvent), true);
+        this.on('pointerout', (e) => {
+            // Out of the page altogether: no row.
+            if (!(e as PointerEvent).relatedTarget) this.setHoverRow(null);
+        }, true);
         this.mark();
         const View = this.doc.defaultView as (Window & typeof globalThis) | null;
         if (View?.MutationObserver && this.doc.body) {
@@ -288,8 +374,16 @@ export class InPlaceEditing {
             return;
         }
         this.markEmpty(type);
+        this.markEmptyLists(type);
+        // Every FAQ answer shows on the Visual Editor (VE-D31).
+        for (const details of Array.from(this.doc.querySelectorAll<HTMLDetailsElement>('details:not([open])'))) {
+            if (details.closest('[data-arc-editing], .ProseMirror')) continue;
+            if (details.querySelector('[data-arc-row-id]') || details.hasAttribute('data-arc-row-id')) details.open = true;
+        }
         for (const el of Array.from(this.doc.querySelectorAll<HTMLElement>('[data-arc-field]'))) {
             if (this.active?.el === el || el.closest('[data-arc-editing]') && el !== this.active?.el) continue;
+            // A row edited value by value is not a spot itself; its bar is found from it (VE-D32).
+            if (el.hasAttribute('data-arc-row-id') && !el.hasAttribute('data-arc-sub')) continue;
             const locked = !!el.closest('[data-arc-locked]');
             const found = locked ? null : spotInfo(el, type);
             const shared = !!found && this.isShared(found);
@@ -312,10 +406,12 @@ export class InPlaceEditing {
             if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
             // An empty value shows what it is for, so there is something to click (VE-D18).
             const empty = !info.attr && !VOID_TAGS.has(el.tagName.toLowerCase()) && !el.textContent?.trim() && !el.querySelector(SHOWN_MEDIA);
-            const placeholder = empty ? placeholderText(el) ?? this.host.placeholder(info.field, labelOf(el)) : null;
+            const placeholder = empty ? placeholderText(el) ?? this.host.placeholder(info.field, labelOf(el), info) : null;
             if (placeholder === null) el.removeAttribute('data-arc-ph');
             else if (el.getAttribute('data-arc-ph') !== placeholder) el.setAttribute('data-arc-ph', placeholder);
+            el.toggleAttribute('data-arc-untranslated', info.kind === 'text' && isRowPart(info) && !empty && !!this.host.untranslated?.(info));
         }
+        this.openPending();
         for (const [selector, kind] of [['arc-header', 'header'], ['arc-footer', 'footer']] as const) {
             const part = this.doc.querySelector<HTMLElement>(selector);
             if (part) this.setHint(part, kind);
@@ -332,10 +428,83 @@ export class InPlaceEditing {
             const key = box.getAttribute('data-arc-empty') || '';
             const field = resolvePreviewField(key, type)?.field;
             if (!field || box.hasAttribute('data-arc-field')) continue;
+            // A list's section: its empty list says how to add the first row (VE-D33).
+            if (box.querySelector('[data-arc-empty-loop]')) continue;
             const inside = Array.from(box.querySelectorAll<HTMLElement>('[data-arc-field]'))
                 .some((el) => !VOID_TAGS.has(el.tagName.toLowerCase()) && !el.getAttribute('data-arc-field-attr') && spotInfo(el, type)?.field === field);
             if (!inside) box.setAttribute('data-arc-field', key);
         }
+    }
+
+    /**
+     * An empty repeating field's list (`data-arc-empty-loop`, VE-D33): a line that adds
+     * its first row, or, in a translation, says where rows are added (VE-D35).
+     */
+    private markEmptyLists(type: ContentType): void {
+        for (const list of Array.from(this.doc.querySelectorAll<HTMLElement>('[data-arc-empty-loop]'))) {
+            const ref = repeaterFieldOf(list.getAttribute('data-arc-empty-loop') || '', type);
+            const line = ref && this.host.emptyList?.(ref.key);
+            if (!ref || !line) continue;
+            if (list.getAttribute('data-arc-ph') !== line.text) list.setAttribute('data-arc-ph', line.text);
+            list.setAttribute('data-arc-list', ref.key);
+            if (line.add) {
+                list.setAttribute('data-arc-edit-kind', 'add');
+                if (!list.hasAttribute('tabindex')) list.setAttribute('tabindex', '-1');
+                list.setAttribute('role', 'button');
+                list.removeAttribute('title');
+            } else {
+                list.removeAttribute('data-arc-edit-kind');
+                list.removeAttribute('role');
+                list.setAttribute('title', line.text);
+            }
+        }
+    }
+
+    /** Opens a row just added once the page draws it: its first text, else it is shown (VE-D32). */
+    openWhenDrawn(rowId: string): void {
+        this.pendingRow = { id: rowId, until: Date.now() + 5000 };
+        this.openPending();
+    }
+
+    private openPending(): void {
+        const pending = this.pendingRow;
+        if (!pending) return;
+        if (Date.now() > pending.until) {
+            this.pendingRow = null;
+            return;
+        }
+        const id = cssEscapeId(pending.id);
+        const row = this.doc.querySelector<HTMLElement>(`[data-arc-row][data-arc-row-id="${id}"]`);
+        if (!row) return;
+        this.pendingRow = null;
+        const first = this.doc.querySelector<HTMLElement>(`[data-arc-row-id="${id}"][data-arc-edit-kind="text"]`);
+        (first ?? row).scrollIntoView?.({ block: 'nearest' });
+        if (first) this.open(first);
+        this.setHoverRow(row);
+    }
+
+    // ── Rows ─────────────────────────────────────────────────────────────────
+    private onPointer(event: PointerEvent): void {
+        const target = event.target as Element | null;
+        if (!target || typeof target.closest !== 'function') return;
+        // Inside the text being typed in (a placed field's card there): the card stands for the field (VE-D36).
+        if (target.closest('[data-arc-editing], .ProseMirror')) {
+            this.setHoverRow(null);
+            return;
+        }
+        this.setHoverRow(target.closest<HTMLElement>('[data-arc-row][data-arc-row-id]'));
+    }
+
+    /** The row whose bar shows; the screen keeps it while the pointer is on the bar. */
+    private setHoverRow(row: HTMLElement | null): void {
+        if (row === this.hoverRow) return;
+        this.hoverRow = row;
+        this.host.rowHover?.(row);
+    }
+
+    /** The row of a spot or element, edited value by value, or null. */
+    rowOf(el: Element | null): HTMLElement | null {
+        return el?.closest?.<HTMLElement>('[data-arc-row][data-arc-row-id]') ?? null;
     }
 
     /** The hover text on a value that is not edited in place, unless the template gave it a title of its own. */
@@ -358,9 +527,12 @@ export class InPlaceEditing {
         return info && !this.isShared(info) ? { ...info, el, label: labelOf(el) } : null;
     }
 
-    /** A field every language shares, while a translation is on screen; rows still open the panel, which locks what it must. */
+    /**
+     * A field every language shares, while a translation is on screen; rows still open the
+     * panel, which locks what it must. A row's picture is shared, its text is not (VE-D35).
+     */
     private isShared(info: SpotInfo): boolean {
-        return info.kind !== 'panel' && !!this.host.shared?.(info.field, info.builtin);
+        return info.kind !== 'panel' && !!this.host.shared?.(info.field, info.builtin, info);
     }
 
     // ── Events ───────────────────────────────────────────────────────────────
@@ -368,12 +540,12 @@ export class InPlaceEditing {
         const target = event.target as Element | null;
         if (!target || typeof target.closest !== 'function') return;
         if (this.active && this.active.el.contains(target)) {
-            // A link inside the text being edited is edited, not followed.
-            if (target.closest('a[href]')) event.preventDefault();
+            // A link inside the text being edited is edited, not followed; a question does not fold its answer.
+            if (target.closest('a[href], summary')) event.preventDefault();
             return;
         }
-        // Nothing on the page leaves it while editing.
-        if (target.closest('a[href]')) event.preventDefault();
+        // Nothing on the page leaves it while editing, and an FAQ answer does not fold away.
+        if (target.closest('a[href], summary')) event.preventDefault();
         const el = target.closest<HTMLElement>('[data-arc-edit-kind]') ?? soleSpot(target);
         if (!el) {
             this.leave();
@@ -414,10 +586,16 @@ export class InPlaceEditing {
             event.stopPropagation();
             return;
         }
-        if (active?.kind === 'text' && event.key === 'Enter') {
+        if (active?.kind === 'text' && event.key === 'Enter' && !active.multiline) {
             // A one-line value: Enter is done.
             event.preventDefault();
             this.leave();
+            return;
+        }
+        // A space typed in an FAQ question would fold its answer: it is typed as text instead.
+        if (active?.kind === 'text' && event.key === ' ' && active.el.closest('summary')) {
+            event.preventDefault();
+            this.doc.execCommand?.('insertText', false, ' ');
             return;
         }
         const focused = this.doc.activeElement as HTMLElement | null;
@@ -431,7 +609,19 @@ export class InPlaceEditing {
         const active = this.active;
         if (!active || active.kind !== 'text') return;
         if (!active.el.contains(event.target as Node)) return;
-        this.host.setText(active.field, plainText(active.el));
+        // A translation's faint default words go once something is typed (VE-D35).
+        if (active.el.hasAttribute('data-arc-ph') && active.el.textContent) active.el.removeAttribute('data-arc-ph');
+        this.writeText(active, this.typedText(active));
+    }
+
+    /** What a text spot holds: one line, or an FAQ answer's lines. */
+    private typedText(spot: Spot): string {
+        return spot.multiline ? linesText(spot.el) : plainText(spot.el);
+    }
+
+    private writeText(spot: Spot, text: string): void {
+        if (isRowPart(spot)) this.host.setPartText?.(spot, text);
+        else this.host.setText(spot.field, text);
     }
 
     /** The caret is in a list item of the rich text spot. */
@@ -468,10 +658,19 @@ export class InPlaceEditing {
     // ── Opening and leaving a spot ───────────────────────────────────────────
     /** Opens a spot: typing for text and rich text, a box or the panel for the rest. */
     open(el: HTMLElement, at?: { x: number; y: number }): void {
+        // An empty list's line adds its first row (VE-D33).
+        if (el.getAttribute('data-arc-edit-kind') === 'add') {
+            const field = el.getAttribute('data-arc-list');
+            this.leave();
+            if (field) this.host.addFirst?.(field);
+            return;
+        }
         const spot = this.spotAt(el);
         if (!spot) return;
         if (this.active?.el === el) return;
         this.leave();
+        const row = this.rowOf(el);
+        if (row) this.setHoverRow(row);
         switch (spot.kind) {
             case 'text':
                 this.startText(spot, at);
@@ -500,7 +699,20 @@ export class InPlaceEditing {
         // A browser without plain-text editing gets ordinary editing; what is kept is the text.
         if ((el as HTMLElement).contentEditable !== 'plaintext-only') el.setAttribute('contenteditable', 'true');
         el.setAttribute('spellcheck', 'true');
-        this.textAtStart = plainText(el);
+        // Typed as stored: an FAQ answer's lines rather than its paragraphs, and a value
+        // not translated yet from empty, not over the default language's words.
+        if (isRowPart(spot)) {
+            const stored = this.host.partText?.(spot) ?? plainText(el);
+            const shown = spot.multiline ? linesText(el) : plainText(el);
+            if (stored !== shown) {
+                this.textShown = el.innerHTML;
+                el.textContent = stored;
+            }
+            el.removeAttribute('data-arc-untranslated');
+            if (!stored) el.setAttribute('data-arc-ph', this.host.placeholder(spot.field, spot.label, spot));
+        }
+        el.toggleAttribute('data-arc-multiline', !!spot.multiline);
+        this.textAtStart = this.typedText(spot);
         el.focus({ preventScroll: true });
         placeCaret(this.doc, el, at);
         this.host.activeChanged(spot, null);
@@ -539,9 +751,11 @@ export class InPlaceEditing {
         const active = this.active;
         if (!active) return;
         if (active.kind === 'text') {
-            const text = plainText(active.el);
+            const text = this.typedText(active);
             // Unchanged: the stored value stays as it is (and a change made meanwhile in Page settings with it).
-            if (text !== this.textAtStart) this.host.setText(active.field, text);
+            if (text !== this.textAtStart) this.writeText(active, text);
+            // Unchanged, the page is not drawn again: it shows what it showed.
+            else if (this.textShown !== null) active.el.innerHTML = this.textShown;
         }
         this.dropActive();
     }
@@ -551,6 +765,8 @@ export class InPlaceEditing {
         if (!active) return;
         this.active = null;
         this.textAtStart = null;
+        this.textShown = null;
+        active.el.removeAttribute('data-arc-multiline');
         this.rich?.destroy();
         this.rich = null;
         const shown = this.richShown;
@@ -590,6 +806,16 @@ function caretMenuOpen(): boolean {
     if (typeof document === 'undefined') return false;
     return Array.from(document.querySelectorAll<HTMLElement>('[data-tippy-root]'))
         .some((menu) => menu.getBoundingClientRect().height > 0 && getComputedStyle(menu).visibility !== 'hidden');
+}
+
+/** An FAQ answer typed in place: its lines, with no line breaks at its ends. */
+export function linesText(el: HTMLElement): string {
+    const text = (el as HTMLElement).innerText ?? el.textContent ?? '';
+    return text.replace(/\r\n?/g, '\n').replace(/^\n+|\n+$/g, '');
+}
+
+function cssEscapeId(value: string): string {
+    return value.replace(/["\\]/g, '\\$&');
 }
 
 /** The text of a spot typed in place, on one line. */

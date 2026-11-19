@@ -30,7 +30,13 @@ import { CreateContentComponent, PageModeHooks } from '../contents/create-conten
 import { previewSessionKey } from '../../../core/preview/preview-channel';
 import { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
 import { PagePanel } from './page-panel';
-import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichContext, RichHandle, Spot, spotInfo } from './in-place';
+import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichContext, RichHandle, Spot, SpotInfo, spotInfo } from './in-place';
+import { insertRowsAfter, moveRow, removeRow, restoreRow, rowsAcross, setRowMedia, setRowValue } from './rows';
+import { repeaterFieldOf } from '../../../core/preview/row-fields';
+import {
+    isRepeaterRowEmpty, mediaRowKeys, newRepeaterRow, RepeaterMediaSubField, RepeaterRow, RepeaterSchema, repeaterSchema,
+} from '../../../../shared/models/repeater.model';
+import { isYouTubeUrl } from '../../../../shared/utils/youtube';
 import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
 import { ArcEmptyLines } from './empty-lines';
 import { isTranslatableField, TRANSLATABLE_BUILTIN_FIELDS } from '../contents/draft-content-store/content-translation.model';
@@ -40,7 +46,7 @@ import { FieldPlaces, fieldSummary, isPlaceable } from '../../../../shared/compo
 import { SelectionMenuComponent } from '../../../../shared/components/tiptap-editor/selection-menu/selection-menu.component';
 import MediaManagerComponent, { MediaSelection } from '../(media)/media.page';
 import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
-import { ContentType } from '../contents/content-types/content-types.model';
+import { ContentType, ContentTypeField } from '../contents/content-types/content-types.model';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 import { Injector } from '@angular/core';
 
@@ -153,9 +159,48 @@ export function editFrameUrl(type: string, id: string): string {
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="replaceImage()" data-testid="edit-image-replace">{{ 'admin.edit_page.replace' | transloco }}</button>
             <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeImage()" data-testid="edit-image-remove">{{ 'common.actions.remove' | transloco }}</button>
         </div>
+        @if (pop()?.video !== undefined) {
+        <!-- A gallery item: a YouTube video instead of a photo (VE-D31). -->
+        <label class="arc-ed-pic-alt arc-ed-video">
+            <span>{{ 'admin.edit_page.use_video' | transloco }}</span>
+            <input type="url" class="form-control form-control-sm" [class.is-invalid]="videoError()" [value]="pop()?.video ?? ''"
+                [attr.placeholder]="'admin.contents.editor.repeater.video_url' | transloco"
+                (change)="setRowVideo($any($event.target).value)" (keydown.enter)="setRowVideo($any($event.target).value)" data-testid="edit-row-video">
+            @if (videoError()) {
+            <small class="arc-ed-error">{{ 'admin.contents.editor.repeater.video_invalid' | transloco }}</small>
+            }
+        </label>
+        }
         }
         <div class="arc-ed-pop-body" #popBody></div>
     </div>
+    @if (bar(); as b) {
+    <!-- A row of a repeating field: add after, move, remove (VE-D32); in a translation, where rows are arranged (VE-D35). -->
+    <div class="arc-ed-bar" role="toolbar" [attr.aria-label]="b.label" [style.top.px]="b.top" [style.left.px]="b.left"
+        (pointerenter)="barHovered(true)" (pointerleave)="barHovered(false)" data-testid="edit-row-bar">
+        @if (b.locked) {
+        <span class="arc-ed-bar-note">{{ 'admin.edit_page.rows_locked' | transloco: { language: defaultLanguageLabel() } }}</span>
+        } @else {
+        <button type="button" class="arc-ed-bar-btn" (click)="rowAddAfter()" [title]="'admin.edit_page.row_add_after' | transloco"
+            [attr.aria-label]="'admin.edit_page.row_add_after' | transloco" data-testid="edit-row-add"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
+        <button type="button" class="arc-ed-bar-btn" (click)="rowMove(-1)" [disabled]="b.first" [title]="(b.across ? 'admin.edit_page.row_move_left' : 'admin.edit_page.row_move_up') | transloco"
+            [attr.aria-label]="(b.across ? 'admin.edit_page.row_move_left' : 'admin.edit_page.row_move_up') | transloco" data-testid="edit-row-before">
+            <i class="bi" [class.bi-arrow-left]="b.across" [class.bi-arrow-up]="!b.across" aria-hidden="true"></i></button>
+        <button type="button" class="arc-ed-bar-btn" (click)="rowMove(1)" [disabled]="b.last" [title]="(b.across ? 'admin.edit_page.row_move_right' : 'admin.edit_page.row_move_down') | transloco"
+            [attr.aria-label]="(b.across ? 'admin.edit_page.row_move_right' : 'admin.edit_page.row_move_down') | transloco" data-testid="edit-row-after">
+            <i class="bi" [class.bi-arrow-right]="b.across" [class.bi-arrow-down]="!b.across" aria-hidden="true"></i></button>
+        <button type="button" class="arc-ed-bar-btn" (click)="rowRemove()" [title]="'common.actions.remove' | transloco"
+            [attr.aria-label]="'common.actions.remove' | transloco" data-testid="edit-row-remove"><i class="bi bi-trash" aria-hidden="true"></i></button>
+        }
+    </div>
+    }
+    @if (undo(); as u) {
+    <!-- A row just removed: Undo for a few seconds instead of a question first (VE-D32). -->
+    <div class="arc-ed-undo" role="status" data-testid="edit-row-undo">
+        <span>{{ u.text }}</span>
+        <button type="button" (click)="undoRemove()" data-testid="edit-row-undo-btn">{{ 'admin.edit_page.undo' | transloco }}</button>
+    </div>
+    }
     @if (sel(); as at) {
     <!-- Text selected in the body: the form editor's selection menu, beside it (VE-D27). -->
     <div class="arc-ed-sel" [class.arc-ed-sel-below]="at.below" [style.top.px]="at.top" [style.left.px]="at.left"
@@ -254,6 +299,28 @@ export function editFrameUrl(type: string, id: string): string {
         .arc-ed-sel.arc-ed-sel-below { transform: none; }
         .arc-ed-pic { width: 340px; }
         .arc-ed-pic-alt { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px; font: 500 12px/1.4 system-ui, sans-serif; color: #374151; }
+        .arc-ed-error { color: #b91c1c; }
+        .arc-ed-video { margin-top: 8px; margin-bottom: 0; }
+        .arc-ed-bar {
+            position: fixed; z-index: 999; display: flex; gap: 2px; padding: 2px; transform: translateX(-100%);
+            background: #1f2937; border-radius: 6px; box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+            font: 500 12px/1.4 system-ui, sans-serif; color: #f9fafb;
+        }
+        .arc-ed-bar-btn {
+            width: 28px; height: 26px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .arc-ed-bar-btn:hover:not(:disabled) { background: #374151; }
+        .arc-ed-bar-btn:disabled { opacity: .35; cursor: default; }
+        .arc-ed-bar-btn:focus-visible { outline: 2px solid #f9fafb; outline-offset: -2px; }
+        .arc-ed-bar-note { padding: 3px 8px; white-space: nowrap; }
+        .arc-ed-undo {
+            position: fixed; z-index: 1001; left: 50%; bottom: 24px; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; border-radius: 8px;
+            background: #1f2937; color: #f9fafb; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); font: 500 13px/1.4 system-ui, sans-serif;
+        }
+        .arc-ed-undo button { font: inherit; color: #f9fafb; background: transparent; border: 1px solid #6b7280; border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+        .arc-ed-undo button:hover { background: #374151; }
         @media (prefers-reduced-motion: reduce) { .arc-ed-panel { transition: none; } }
     `],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -319,7 +386,18 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     readonly sel = signal<{ editor: Editor; top: number; left: number; below: boolean } | null>(null);
     /** The picture selected in the body, and where its box goes (VE-D16). */
     readonly pic = signal<{ pos: number; alt: string; top: number; left: number } | null>(null);
-    readonly pop = signal<{ title: string; top: number; left: number; image: boolean; spot: Spot } | null>(null);
+    readonly pop = signal<{ title: string; top: number; left: number; image: boolean; spot: Spot; video?: string } | null>(null);
+    /** The pasted link in a gallery item's box is not a YouTube link. */
+    readonly videoError = signal(false);
+    /** The row bar (VE-D32): the row it is for and where it goes. */
+    readonly bar = signal<RowBar | null>(null);
+    /** A row just removed, for Undo (VE-D32). */
+    readonly undo = signal<{ text: string; field: string; row: RepeaterRow; index: number } | null>(null);
+    private undoTimer: ReturnType<typeof setTimeout> | null = null;
+    private barHideTimer: ReturnType<typeof setTimeout> | null = null;
+    private onBar = false;
+    /** Just after a move the bar stays with the row it moved, not the one now under the pointer. */
+    private barPinnedUntil = 0;
     /** Where a control moved into the box came from, to put it back. */
     private popReturn: { node: HTMLElement; marker: Comment } | null = null;
 
@@ -353,12 +431,18 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         // and the page's spots are worked out from them. Nothing else on this screen,
         // outside the admin shell, loads them.
         if (!this.typesStore.items().some((t: ContentType) => t.slug === this.type)) this.typesStore.getAll();
-        const timer = setInterval(() => this.readStatus(), STATUS_EVERY_MS);
+        const timer = setInterval(() => {
+            this.readStatus();
+            // The page may have been drawn again: the bar follows its row.
+            this.syncBar();
+        }, STATUS_EVERY_MS);
         const onKey = (event: KeyboardEvent) => this.onKey(event);
         this.document.addEventListener('keydown', onKey);
         this.destroyRef.onDestroy(() => {
             this.destroyed = true;
             clearInterval(timer);
+            if (this.undoTimer) clearTimeout(this.undoTimer);
+            if (this.barHideTimer) clearTimeout(this.barHideTimer);
             this.document.removeEventListener('keydown', onKey);
             this.frameCleanup?.();
             this.closePopover();
@@ -448,11 +532,15 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             if (event.key === 'Escape') this.onKey(event);
             else this.panel.touch();
         };
+        const onScroll = () => this.syncBar();
         doc.addEventListener('pointerdown', onTouch, true);
         doc.addEventListener('keydown', onKey);
+        win.addEventListener('scroll', onScroll, { passive: true });
         this.frameCleanup = () => {
             doc.removeEventListener('pointerdown', onTouch, true);
             doc.removeEventListener('keydown', onKey);
+            win.removeEventListener('scroll', onScroll);
+            this.bar.set(null);
             this.inPlace?.detach();
             this.inPlace = null;
         };
@@ -532,9 +620,15 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         image: (spot) => this.openImage(spot),
         popover: (spot) => this.openPopover(spot),
         panel: (spot) => this.openInPanel(spot),
-        placeholder: (field, label) => this.transloco.translate('admin.edit_page.add', { label: inSentence(label ?? this.fieldTitle(field)) }),
+        placeholder: (field, label, info) => this.placeholderFor(field, label, info),
         hint: (kind) => this.transloco.translate(HINT_KEYS[kind], { language: this.defaultLanguageLabel() }),
-        shared: (field, builtin) => this.sharedField(field, builtin),
+        shared: (field, builtin, info) => this.sharedField(field, builtin, info),
+        partText: (info) => this.partText(info),
+        setPartText: (info, value) => this.setPartText(info, value),
+        untranslated: (info) => !!this.editor?.session.isTranslating() && !this.partText(info),
+        rowHover: (row) => this.rowHover(row),
+        emptyList: (field) => this.emptyList(field),
+        addFirst: (field) => this.rowAdd(field, null),
         escape: () => {
             if (!this.pic()) return false;
             this.closePicture();
@@ -764,22 +858,30 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         this.inPlace?.leave();
         this.closePopover();
         this.closePicture();
+        // Undo puts a row back in the default language: not from another one.
+        this.clearUndo();
         await this.editor.switchLanguage(code);
         this.readStatus();
         // The spots shared by every language change with it.
         this.inPlace?.mark();
     }
 
-    /** While a translation is on screen, a field every language shares: the form locks it, and so does the page. */
-    sharedField(field: string, builtin: boolean): boolean {
+    /**
+     * While a translation is on screen, a field every language shares: the form locks it, and so
+     * does the page. A row's picture and a map's pin are shared, its words are not (VE-D35).
+     */
+    sharedField(field: string, builtin: boolean, info?: SpotInfo): boolean {
         const session = this.editor?.session;
         if (!session?.isTranslating()) return false;
+        const schema = info && (info.heading || info.sub) ? this.repeater(field)?.schema : null;
+        if (schema && info?.heading) return schema.heading?.translatable !== true;
+        if (schema && info?.sub) return schema.subFields.find((s) => s.key === info.sub)?.translatable !== true;
         if (builtin) return !(TRANSLATABLE_BUILTIN_FIELDS as readonly string[]).includes(field);
         const def = this.editor?.currentFields.find((f) => f.key === field);
         return def ? !isTranslatableField(def) : false;
     }
 
-    private defaultLanguageLabel(): string {
+    defaultLanguageLabel(): string {
         const session = this.editor?.session;
         if (!session) return '';
         const code = session.defaultLang();
@@ -887,9 +989,289 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         });
     }
 
+    // ── Repeating fields (VE-D30 to VE-D35) ─────────────────────────────────
+    /** A repeating field of the entry's type: its definition and row shape. */
+    repeater(field: string): { def: ContentTypeField; schema: RepeaterSchema } | null {
+        const def = this.editor?.currentFields.find((f) => f.key === field);
+        const schema = def ? repeaterSchema(def.type) : null;
+        return def && schema ? { def, schema } : null;
+    }
+
+    /** A repeating field's rows as the form shows them: in a translation, its words over the default language's rows. */
+    rows(field: string): RepeaterRow[] {
+        const ref = this.repeater(field);
+        return ref && this.editor ? this.editor.repeaterRows(ref.def) : [];
+    }
+
+    /** Writes a repeating field's rows, as the form's row editor does. */
+    private writeRows(field: string, rows: RepeaterRow[]): void {
+        this.editor?.onRepeaterRowsChange(field, rows);
+    }
+
+    /** A row's value or a section heading, as typed, in the language on screen. */
+    partText(info: SpotInfo): string {
+        const ref = this.repeater(info.field);
+        if (!ref || !this.editor) return '';
+        if (info.heading) return this.editor.repeaterHeading(ref.def);
+        const row = this.rows(info.field).find((r) => r.id === info.rowId);
+        const value = row && info.sub ? row[info.sub] : '';
+        return typeof value === 'string' ? value : '';
+    }
+
+    setPartText(info: SpotInfo, value: string): void {
+        const ref = this.repeater(info.field);
+        if (!ref || !this.editor || this.partText(info) === value) return;
+        if (info.heading) {
+            this.editor.onRepeaterHeadingChange(ref.def, value);
+            return;
+        }
+        if (!info.rowId || !info.sub) return;
+        this.writeRows(info.field, setRowValue(this.rows(info.field), info.rowId, info.sub, value));
+    }
+
+    /**
+     * An empty spot's placeholder (VE-D18): "Add {label}"; a section heading's own
+     * (such as "Frequently asked questions"); a row's picture "Add a picture"; in a
+     * translation, a row's words in the default language (VE-D35).
+     */
+    placeholderFor(field: string, label: string | null, info?: SpotInfo): string {
+        const ref = info && (info.heading || info.sub) ? this.repeater(field) : null;
+        if (ref && info?.heading) {
+            if (this.editor?.session.isTranslating()) {
+                const base = this.editor.baseRepeaterHeading(ref.def);
+                if (base.trim()) return base;
+            }
+            const own = ref.schema.heading?.placeholder;
+            return label ? this.transloco.translate('admin.edit_page.add', { label: inSentence(label) }) : own || this.fieldTitle(field);
+        }
+        if (ref && info?.sub) {
+            const sub = ref.schema.subFields.find((s) => s.key === info.sub);
+            if (this.editor?.session.isTranslating() && info.rowId) {
+                const base = this.editor.baseRepeaterPlaceholders(ref.def)[info.rowId]?.[info.sub];
+                if (typeof base === 'string' && base.trim()) return base;
+            }
+            if (sub?.type === 'media') return this.transloco.translate('admin.edit_page.add_picture');
+            return this.transloco.translate('admin.edit_page.add', { label: inSentence(label ?? sub?.label ?? this.fieldTitle(field)) });
+        }
+        return this.transloco.translate('admin.edit_page.add', { label: inSentence(label ?? this.fieldTitle(field)) });
+    }
+
+    /** An empty list's line (VE-D33): add its first row, or in a translation, where rows are added (VE-D35). */
+    emptyList(field: string): { text: string; add: boolean } | null {
+        const ref = this.repeater(field);
+        if (!ref) return null;
+        if (this.editor?.session.isTranslating()) {
+            return { text: this.transloco.translate('admin.edit_page.rows_locked', { language: this.defaultLanguageLabel() }), add: false };
+        }
+        return { text: this.transloco.translate('admin.edit_page.add_first', { row: inSentence(ref.schema.rowLabel) }), add: true };
+    }
+
+    /** The pointer is on a row, or on none: the bar shows at once and goes a moment after, unless the pointer is on it. */
+    rowHover(row: HTMLElement | null): void {
+        // Just after a move: the bar stays with its row, but can still go away.
+        if (row && Date.now() < this.barPinnedUntil) return;
+        if (this.barHideTimer) clearTimeout(this.barHideTimer);
+        this.barHideTimer = null;
+        if (row) {
+            this.placeBar(row);
+            return;
+        }
+        this.barHideTimer = setTimeout(() => {
+            this.barHideTimer = null;
+            if (!this.onBar && !this.destroyed) this.bar.set(null);
+        }, 400);
+    }
+
+    barHovered(on: boolean): void {
+        this.onBar = on;
+        if (!on) this.rowHover(null);
+    }
+
+    /** The bar at the row's top right, inside it, below the strip; across arrows for rows side by side. */
+    private placeBar(row: HTMLElement): void {
+        const field = row.getAttribute('data-arc-field') || '';
+        const type = this.contentType();
+        const ref = repeaterFieldOf(field, type);
+        const id = row.getAttribute('data-arc-row-id') || '';
+        if (!ref || !id) {
+            this.bar.set(null);
+            return;
+        }
+        const frame = this.frame?.nativeElement.getBoundingClientRect();
+        const box = rowBox(row);
+        const ids = this.rows(ref.key).map((r) => r.id);
+        const index = ids.indexOf(id);
+        const next = row.ownerDocument.querySelector<HTMLElement>(`[data-arc-row][data-arc-field="${cssEscape(field)}"][data-arc-row-id="${cssEscape(ids[index + 1] ?? ids[index - 1] ?? '')}"]`);
+        const frameTop = frame?.top ?? 0;
+        const frameBottom = frame?.bottom ?? (this.document.defaultView?.innerHeight ?? 768);
+        // Off the frame's top: held at its top while the row is still showing.
+        const top = Math.min(Math.max(frameTop + box.top + 4, frameTop + 4), frameBottom - 34);
+        const left = (frame?.left ?? 0) + Math.min(box.right, row.ownerDocument.documentElement.clientWidth) - 4;
+        const visible = box.bottom > 0 && box.top < frameBottom - frameTop;
+        if (!visible) {
+            this.bar.set(null);
+            return;
+        }
+        const now = this.bar();
+        const across = rowsAcross(box, next ? rowBox(next) : null);
+        const locked = !!this.editor?.session.isTranslating();
+        const label = ref.schema.rowLabel;
+        if (now && now.id === id && now.top === top && now.left === left && now.across === across && now.locked === locked
+            && now.first === (index <= 0) && now.last === (index === ids.length - 1)) return;
+        this.bar.set({ field: ref.key, id, top, left, across, locked, label, first: index <= 0, last: index === ids.length - 1 });
+    }
+
+    /** The bar follows its row as the page scrolls or is drawn again. */
+    syncBar(): void {
+        const now = this.bar();
+        const doc = this.frameDocument();
+        if (!now || !doc) return;
+        const row = doc.querySelector<HTMLElement>(`[data-arc-row][data-arc-row-id="${cssEscape(now.id)}"]`);
+        if (!row) {
+            if (!this.onBar) this.bar.set(null);
+            return;
+        }
+        this.placeBar(row);
+    }
+
+    /** Add after: a blank row after this one, its first words typed at once; on a gallery, photos picked first. */
+    rowAddAfter(): void {
+        const b = this.bar();
+        if (b) this.rowAdd(b.field, b.id);
+    }
+
+    /** New rows after `afterId` (null: the first row of an empty list). */
+    rowAdd(field: string, afterId: string | null): void {
+        const ref = this.repeater(field);
+        if (!ref || this.editor?.session.isTranslating()) return;
+        this.inPlace?.leave();
+        const bulk = ref.schema.subFields.find((s): s is RepeaterMediaSubField => s.type === 'media' && s.allowBulkAdd === true);
+        if (bulk) {
+            // A gallery item is its photo: the photos are picked, one item each.
+            this.openRowPicker(ref.def, bulk, true).subscribe((result: MediaSelection | null) => {
+                if (result?.type !== 'submit') return;
+                const urls = result.mediaUrls?.length ? result.mediaUrls : result.mediaUrl ? [result.mediaUrl] : [];
+                if (!urls.length) return;
+                const added = urls.map((url) => ({ ...newRepeaterRow(ref.schema, 0), [bulk.key]: url }));
+                this.writeRows(field, insertRowsAfter(this.rows(field), afterId, added));
+            });
+            return;
+        }
+        const row = newRepeaterRow(ref.schema, 0);
+        this.writeRows(field, insertRowsAfter(this.rows(field), afterId, [row]));
+        this.inPlace?.openWhenDrawn(row.id);
+    }
+
+    rowMove(step: -1 | 1): void {
+        const b = this.bar();
+        if (!b || b.locked) return;
+        this.inPlace?.leave();
+        this.barPinnedUntil = Date.now() + BAR_PIN_MS;
+        this.writeRows(b.field, moveRow(this.rows(b.field), b.id, step));
+    }
+
+    /** Remove at once; a row with anything in it can be put back with Undo for a few seconds. */
+    rowRemove(): void {
+        const b = this.bar();
+        const ref = b ? this.repeater(b.field) : null;
+        if (!b || !ref || b.locked) return;
+        this.inPlace?.leave();
+        const { rows, removed, index } = removeRow(this.rows(b.field), b.id);
+        if (!removed) return;
+        this.bar.set(null);
+        this.onBar = false;
+        this.writeRows(b.field, rows);
+        // A row with nothing in it goes with no note; an earlier row's Undo stays.
+        if (isRepeaterRowEmpty(removed, ref.schema)) return;
+        this.clearUndo();
+        this.undo.set({ text: this.transloco.translate('admin.edit_page.row_removed', { row: ref.schema.rowLabel }), field: b.field, row: removed, index });
+        this.undoTimer = setTimeout(() => {
+            this.undoTimer = null;
+            this.undo.set(null);
+        }, UNDO_MS);
+    }
+
+    undoRemove(): void {
+        const u = this.undo();
+        this.clearUndo();
+        if (u && !this.editor?.session.isTranslating()) this.writeRows(u.field, restoreRow(this.rows(u.field), u.row, u.index));
+    }
+
+    private clearUndo(): void {
+        if (this.undoTimer) clearTimeout(this.undoTimer);
+        this.undoTimer = null;
+        this.undo.set(null);
+    }
+
+    /** The media picker for a row's picture: images, and icons where the row takes them. */
+    private openRowPicker(def: ContentTypeField, sub: RepeaterMediaSubField, multiple: boolean) {
+        const allowImages = sub.allowImages !== false;
+        const allowIcons = !multiple && sub.allowIcons === true;
+        return this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({
+            isDialogOpen: true,
+            title: this.transloco.translate('admin.media.picker.repeater_field', { field: this.editor?.fieldLabel(def) ?? def.label, sub: sub.label }),
+            allowImages,
+            allowIcons,
+            multiple,
+            initialTab: allowImages ? undefined : 'icons',
+        })).afterClosed();
+    }
+
+    /** A row's picture: the picker at once when it has none, else Replace and Remove (and, on a gallery, a video link). */
+    private openRowImage(spot: Spot): void {
+        const ref = this.repeater(spot.field);
+        const sub = ref?.schema.subFields.find((s): s is RepeaterMediaSubField => s.key === spot.sub && s.type === 'media');
+        const row = this.rows(spot.field).find((r) => r.id === spot.rowId);
+        if (!ref || !sub || !row) return;
+        const has = mediaRowKeys(sub).some((key) => !!row[key]);
+        if (!has) {
+            this.pickRowImage(spot);
+            return;
+        }
+        this.showPopover(spot, true);
+        const video = sub.videoKey && typeof row[sub.videoKey] === 'string' ? row[sub.videoKey] as string : '';
+        if (sub.videoKey) this.pop.update((p) => (p ? { ...p, video } : p));
+    }
+
+    private pickRowImage(spot: Spot): void {
+        const ref = this.repeater(spot.field);
+        const sub = ref?.schema.subFields.find((s): s is RepeaterMediaSubField => s.key === spot.sub && s.type === 'media');
+        if (!ref || !sub || !spot.rowId) return;
+        const id = spot.rowId;
+        this.openRowPicker(ref.def, sub, false).subscribe((result: MediaSelection | null) => {
+            if (result?.type !== 'submit') return;
+            const chosen = result.kind === 'icon' && result.icon && sub.iconKey ? { [sub.iconKey]: result.icon }
+                : result.mediaUrl ? { [sub.key]: result.mediaUrl } : null;
+            if (chosen) this.writeRows(spot.field, setRowMedia(this.rows(spot.field), id, sub, chosen));
+        });
+    }
+
+    /** A gallery item's YouTube link, checked as the form checks it; empty clears it. */
+    setRowVideo(raw: string): void {
+        const spot = this.pop()?.spot;
+        const ref = spot ? this.repeater(spot.field) : null;
+        const sub = ref?.schema.subFields.find((s): s is RepeaterMediaSubField => s.key === spot?.sub && s.type === 'media');
+        if (!spot?.rowId || !sub?.videoKey) return;
+        const link = raw.trim();
+        if (link && !isYouTubeUrl(link)) {
+            this.videoError.set(true);
+            return;
+        }
+        this.videoError.set(false);
+        const row = this.rows(spot.field).find((r) => r.id === spot.rowId);
+        // An empty box takes the video away, never a photo the item shows.
+        if (link) this.writeRows(spot.field, setRowMedia(this.rows(spot.field), spot.rowId, sub, { [sub.videoKey]: link }));
+        else if (row?.[sub.videoKey]) this.writeRows(spot.field, setRowValue(this.rows(spot.field), spot.rowId, sub.videoKey, ''));
+        this.closePopover();
+    }
+
     // ── Images, boxes and the panel ──────────────────────────────────────────
     /** An image spot: the picker at once when it is empty, else Replace and Remove on it. */
     openImage(spot: Spot): void {
+        if (spot.rowId && spot.sub) {
+            this.openRowImage(spot);
+            return;
+        }
         if (!this.fieldValue(spot.field)) {
             this.pickImage(spot.field);
             return;
@@ -900,13 +1282,19 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     replaceImage(): void {
         const spot = this.pop()?.spot;
         this.closePopover();
-        if (spot) this.pickImage(spot.field);
+        if (spot?.rowId && spot.sub) this.pickRowImage(spot);
+        else if (spot) this.pickImage(spot.field);
     }
 
     removeImage(): void {
         const spot = this.pop()?.spot;
         this.closePopover();
         if (!spot || !this.editor) return;
+        if (spot.rowId && spot.sub) {
+            const sub = this.repeater(spot.field)?.schema.subFields.find((s): s is RepeaterMediaSubField => s.key === spot.sub && s.type === 'media');
+            if (sub) this.writeRows(spot.field, setRowMedia(this.rows(spot.field), spot.rowId, sub, {}));
+            return;
+        }
         if (spot.field === 'coverImage') this.editor.removeCoverImage();
         else this.editor.removeCustomFieldImage(spot.field);
     }
@@ -993,6 +1381,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             back.marker.remove();
         }
         if (this.pop()) this.pop.set(null);
+        this.videoError.set(false);
     }
 
     /** A field not edited on the page: the panel opens on it. */
@@ -1040,6 +1429,40 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         }
         return true;
     }
+}
+
+/** What the row bar shows for a row (VE-D32). */
+export interface RowBar {
+    field: string;
+    id: string;
+    top: number;
+    left: number;
+    /** Rows side by side: the arrows point left and right. */
+    across: boolean;
+    /** A translation: no changes, only where rows are arranged (VE-D35). */
+    locked: boolean;
+    label: string;
+    first: boolean;
+    last: boolean;
+}
+
+/** How long the bar stays with a row it just moved. */
+const BAR_PIN_MS = 1500;
+
+/** How long Undo stays after a row is removed. */
+const UNDO_MS = 8000;
+
+/** A row's box; one drawn by its children alone (display: contents) is the box around them. */
+function rowBox(row: HTMLElement): DOMRect {
+    const own = row.getBoundingClientRect();
+    if (own.width || own.height) return own;
+    const boxes = Array.from(row.children).map((child) => child.getBoundingClientRect()).filter((b) => b.width || b.height);
+    if (!boxes.length) return own;
+    const left = Math.min(...boxes.map((b) => b.left));
+    const top = Math.min(...boxes.map((b) => b.top));
+    const right = Math.max(...boxes.map((b) => b.right));
+    const bottom = Math.max(...boxes.map((b) => b.bottom));
+    return { left, top, right, bottom, width: right - left, height: bottom - top, x: left, y: top, toJSON: () => ({}) } as DOMRect;
 }
 
 function cssEscape(value: string): string {

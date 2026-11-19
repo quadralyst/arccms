@@ -4171,7 +4171,17 @@
       "language": "भाषा",
       "hint_shared": "हर भाषा में एक जैसा: इसे {{language}} में बदलें",
       "publishing": "प्रकाशित हो रहा है...",
-      "published": "प्रकाशित"
+      "published": "प्रकाशित",
+      "add_first": "पहला {{row}} जोड़ें",
+      "add_picture": "चित्र जोड़ें",
+      "rows_locked": "पंक्तियाँ {{language}} में जोड़ें और क्रम बदलें",
+      "row_add_after": "इसके बाद जोड़ें",
+      "row_move_up": "ऊपर ले जाएँ",
+      "row_move_down": "नीचे ले जाएँ",
+      "row_move_left": "बाएँ ले जाएँ",
+      "row_move_right": "दाएँ ले जाएँ",
+      "row_removed": "{{row}} हटाया गया",
+      "use_video": "या YouTube वीडियो"
     }
   },
   "user": {

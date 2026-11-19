@@ -1640,6 +1640,21 @@ export class EntryDraftSession implements OnDestroy {
    * screen and, for a translation, its unsaved values.
    */
   previewState(): { draft: Record<string, any>; lang: string; translation: IContentTranslation | null } {
+    this.drawingPage = true;
+    try {
+      return this.buildPreviewState();
+    } finally {
+      this.drawingPage = false;
+    }
+  }
+
+  /**
+   * True while the draft is read for the page drawn in a preview, never for a save:
+   * the Visual Editor draws a row just added, still blank, which a save drops (VE-D33).
+   */
+  drawingPage = false;
+
+  private buildPreviewState(): { draft: Record<string, any>; lang: string; translation: IContentTranslation | null } {
     const stored: any = untracked(() => this.draftContentStore.currentItem());
     const ownStored = stored && stored.id === this.contentId ? stored : null;
     const draft = {

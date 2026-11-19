@@ -31,6 +31,22 @@ export interface HydrationOptions {
    * so it can show as a placeholder and be filled in. Off everywhere else.
    */
   keepEmpty?: (key: string) => boolean;
+  /**
+   * On the Visual Editor only (specs/visual-editing-spec.md, VE-D30, VE-D33): for
+   * a loop that is a repeating field the editor fills, how its rows are edited on
+   * the page, else null. Such a loop's rows carry `data-arc-row-id`, each value
+   * inside a row is marked with the loop, the row's id and its own key
+   * (`data-arc-sub`), an empty value `data-arc-if` would remove is kept when
+   * `keepEmpty` says so, and an empty loop keeps its container as
+   * `data-arc-empty-loop="{loop}"`. Needs `markFields`. Off everywhere else.
+   */
+  editRows?: (loop: string) => RowEditing | null;
+}
+
+/** How the rows of one repeating field are edited on the page (HydrationOptions.editRows). */
+export interface RowEditing {
+  /** A row's empty value under `data-arc-if` that is kept, so it can be filled in. */
+  keepEmpty(key: string, row: Record<string, any>): boolean;
 }
 
 /** Template hints for the Visual Editor (VE-D19), never on a page anyone else sees. */
@@ -532,7 +548,15 @@ export class TemplateHydrationService {
             return; // Skip further processing for this element
         }
         $(element).removeAttr('data-arc-if');
-        if (!value) $(element).attr('data-arc-empty', key);
+        if (!value) {
+          $(element).attr('data-arc-empty', key);
+          // Kept to be filled in: the template's sample words are not the field's value, and
+          // the binding goes too (a site sheet may draw an unfilled binding as a loading shimmer).
+          if (attribs['data-arc-bind'] === key && !$(element).is('img, iframe, video, audio, source, input, a, select, textarea')) {
+            $(element).empty();
+            $(element).removeAttr('data-arc-bind');
+          }
+        }
       }
       // The Visual Editor reads the template hints; every other page drops them, as publishing does.
       if (!mark) for (const name of TEMPLATE_HINT_ATTRS) if (attribs[name] !== undefined) $(element).removeAttr(name);
@@ -909,9 +933,11 @@ export class TemplateHydrationService {
     // type that has no gallery. An absent loop means no rows, so clear it.
     $('[data-arc-loop]').each((_, element) => {
       const $container = $(element);
+      const loopName = $container.attr('data-arc-loop') || '';
       $container.empty();
       $container.removeAttr('data-arc-loop');
       $container.removeAttr('data-limit');
+      if (this.editsRows(loopName, options)) $container.attr('data-arc-empty-loop', loopName);
     });
 
     return $.html();
@@ -936,9 +962,15 @@ export class TemplateHydrationService {
         if ($templateChild.length) {
           const templateHtml = $.html($templateChild);
 
+          // A repeating field edited on the page (VE-D30): its rows' values are marked too.
+          const editing = this.editsRows(loopName, options);
           // Generate HTML for each item
           const generatedHtml = dataToProcess
             .map((item, index) => {
+              if (editing) {
+                const row = this.hydrateTemplate(templateHtml, item, { markFields: true, keepEmpty: (key) => editing.keepEmpty(key, item ?? {}) });
+                return this.markEditedRow(row, loopName, index, typeof item?.id === 'string' ? item.id : '');
+              }
               // Recursively hydrate each template with item data
               const row = this.hydrateTemplate(templateHtml, item);
               return options.markFields ? this.markRow(row, loopName, index) : row;
@@ -951,12 +983,52 @@ export class TemplateHydrationService {
       } else {
         // If data is empty, clear the container to remove placeholder content
         $container.empty();
+        // On the Visual Editor the empty list keeps its place, to add the first row (VE-D33).
+        if (this.editsRows(loopName, options)) $container.attr('data-arc-empty-loop', loopName);
       }
 
       // Remove loop attributes
       $container.removeAttr('data-arc-loop');
       $container.removeAttr('data-limit');
     }
+  }
+
+  /** How a loop's rows are edited on the Visual Editor, or null (HydrationOptions.editRows). */
+  private static editsRows(loopName: string, options: HydrationOptions): RowEditing | null {
+    if (!options.markFields || !options.editRows || !loopName) return null;
+    return options.editRows(loopName);
+  }
+
+  /**
+   * A row of a repeating field edited on the page (VE-D30): the row is marked as
+   * markRow marks it, with its id, and each value inside it names the loop, the
+   * row's id and its own key (`data-arc-sub`), so a click finds the value and the
+   * row by id, never by place.
+   */
+  private static markEditedRow(rowHtml: string, loopName: string, index: number, id: string): string {
+    const $ = cheerio.load(rowHtml, { xmlMode: false }, false);
+    const top = $.root().children().first();
+    if (!top.length) return rowHtml;
+    const values = top.find('[data-arc-field]').add(top.filter('[data-arc-field]'));
+    values.each((_, element) => {
+      const $el = $(element);
+      const key = $el.attr('data-arc-field') || '';
+      $el.attr('data-arc-field', loopName);
+      $el.attr('data-arc-sub', key);
+      if (id) $el.attr('data-arc-row-id', id);
+    });
+    // A kept empty value with nothing marking it (its binding had no value): it is that value's place.
+    top.find('[data-arc-empty]').add(top.filter('[data-arc-empty]')).each((_, element) => {
+      const $el = $(element);
+      if ($el.attr('data-arc-field') !== undefined) return;
+      $el.attr('data-arc-field', loopName);
+      $el.attr('data-arc-sub', $el.attr('data-arc-empty') || '');
+      if (id) $el.attr('data-arc-row-id', id);
+    });
+    if (top.attr('data-arc-sub') === undefined) top.attr('data-arc-field', loopName);
+    top.attr('data-arc-row', String(index));
+    if (id) top.attr('data-arc-row-id', id);
+    return $.html();
   }
 
   /**

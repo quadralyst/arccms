@@ -8,7 +8,7 @@
  * for the published page.
  */
 import { moveFieldBlocks, placedFields, PlacedField, prepareFieldPlaces } from '../../core/utils/field-places';
-import { TemplateHydrationService } from '../../core/services/template-hydration.service';
+import { HydrationOptions, TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { interpolate } from '../../core/i18n/interpolate';
 import { ItemsFromTypeLoop, nameItemsFromTypeLoops } from '../../core/utils/items-from-type';
@@ -141,6 +141,8 @@ export interface DetailRenderContext {
     markFields?: boolean;
     /** The Visual Editor's empty fields, kept as placeholders (HydrationOptions.keepEmpty). */
     keepEmpty?: (key: string) => boolean;
+    /** The Visual Editor's repeating fields, edited row by row (HydrationOptions.editRows). */
+    editRows?: HydrationOptions['editRows'];
 }
 
 /**
@@ -149,7 +151,7 @@ export interface DetailRenderContext {
  * details, then loops, then the bindings.
  */
 export function renderDetailPage(templateHtml: string, page: DetailPageData, context: DetailRenderContext): string {
-    const options = { markFields: !!context.markFields };
+    const options = { markFields: !!context.markFields, editRows: context.editRows };
     let html = TemplateHydrationService.applyStrings(templateHtml, context.strings);
     html = TemplateHydrationService.applySiteInfo(html, context.siteInfo);
     // Fields placed in the text (VE-D28): their blocks are tagged before the loops fill them.
@@ -161,7 +163,7 @@ export function renderDetailPage(templateHtml: string, page: DetailPageData, con
         ...page.loops,
         ...context.itemsFromTypeRows(fromTypes.loops),
     }, options);
-    html = TemplateHydrationService.hydrateTemplate(html, page.templateData, { ...options, keepEmpty: context.keepEmpty });
+    html = TemplateHydrationService.hydrateTemplate(html, page.templateData, { markFields: options.markFields, keepEmpty: context.keepEmpty });
     // Each placed field's block goes into its marker in the text.
     return page.placed?.length ? moveFieldBlocks(html) : html;
 }

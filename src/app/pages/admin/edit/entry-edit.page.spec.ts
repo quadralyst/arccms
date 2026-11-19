@@ -280,6 +280,161 @@ describe('EntryEditPage', () => {
         expect(page.sharedField('content', true)).toBe(false);
     });
 
+    describe('rows of a repeating field (VE-D30 to VE-D35)', () => {
+        const faqDef = { key: 'events-faq', label: 'FAQ', type: 'faq' };
+        let rows: Record<string, unknown>[];
+        let heading: string;
+
+        beforeEach(() => {
+            vi.useFakeTimers();
+            rows = [
+                { id: 'a', position: 1, question: 'One?', answer: 'Yes.' },
+                { id: 'b', position: 2, question: 'Two?', answer: 'No.' },
+            ];
+            heading = '';
+            Object.assign(editor, {
+                currentFields: [faqDef],
+                repeaterRows: vi.fn(() => rows),
+                repeaterHeading: vi.fn(() => heading),
+                onRepeaterRowsChange: vi.fn((_key: string, next: Record<string, unknown>[]) => { rows = next; }),
+                onRepeaterHeadingChange: vi.fn((_def: unknown, value: string) => { heading = value; }),
+                baseRepeaterPlaceholders: vi.fn(() => ({ a: { question: 'One?' } })),
+                baseRepeaterHeading: vi.fn(() => 'Questions'),
+            });
+            page.bar.set({ field: 'events-faq', id: 'a', top: 0, left: 0, across: false, locked: false, label: 'Question', first: true, last: false });
+        });
+
+        afterEach(() => vi.useRealTimers());
+
+        const info = (extra: object) => ({ key: 'faq', field: 'events-faq', builtin: false, attr: '', row: null, kind: 'text' as const, ...extra });
+
+        it('reads and writes a row\'s words by the row\'s id, as the form\'s row editor does', () => {
+            expect(page.partText(info({ rowId: 'b', sub: 'question' }))).toBe('Two?');
+            page.setPartText(info({ rowId: 'b', sub: 'question' }), 'Three?');
+            expect(editor['onRepeaterRowsChange']).toHaveBeenCalledWith('events-faq', expect.any(Array));
+            expect(rows.map((r) => r['question'])).toEqual(['One?', 'Three?']);
+            expect(rows.map((r) => r['id'])).toEqual(['a', 'b']);
+        });
+
+        it('writes a section heading through the field\'s heading', () => {
+            page.setPartText(info({ heading: true }), 'Asked often');
+            expect(editor['onRepeaterHeadingChange']).toHaveBeenCalledWith(faqDef, 'Asked often');
+            expect(page.partText(info({ heading: true }))).toBe('Asked often');
+        });
+
+        it('Add after puts a blank row after this one and opens it once drawn', () => {
+            const openWhenDrawn = vi.fn();
+            page.inPlace = { leave: vi.fn(), openWhenDrawn } as never;
+            page.rowAddAfter();
+            expect(rows.map((r) => r['position'])).toEqual([1, 2, 3]);
+            expect(rows[0]['id']).toBe('a');
+            expect(rows[1]['question']).toBe('');
+            expect(openWhenDrawn).toHaveBeenCalledWith(rows[1]['id']);
+        });
+
+        it('moves a row and keeps every id', () => {
+            page.rowMove(1);
+            expect(rows.map((r) => `${r['id']}${r['position']}`)).toEqual(['b1', 'a2']);
+        });
+
+        it('removes at once, and Undo puts the row back in its place', () => {
+            page.rowRemove();
+            expect(rows.map((r) => r['id'])).toEqual(['b']);
+            expect(page.undo()?.text).toContain('removed');
+            page.undoRemove();
+            expect(rows.map((r) => `${r['id']}${r['position']}`)).toEqual(['a1', 'b2']);
+            expect(page.undo()).toBeNull();
+        });
+
+        it('the Undo note goes by itself; a blank row goes with no note', () => {
+            page.rowRemove();
+            vi.advanceTimersByTime(8100);
+            expect(page.undo()).toBeNull();
+            rows = [{ id: 'a', position: 1, question: '', answer: '' }];
+            page.bar.set({ field: 'events-faq', id: 'a', top: 0, left: 0, across: false, locked: false, label: 'Question', first: true, last: true });
+            page.rowRemove();
+            expect(rows).toEqual([]);
+            expect(page.undo()).toBeNull();
+        });
+
+        it('changes nothing in a translation: rows are arranged in the default language', () => {
+            editor.session.isTranslating.set(true);
+            page.bar.update((b) => (b ? { ...b, locked: true } : b));
+            page.rowMove(1);
+            page.rowRemove();
+            page.rowAdd('events-faq', 'a');
+            expect(editor['onRepeaterRowsChange']).not.toHaveBeenCalled();
+            expect(page.emptyList('events-faq')).toEqual({ text: expect.any(String), add: false });
+        });
+
+        it('a language switch ends Undo, so a row is never put back into a translation', async () => {
+            page.rowRemove();
+            expect(page.undo()).not.toBeNull();
+            page.inPlace = { leave: vi.fn(), mark: vi.fn() } as never;
+            await page.switchLanguage('hi');
+            expect(page.undo()).toBeNull();
+            page.undoRemove();
+            expect(rows.map((r) => r['id'])).toEqual(['b']);
+        });
+
+        it('a blank row going leaves an earlier row\'s Undo in place', () => {
+            page.rowRemove();
+            rows = [...rows, { id: 'z', position: 2, question: '', answer: '' }];
+            page.bar.set({ field: 'events-faq', id: 'z', top: 0, left: 0, across: false, locked: false, label: 'Question', first: false, last: true });
+            page.rowRemove();
+            expect(page.undo()?.row['id']).toBe('a');
+        });
+
+        it('after a move the bar stays with its row, but still goes when the pointer leaves', () => {
+            page.inPlace = { leave: vi.fn() } as never;
+            page.rowMove(1);
+            const other = document.createElement('div');
+            page.rowHover(other);
+            expect(page.bar()?.id).toBe('a');
+            page.rowHover(null);
+            vi.advanceTimersByTime(500);
+            expect(page.bar()).toBeNull();
+        });
+
+        it('an empty video box takes a video away, never the photo', () => {
+            const gallery = { key: 'events-media', label: 'Media', type: 'gallery' };
+            let media: Record<string, unknown>[] = [{ id: 'g', position: 1, image: 'p.jpg', video: '', caption: '' }];
+            Object.assign(editor, {
+                currentFields: [faqDef, gallery],
+                repeaterRows: vi.fn((def: { key: string }) => (def.key === 'events-media' ? media : rows)),
+                onRepeaterRowsChange: vi.fn((key: string, next: Record<string, unknown>[]) => { if (key === 'events-media') media = next; else rows = next; }),
+            });
+            const spot = { key: 'media', field: 'events-media', builtin: false, attr: 'src', row: null, kind: 'image' as const, rowId: 'g', sub: 'image', el: document.createElement('img'), label: null };
+            const open = () => page.pop.set({ title: '', top: 0, left: 0, image: true, spot, video: '' });
+            open();
+            page.setRowVideo('');
+            expect(media[0]['image']).toBe('p.jpg');
+            open();
+            page.setRowVideo('not a link');
+            expect(page.videoError()).toBe(true);
+            expect(media[0]['image']).toBe('p.jpg');
+            page.setRowVideo('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+            expect(media[0]).toMatchObject({ image: '', video: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' });
+            open();
+            page.setRowVideo('');
+            expect(media[0]['video']).toBe('');
+        });
+
+        it('an empty list adds its first row; in a translation a row\'s words are typed, its picture shared', () => {
+            expect(page.emptyList('events-faq')?.add).toBe(true);
+            expect(page.emptyList('events-price')).toBeNull();
+            editor.session.isTranslating.set(true);
+            expect(page.sharedField('events-faq', false, info({ rowId: 'a', sub: 'question' }))).toBe(false);
+            expect(page.sharedField('events-faq', false, info({ heading: true }))).toBe(false);
+        });
+
+        it('shows a row value not translated yet with the default language\'s words', () => {
+            editor.session.isTranslating.set(true);
+            expect(page.placeholderFor('events-faq', null, info({ rowId: 'a', sub: 'question' }))).toBe('One?');
+            expect(page.placeholderFor('events-faq', null, info({ heading: true }))).toBe('Questions');
+        });
+    });
+
     it('opens the panel for a field the form editor asks for that the page does not show', () => {
         expect(page.hooks.reveal('price')).toBe(false);
         page.hooks.openPanel();

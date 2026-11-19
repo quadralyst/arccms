@@ -1,5 +1,6 @@
 import { arcEntry, setArcEntry } from '../../core/site/arc-entry';
 import { resolvePreviewField } from '../../core/preview/preview-channel';
+import { rowEditing, withoutBlankRows } from '../../core/preview/row-fields';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { SitePagesService } from '../../core/site/site-pages.service';
@@ -927,6 +928,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
     private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, content: IContents, runScripts = true): void {
         this.lastTemplate = { html: templateHtml, contentType, content };
+        // A row just added on the Visual Editor, still blank, is drawn there only, never in
+        // the live preview window, which hears the same draft (VE-D33).
+        if (!this.source.editing) content = withoutBlankRows(content as IContents & { customFields?: Record<string, any> }, contentType);
         // The data, built by the same function the live preview uses (VE-D4).
         const page = detailPageData({
             contentType,
@@ -951,6 +955,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             markFields: !!this.source.markFields,
             // Only a field the editor fills: values the site works out stay hidden, as on the page.
             keepEmpty: this.source.editing ? (key) => !!resolvePreviewField(key, contentType) : undefined,
+            // A repeating field's rows are edited one by one (VE-D30).
+            editRows: this.source.editing ? (loop) => rowEditing(loop, contentType) : undefined,
         });
 
         this.templateHtml.set(hydratedHtml);

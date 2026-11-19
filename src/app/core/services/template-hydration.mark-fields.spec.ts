@@ -172,3 +172,63 @@ describe('the Visual Editor\'s empty fields and template hints (VE-D18, VE-D19)'
         expect(App.hydrateTemplate(template, { ...data, price: '25' })).not.toMatch(/data-arc-(label|placeholder|locked|empty)/);
     });
 });
+
+describe('rows of a repeating field on the Visual Editor (VE-D30, VE-D33)', () => {
+    const faq = [
+        { id: 'r_a', position: 1, question: 'Why?', answer: 'Because.' },
+        { id: 'r_b', position: 2, question: '', answer: '' },
+    ];
+    const cards = [{ id: 'r_c', position: 1, headline: 'Fast', info: 'Quick', image: '', icon: null }];
+    const template = '<div data-arc-loop="faq"><details><summary data-arc-bind="question">Question</summary><div data-arc-bind="answer_html">Answer</div></details></div>'
+        + '<div data-arc-loop="cards"><div class="card"><img data-arc-if="image" data-arc-bind="image" alt=""><i data-arc-if="icon" class="{{ icon }}"></i><h3 data-arc-bind="headline">Headline</h3></div></div>';
+    const editRows = (loop: string) => (loop === 'faq' || loop === 'cards' ? { keepEmpty: (key: string, row: Record<string, any>) => (key === 'image' && !row['icon']) || key === 'question' } : null);
+    const edit = (loops: Record<string, any[]>) => App.processLoops(template, loops, { markFields: true, editRows });
+
+    it('marks each value in a row with the field, the row id and its own key, and the row with its id', () => {
+        const out = edit({ faq, cards });
+        expect(out).toContain('<details data-arc-field="faq" data-arc-row="0" data-arc-row-id="r_a">');
+        expect(out).toContain('<summary data-arc-field="faq" data-arc-sub="question" data-arc-row-id="r_a">Why?</summary>');
+        expect(out).toContain('data-arc-sub="answer_html" data-arc-row-id="r_a"><p>Because.</p>');
+        expect(out).toContain('<h3 data-arc-field="cards" data-arc-sub="headline" data-arc-row-id="r_c">Fast</h3>');
+    });
+
+    it('draws a blank row with its values empty, never the template\'s sample words', () => {
+        const out = edit({ faq, cards });
+        expect(out).toContain('<summary data-arc-field="faq" data-arc-sub="question" data-arc-row-id="r_b"></summary>');
+        expect(out).not.toContain('>Question<');
+        expect(out).not.toContain('>Answer<');
+    });
+
+    it('keeps a row\'s empty picture to be filled in, and drops its other choices', () => {
+        const out = edit({ faq, cards });
+        expect(out).toMatch(/<img[^>]*data-arc-empty="image"[^>]*data-arc-sub="image"[^>]*data-arc-row-id="r_c"/);
+        expect(out).not.toContain('<i ');
+    });
+
+    it('keeps an empty list\'s container, named, to add its first row', () => {
+        const out = edit({ faq: [] });
+        expect(out).toContain('<div data-arc-empty-loop="faq"></div>');
+        // A loop with no data at all, too.
+        expect(out).toContain('<div data-arc-empty-loop="cards"></div>');
+    });
+
+    it('leaves other loops as the live preview marks them', () => {
+        const out = App.processLoops('<ul data-arc-loop="items"><li>{{ title }}</li></ul><ul data-arc-loop="tags"></ul>', { items: [{ id: 'x', title: 'One' }], tags: [] }, { markFields: true, editRows });
+        expect(out).toContain('<li data-arc-field="items" data-arc-row="0">One</li>');
+        expect(out).not.toContain('data-arc-row-id');
+        expect(out).not.toContain('data-arc-empty-loop');
+    });
+
+    it('does nothing without markFields, and the preview window\'s rows are as before', () => {
+        expect(App.processLoops(template, { faq, cards }, { editRows })).toBe(App.processLoops(template, { faq, cards }));
+        expect(App.processLoops(template, { faq, cards }, { markFields: true })).not.toContain('data-arc-sub');
+    });
+
+    it('a kept empty value shows no sample text: the field\'s own placeholder does', () => {
+        const html = App.hydrateTemplate('<h3 data-arc-if="faq_heading" data-arc-bind="faq_heading">Frequently asked questions</h3>', {}, { markFields: true, keepEmpty: () => true });
+        expect(html).toContain('<h3 data-arc-empty="faq_heading"></h3>');
+        // A link keeps its words: its binding fills the address, not the text.
+        const link = App.hydrateTemplate('<a data-arc-if="site" data-arc-bind="site">Visit site</a>', {}, { markFields: true, keepEmpty: () => true });
+        expect(link).toContain('Visit site');
+    });
+});

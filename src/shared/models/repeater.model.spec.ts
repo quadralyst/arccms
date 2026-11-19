@@ -486,5 +486,16 @@ describe('repeater model', () => {
             );
             expect(saved[0].id).toBe('r_stable');
         });
+
+        it('keeps a blank row in its place for the page the Visual Editor draws (VE-D33), never for a save', () => {
+            const value = [
+                { id: 'b', position: 20, headline: 'Second' },
+                { id: 'blank', position: 15 },
+                { id: 'a', position: 10, headline: 'First' },
+            ];
+            expect(prepareRepeaterRowsForSave(value, INFOCARD, { keepBlank: true }).map(r => [r.id, r.position]))
+                .toEqual([['a', 1], ['blank', 2], ['b', 3]]);
+            expect(prepareRepeaterRowsForSave(value, INFOCARD).map(r => r.id)).toEqual(['a', 'b']);
+        });
     });
 });

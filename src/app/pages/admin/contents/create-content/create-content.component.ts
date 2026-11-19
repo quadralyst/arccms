@@ -689,15 +689,18 @@ export class CreateContentComponent extends BaseComponent {
    * Repeater values are also prepared for storage here — sorted by position,
    * renumbered, and with abandoned blank rows dropped, since the editor adds
    * an empty row on demand and an unfilled one would publish as an empty card.
+   * The page drawn on the Visual Editor keeps them, so a row just added there
+   * shows to be typed in (VE-D33); a save never does.
    */
   private copyCustomFields(values: Record<string, any>): Record<string, any> {
     const copy: Record<string, any> = { ...values };
+    const keepBlank = this.pageMode && this.session.drawingPage;
 
     for (const field of this.currentFields) {
       const schema = this.repeaterSchemaFor(field);
       if (!schema) continue;
       if (copy[field.key] === undefined) continue;
-      copy[field.key] = prepareRepeaterRowsForSave(copy[field.key], schema);
+      copy[field.key] = prepareRepeaterRowsForSave(copy[field.key], schema, { keepBlank });
     }
 
     return copy;

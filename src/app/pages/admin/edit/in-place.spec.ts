@@ -5,7 +5,7 @@
  * and no redraw under the cursor.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { hintKind, InPlaceEditing, InPlaceHost, pictureAt, plainText, spotInfo, textAt } from './in-place';
+import { hintKind, InPlaceEditing, InPlaceHost, linesText, pictureAt, plainText, spotInfo, textAt } from './in-place';
 import { ContentType } from '../contents/content-types/content-types.model';
 
 const TYPE = {
@@ -18,6 +18,7 @@ const TYPE = {
         { key: 'events-poster', label: 'Poster', type: 'image' },
         { key: 'events-faq', label: 'FAQ', type: 'faq' },
         { key: 'events-link', label: 'Link', type: 'text' },
+        { key: 'events-cards', label: 'Cards', type: 'infocard' },
     ],
 } as unknown as ContentType;
 
@@ -54,7 +55,7 @@ describe('spotInfo: what a marked element edits', () => {
         expect(kind('<a data-arc-field="link" data-arc-field-attr="href">x</a>')).toBe('popover');
     });
 
-    it('sends repeating rows, tags and the author to the panel', () => {
+    it('sends a file field\'s rows, tags and the author to the panel', () => {
         expect(kind('<li data-arc-field="faq" data-arc-row="1">Q</li>')).toBe('panel');
         expect(spotInfo(el('<li data-arc-field="faq" data-arc-row="1">Q</li>'), TYPE)?.row).toBe(1);
         expect(kind('<span data-arc-field="tags">t</span>')).toBe('panel');
@@ -68,6 +69,31 @@ describe('spotInfo: what a marked element edits', () => {
         expect(kind('<img data-arc-field="title" data-arc-field-attr="alt">')).toBeNull();
         expect(kind('<meta data-arc-field="content" data-arc-field-attr="content">')).toBeNull();
         expect(spotInfo(el('<span data-arc-field="title">T</span>'), null)).toBeNull();
+    });
+
+    it('types a row\'s words in place, an FAQ answer over several lines, and picks its picture (VE-D31)', () => {
+        const info = spotInfo(el('<summary data-arc-field="faq" data-arc-sub="question" data-arc-row-id="r_a">Q</summary>'), TYPE);
+        expect(info).toMatchObject({ kind: 'text', field: 'events-faq', rowId: 'r_a', sub: 'question' });
+        expect(spotInfo(el('<div data-arc-field="faq" data-arc-sub="answer_html" data-arc-row-id="r_a"><p>A</p></div>'), TYPE))
+            .toMatchObject({ kind: 'text', sub: 'answer', multiline: true });
+        expect(kind('<img data-arc-field="cards" data-arc-sub="image" data-arc-row-id="r_c" data-arc-field-attr="src">')).toBe('image');
+        expect(kind('<i data-arc-field="cards" data-arc-sub="icon" data-arc-row-id="r_c" data-arc-field-attr="class"></i>')).toBe('image');
+    });
+
+    it('a row itself, a row value in an attribute and a value no row holds are not spots', () => {
+        expect(kind('<details data-arc-field="faq" data-arc-row="0" data-arc-row-id="r_a"></details>')).toBeNull();
+        expect(kind('<img data-arc-field="cards" data-arc-sub="headline" data-arc-row-id="r_c" data-arc-field-attr="alt">')).toBeNull();
+        expect(kind('<span data-arc-field="faq" data-arc-sub="title" data-arc-row-id="r_a">x</span>')).toBeNull();
+    });
+
+    it('types a section heading in place (VE-D31)', () => {
+        expect(spotInfo(el('<h3 data-arc-field="faq_heading">FAQ</h3>'), TYPE)).toMatchObject({ kind: 'text', field: 'events-faq', heading: true });
+        expect(spotInfo(el('<h3 data-arc-field="cards_heading">x</h3>'), TYPE)?.heading).toBeFalsy();
+    });
+
+    it('keeps an FAQ answer\'s lines', () => {
+        const p = el('<div>\nOne\n\nTwo\n</div>');
+        expect(linesText(p)).toBe('One\n\nTwo');
     });
 
     it('keeps typed text on one line', () => {
@@ -394,6 +420,144 @@ describe('InPlaceEditing', () => {
         expect(editing.current()).toBeNull();
         expect(host.hold).toHaveBeenLastCalledWith(false);
         expect(q('[data-arc-field="title"]').getAttribute('data-arc-edit-kind')).toBe('text');
+    });
+
+    describe('rows of a repeating field (VE-D30 to VE-D35)', () => {
+        const ROWS = `
+            <h3 data-arc-field="faq_heading">Questions</h3>
+            <div>
+              <details data-arc-field="faq" data-arc-row="0" data-arc-row-id="r_a">
+                <summary data-arc-field="faq" data-arc-sub="question" data-arc-row-id="r_a">Why?</summary>
+                <div data-arc-field="faq" data-arc-sub="answer_html" data-arc-row-id="r_a"><p>One.</p><p>Two.</p></div>
+              </details>
+              <details data-arc-field="faq" data-arc-row="1" data-arc-row-id="r_b">
+                <summary data-arc-field="faq" data-arc-sub="question" data-arc-row-id="r_b"></summary>
+              </details>
+            </div>
+            <div class="cards" data-arc-empty-loop="cards"></div>`;
+        const stored: Record<string, string> = { 'r_a:question': 'Why?', 'r_a:answer': 'One.\n\nTwo.', 'heading': 'Questions' };
+        let rowHost: Record<string, ReturnType<typeof vi.fn>>;
+
+        beforeEach(() => {
+            rowHost = {
+                partText: vi.fn((info: { rowId?: string; sub?: string; heading?: boolean }) => (info.heading ? stored['heading'] : stored[`${info.rowId}:${info.sub}`] ?? '')),
+                setPartText: vi.fn(),
+                untranslated: vi.fn(() => false),
+                rowHover: vi.fn(),
+                emptyList: vi.fn(() => ({ text: 'Add the first card', add: true })),
+                addFirst: vi.fn(),
+            };
+            Object.assign(host, rowHost);
+            doc.body.innerHTML = ROWS;
+            editing.mark();
+        });
+
+        it('opens every FAQ answer, marks the row values, and not the row itself', () => {
+            expect((q('[data-arc-row-id="r_a"][data-arc-row]') as HTMLDetailsElement).open).toBe(true);
+            expect(q('[data-arc-row-id="r_a"][data-arc-row]').hasAttribute('data-arc-edit-kind')).toBe(false);
+            expect(q('[data-arc-row-id="r_a"][data-arc-row]').hasAttribute('title')).toBe(false);
+            expect(q('summary[data-arc-row-id="r_a"]').getAttribute('data-arc-edit-kind')).toBe('text');
+            expect(q('summary[data-arc-row-id="r_b"]').getAttribute('data-arc-ph')).toBe('Add events-faq');
+        });
+
+        it('types a question in place: the row is written, not a field; a click does not fold the answer', () => {
+            const question = q('summary[data-arc-row-id="r_a"]');
+            const event = click(question);
+            expect(event.defaultPrevented).toBe(true);
+            question.textContent = 'Why not?';
+            question.dispatchEvent(new Event('input', { bubbles: true }));
+            expect(rowHost['setPartText']).toHaveBeenLastCalledWith(expect.objectContaining({ rowId: 'r_a', sub: 'question' }), 'Why not?');
+            expect(host.setText).not.toHaveBeenCalled();
+            expect(click(question).defaultPrevented).toBe(true);
+            expect(rowHost['rowHover']).toHaveBeenCalledWith(q('[data-arc-row-id="r_a"][data-arc-row]'));
+        });
+
+        it('types an FAQ answer as stored, over several lines, and shows its paragraphs again when left unchanged', () => {
+            const answer = q('[data-arc-sub="answer_html"]');
+            click(answer);
+            expect(answer.textContent).toBe('One.\n\nTwo.');
+            expect(answer.hasAttribute('data-arc-multiline')).toBe(true);
+            expect(key('Enter').defaultPrevented).toBe(false);
+            expect(editing.current()).not.toBeNull();
+            key('Escape');
+            expect(answer.innerHTML).toBe('<p>One.</p><p>Two.</p>');
+            expect(rowHost['setPartText']).not.toHaveBeenCalled();
+        });
+
+        it('types a section heading through its field', () => {
+            const heading = q('h3');
+            click(heading);
+            heading.textContent = 'Asked often';
+            heading.dispatchEvent(new Event('input', { bubbles: true }));
+            expect(rowHost['setPartText']).toHaveBeenLastCalledWith(expect.objectContaining({ heading: true, field: 'events-faq' }), 'Asked often');
+        });
+
+        it('an empty list says how to add its first row, and adds it when clicked', () => {
+            const list = q('[data-arc-empty-loop]');
+            expect(list.getAttribute('data-arc-ph')).toBe('Add the first card');
+            expect(list.getAttribute('data-arc-edit-kind')).toBe('add');
+            click(list);
+            expect(rowHost['addFirst']).toHaveBeenCalledWith('events-cards');
+        });
+
+        it('in a translation an empty list only says where rows are added', () => {
+            rowHost['emptyList'].mockReturnValue({ text: 'Add and arrange rows in English', add: false });
+            editing.mark();
+            const list = q('[data-arc-empty-loop]');
+            expect(list.hasAttribute('data-arc-edit-kind')).toBe(false);
+            expect(list.getAttribute('title')).toBe('Add and arrange rows in English');
+            click(list);
+            expect(rowHost['addFirst']).not.toHaveBeenCalled();
+        });
+
+        it('a value not translated yet is faint, and typed in from empty with the default words as its placeholder', () => {
+            rowHost['untranslated'].mockReturnValue(true);
+            rowHost['partText'].mockReturnValue('');
+            host.placeholder.mockReturnValue('Why?');
+            editing.mark();
+            const question = q('summary[data-arc-row-id="r_a"]');
+            expect(question.hasAttribute('data-arc-untranslated')).toBe(true);
+            click(question);
+            expect(question.textContent).toBe('');
+            expect(question.getAttribute('data-arc-ph')).toBe('Why?');
+            question.textContent = 'क्यों?';
+            question.dispatchEvent(new Event('input', { bubbles: true }));
+            expect(question.hasAttribute('data-arc-ph')).toBe(false);
+        });
+
+        it('opens a row just added once the page draws it', () => {
+            editing.openWhenDrawn('r_new');
+            expect(editing.current()).toBeNull();
+            doc.body.insertAdjacentHTML('beforeend', '<details data-arc-field="faq" data-arc-row="2" data-arc-row-id="r_new"><summary data-arc-field="faq" data-arc-sub="question" data-arc-row-id="r_new"></summary></details>');
+            editing.mark();
+            expect(editing.current()).toMatchObject({ rowId: 'r_new', sub: 'question' });
+        });
+
+        it('offers no row bar inside text being typed in (a placed field\'s card there)', () => {
+            const box = doc.createElement('div');
+            box.setAttribute('data-arc-editing', '');
+            box.innerHTML = '<details data-arc-field="faq" data-arc-row="0" data-arc-row-id="r_x"><summary data-arc-field="faq" data-arc-sub="question" data-arc-row-id="r_x">Q</summary></details>';
+            doc.body.appendChild(box);
+            q('summary[data-arc-row-id="r_a"]').dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+            box.querySelector('summary')!.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+            expect(rowHost['rowHover']).toHaveBeenLastCalledWith(null);
+        });
+
+        it('a space typed in a question is text, and does not fold its answer', () => {
+            const question = q('summary[data-arc-row-id="r_a"]');
+            click(question);
+            const exec = vi.fn();
+            (doc as unknown as { execCommand: typeof exec }).execCommand = exec;
+            expect(key(' ').defaultPrevented).toBe(true);
+            expect(exec).toHaveBeenCalledWith('insertText', false, ' ');
+        });
+
+        it('tells the screen which row the pointer is on', () => {
+            q('summary[data-arc-row-id="r_b"]').dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+            expect(rowHost['rowHover']).toHaveBeenLastCalledWith(q('[data-arc-row-id="r_b"][data-arc-row]'));
+            q('h3').dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+            expect(rowHost['rowHover']).toHaveBeenLastCalledWith(null);
+        });
     });
 
     it('waits for the type before marking', async () => {

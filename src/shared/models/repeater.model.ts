@@ -474,8 +474,9 @@ export function isRepeaterRowEmpty(row: RepeaterRow, schema: RepeaterSchema): bo
  * Dropping blanks matters because the editor adds an empty row on demand — an
  * abandoned one would otherwise publish as an empty card.
  */
-export function prepareRepeaterRowsForSave(value: unknown, schema: RepeaterSchema): RepeaterRow[] {
+export function prepareRepeaterRowsForSave(value: unknown, schema: RepeaterSchema, options: { keepBlank?: boolean } = {}): RepeaterRow[] {
+    // keepBlank: the Visual Editor draws a row just added, before anything is typed in it (VE-D33).
     const rows = sortRepeaterRows(normalizeRepeaterRows(value, schema))
-        .filter((row) => !isRepeaterRowEmpty(row, schema));
+        .filter((row) => options.keepBlank || !isRepeaterRowEmpty(row, schema));
     return renumberRepeaterRows(rows);
 }

@@ -3,7 +3,7 @@
 **Status:** SPEC, agreed in discussion 2026-11-17. VE1 and VE2 built 2026-11-18 (live preview window,
 `/admin/preview/:type/:id`, and types without pages previewed where their cards show). VE3.1
 (the shared `EntryDraftSession`) built and the VE3.2 spike done 2026-11-18, see the build notes
-under VE3; VE3.3 to VE3.10 built 2026-11-18 and 19, VE3.11 review done 2026-11-19 (VE3 complete, deploy pending); VE4 planned 2026-11-19 (VE-D30 to VE-D36, on `feat/visual-editing-ve4`, worktree `../arccms-visual-editing-ve4`); VE4 and VE5 not built. Notes from the build: the preview window is
+under VE3; VE3.3 to VE3.10 built 2026-11-18 and 19, VE3.11 review done 2026-11-19 (VE3 complete, deploy pending); VE4 planned 2026-11-19 (VE-D30 to VE-D36, on `feat/visual-editing-ve4`, worktree `../arccms-visual-editing-ve4`); VE4 group 1 (VE4.1 to VE4.4) built and reviewed 2026-11-19, groups 2 and 3 and VE5 not built. Notes from the build: the preview window is
 opened with `window.open('', name)` then pointed at its address, so an open one is brought forward
 without a reload; a browser that blocks the pop-up gets a message in the editor. The Phone toggle
 frames the page in a 390 px column; the site's own phone layout still follows the window width.
@@ -263,6 +263,8 @@ to deploy beyond the hosted admin.
 | 1. Rows on the page | VE4.1 to VE4.4 | The specs of the files changed, a short browser check of every repeating type empty and full (the marks touch the renderer published pages also use), and a short critical review of the group with its critical, high and medium findings fixed, before group 2 starts. |
 | 2. Map rows | VE4.5 | The same: its specs, a browser check of map rows in two languages, a short critical review of the group. |
 | 3. Finish | VE4.6 to VE4.8 | Docs, the full browser check, and the critical review of the whole of VE4 with `npm run gate`. |
+
+**Build note, group 1 (2026-11-19):** the renderer's `editRows` option (app copy only, edit frame only) marks rows through `markEditedRow`; `core/preview/row-fields.ts` says which loop is a repeating field, which row value a binding shows, and what is kept empty; `edit/rows.ts` holds the bar's pure row changes. Blank rows reach the edit frame through `EntryDraftSession.drawingPage` and are dropped by `withoutBlankRows` on every other page, the live preview window included. Review lows left: a template box around a value can make both spots on an empty row; the bar goes to the first copy of a row drawn twice; the bar is not reached by the keyboard; an empty gallery item opens the picker with no video choice; Add after on the last row a `data-limit` shows adds a row nobody sees; row names come from the schema in English, as in the classic editor.
 
 ### VE5: Home page and static pages
 

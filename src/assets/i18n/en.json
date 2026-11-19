@@ -4179,7 +4179,17 @@
       "language": "Language",
       "hint_shared": "Same in every language: change it in {{language}}",
       "publishing": "Publishing...",
-      "published": "Published"
+      "published": "Published",
+      "add_first": "Add the first {{row}}",
+      "add_picture": "Add a picture",
+      "rows_locked": "Add and arrange rows in {{language}}",
+      "row_add_after": "Add after",
+      "row_move_up": "Move up",
+      "row_move_down": "Move down",
+      "row_move_left": "Move left",
+      "row_move_right": "Move right",
+      "row_removed": "{{row}} removed",
+      "use_video": "Or a YouTube video"
     }
   },
   "user": {
