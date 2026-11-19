@@ -319,14 +319,16 @@
       "divider": "Divider",
       "quote": "Quote",
       "table": "Table",
-      "block_faq": "FAQ",
       "block_takeaways": "Key takeaways",
       "block_howto": "How-to steps",
       "block_definition": "Definition",
       "remove_block": "Remove block",
       "undo": "Undo",
       "redo": "Redo",
-      "no_match": "No matching commands"
+      "no_match": "No matching commands",
+      "field": "Field: {label}",
+      "faq": "FAQ",
+      "faq_no_field": "This content type has no FAQ field. An admin can add one under Content types."
     },
     "editor_toolbar": {
       "text_style": "Text style",
@@ -354,7 +356,6 @@
       "center": "Center",
       "right": "Right",
       "justify": "Justify",
-      "block_faq_hint": "Questions people ask, each with a direct answer.",
       "block_takeaways_hint": "Three to five points that sum up the page.",
       "block_howto_hint": "A heading and numbered steps.",
       "block_definition_hint": "A \"What is X?\" heading and a one-sentence answer."
@@ -395,6 +396,12 @@
     },
     "html_editor": {
       "label": "HTML code"
+    },
+    "field_place": {
+      "tag": "Field",
+      "edit": "Edit",
+      "empty": "Nothing here yet. Edit adds it.",
+      "gone": "This content type no longer has this field, so nothing shows here on the page."
     }
   },
   "admin": {
@@ -2042,8 +2049,8 @@
         "question_heading_fix": "Phrase a heading the way people ask, e.g. \"How much does it cost?\"",
         "list_or_table": "Has a list or a table",
         "list_or_table_fix": "Turn a run of facts into a bullet list or a table; structure is what gets extracted.",
-        "blocks": "Has an FAQ or Key takeaways block",
-        "blocks_fix": "Insert a block from the editor toolbar (grid icon) or type /faq.",
+        "blocks": "Has an FAQ or a Key takeaways block",
+        "blocks_fix": "Add questions to the FAQ field, or insert a Key takeaways block from the editor toolbar (grid icon).",
         "internal_links": "Links to at least 3 pages on this site",
         "internal_links_fix": "Use the suggestions below; internal links help crawlers find deep pages and rank them.",
         "length": "At least 300 words",

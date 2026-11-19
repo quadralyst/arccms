@@ -23,18 +23,20 @@ import {
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { Editor } from '@tiptap/core';
+import { TextSelection } from 'prosemirror-state';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { CreateContentComponent, PageModeHooks } from '../contents/create-content/create-content.component';
 import { previewSessionKey } from '../../../core/preview/preview-channel';
 import { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
 import { PagePanel } from './page-panel';
-import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichHandle, Spot, spotInfo } from './in-place';
+import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichContext, RichHandle, Spot, spotInfo } from './in-place';
 import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
 import { ArcEmptyLines } from './empty-lines';
 import { isTranslatableField, TRANSLATABLE_BUILTIN_FIELDS } from '../contents/draft-content-store/content-translation.model';
 import { placeImage, removeImage, selectImage, selectedImage, setImageAlt } from '../../../../shared/components/tiptap-editor/service/image-actions';
 import { UrlAddDialog } from '../../../../shared/components/tiptap-editor/service/url-add-dialog/add-url.component';
+import { FieldPlaces, fieldSummary, isPlaceable } from '../../../../shared/components/tiptap-editor/service/field-place';
 import { SelectionMenuComponent } from '../../../../shared/components/tiptap-editor/selection-menu/selection-menu.component';
 import MediaManagerComponent, { MediaSelection } from '../(media)/media.page';
 import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
@@ -517,7 +519,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         setText: (field, value) => this.setText(field, value),
         setRich: (field, html) => this.setRich(field, html),
         hold: (on) => this.editor?.session.holdPreview(on),
-        mountRich: (el, html, onChange) => this.mountRich(el, html, onChange),
+        mountRich: (el, html, onChange, context) => this.mountRich(el, html, onChange, context),
         image: (spot) => this.openImage(spot),
         popover: (spot) => this.openPopover(spot),
         panel: (spot) => this.openInPanel(spot),
@@ -576,7 +578,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     }
 
     /** The rich text editor on the element: the same extensions as the form editor's (spike fix 3). */
-    mountRich(el: HTMLElement, html: string, onChange: (html: string) => void): RichHandle {
+    mountRich(el: HTMLElement, html: string, onChange: (html: string) => void, context?: RichContext): RichHandle {
         let editor: Editor | null = null;
         editor = new Editor({
             element: el,
@@ -589,6 +591,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
                     translate: (key) => this.transloco.translate(key),
                     openOnClick: false,
                     pickers: { uploadImage: () => editor && this.insertImage(editor), attachFile: () => editor && this.attachFiles(editor) },
+                    // The body places custom fields in its text (VE-D28); other rich fields do not.
+                    places: context?.field === 'content' ? this.fieldPlaces(context.drawn) : null,
                 }),
                 ArcEmptyLines,
             ],
@@ -643,6 +647,32 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
                 editor = null;
             },
         };
+    }
+
+    /**
+     * The body's custom fields that can be placed in its text (VE-D28), as the form
+     * editor offers them: a placed field's card shows the field as the page drew it,
+     * and Edit opens it in Page settings.
+     */
+    private fieldPlaces(drawn: Map<string, Element>): FieldPlaces {
+        return {
+            fields: () => (this.editor?.currentFields ?? [])
+                .filter((f) => !!f.key && isPlaceable(f.type))
+                .map((f) => ({ key: f.key, label: this.editor!.fieldLabel(f), type: f.type })),
+            open: (key) => this.openField(key),
+            drawn: (key) => (drawn.get(key)?.cloneNode(true) as Element | undefined) ?? null,
+            summary: (key) => {
+                const field = this.editor?.currentFields.find((f) => f.key === key);
+                return field ? fieldSummary(field.type, this.editor!.customFieldValues[key]) : [];
+            },
+            translate: (key, params) => this.transloco.translate(key, params),
+        };
+    }
+
+    /** Opens Page settings on a field. */
+    openField(field: string): void {
+        this.panel.setOpen(true);
+        setTimeout(() => this.editor?.focusField(field), 260);
     }
 
     formatActive(id: string): boolean {
@@ -768,11 +798,13 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
      * the strip; hides it when nothing is selected. A selected picture has its own box.
      */
     private syncSelection(editor: Editor): void {
-        const { from, to, empty } = editor.isDestroyed ? { from: 0, to: 0, empty: true } : editor.state.selection;
-        if (empty || selectedImage(editor)) {
+        const selection = editor.isDestroyed ? null : editor.state.selection;
+        // Text only: a selected picture has its own box, a placed field its card.
+        if (!(selection instanceof TextSelection) || selection.empty) {
             if (this.sel()) this.sel.set(null);
             return;
         }
+        const { from, to } = selection;
         let start: { top: number; bottom: number; left: number };
         let end: { bottom: number };
         try {

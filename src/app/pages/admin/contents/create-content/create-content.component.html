@@ -312,7 +312,7 @@
 
             <div class="editor-wrapper" [class.has-site-look]="!!bodyLook()">
                 <app-tiptap-editor [productValue]="publishForm.get('content')?.value" [siteLook]="bodyLook()"
-                    [fieldName]="'admin.media.picker.body' | transloco"
+                    [fieldName]="'admin.media.picker.body' | transloco" [places]="fieldPlaces"
                     (textEditorContent)="passEditorContentToParent($event); triggerAutoSave()">
                 </app-tiptap-editor>
             </div>

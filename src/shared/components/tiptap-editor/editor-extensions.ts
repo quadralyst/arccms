@@ -38,6 +38,7 @@ import { MenitonsList } from './service/mentions/mentions.component';
 import { SlashCommands } from './service/slash-commands';
 import { YouTubeExt } from './service/youtube-extension';
 import { ArcBlock } from './service/arc-block-extension';
+import { FieldPlace, FieldPlaces } from './service/field-place';
 import { ArcPickers, EditorPickers } from './service/editor-pickers';
 import { caretRect } from './service/caret-rect';
 
@@ -56,6 +57,8 @@ export interface EditorExtensionOptions {
   /** Follow a link on click; off where a click edits (the page). */
   openOnClick?: boolean;
   pickers?: EditorPickers;
+  /** Custom fields that can be placed in the text (VE-D28): the body editor's; none elsewhere. */
+  places?: FieldPlaces | null;
 }
 
 /** Every extension the rich text editor uses, configured for one editor. */
@@ -278,7 +281,9 @@ export function editorExtensions(options: EditorExtensionOptions): Extensions {
     TableKit.configure({ table: { resizable: false } }),
     // Structured blocks: FAQ, key takeaways, how-to, definition (D-D10).
     ArcBlock,
-    SlashCommands.configure({ translate: options.translate }),
+    // Always known, so a body holding a marker keeps it; offered in the menu only with places.
+    FieldPlace.configure({ places: options.places ?? null }),
+    SlashCommands.configure({ translate: options.translate, places: options.places ?? null }),
     Youtube,
     YouTubeExt,
     Youtube.configure({

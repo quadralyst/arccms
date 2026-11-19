@@ -6,7 +6,6 @@ const words = (n: number) => Array.from({ length: n }, (_, i) => `word${i}`).joi
 const GOOD: ChecklistInput = {
     title: 'How much does Arc CMS cost in India?',
     bodyHtml: `<p>${words(30)}</p><h2>What does it include?</h2><ul><li>a</li><li>b</li></ul>`
-        + `<section data-arc-block="faq"><h3>Q?</h3><p>A.</p></section>`
         + `<p><a href="/articles/one">one</a> <a href="https://site.example/articles/two">two</a> <a href="/pricing">three</a> <a href="https://other.example">ext</a></p>`
         + `<p>${words(300)}</p>`,
     summary: 'Summary',
@@ -18,9 +17,19 @@ const GOOD: ChecklistInput = {
     publishedOn: new Date(),
     updatedOn: null,
     siteOrigin: 'https://site.example/',
+    faqCount: 2,
 };
 
 describe('evaluateDiscoverability (D-D13)', () => {
+    it('counts the FAQ field, or a key takeaways block, as the blocks rule (VE-D28)', () => {
+        const blocks = (input: Partial<ChecklistInput>) =>
+            evaluateDiscoverability({ ...GOOD, ...input }).results.find((r) => r.id === 'blocks')!.ok;
+        expect(blocks({ faqCount: 0 })).toBe(false);
+        expect(blocks({ faqCount: 0, bodyHtml: GOOD.bodyHtml + '<section data-arc-block="takeaways"><ul><li>x</li></ul></section>' })).toBe(true);
+        // An old FAQ block in the text no longer counts.
+        expect(blocks({ faqCount: 0, bodyHtml: GOOD.bodyHtml + '<section data-arc-block="faq"><h3>Q?</h3><p>A.</p></section>' })).toBe(false);
+    });
+
     it('scores a well-shaped draft 100 with every rule passing', () => {
         const report = evaluateDiscoverability(GOOD);
         expect(report.results.filter(r => !r.ok).map(r => r.id)).toEqual([]);
@@ -30,7 +39,7 @@ describe('evaluateDiscoverability (D-D13)', () => {
 
     it('fails the right rules on an empty draft and weights the score', () => {
         const report = evaluateDiscoverability({
-            ...GOOD, title: '', bodyHtml: '', metaDescription: '', coverImage: null, authorId: null, references: [], tags: [],
+            ...GOOD, title: '', bodyHtml: '', metaDescription: '', coverImage: null, authorId: null, references: [], tags: [], faqCount: 0,
             publishedOn: new Date(Date.now() - 400 * 24 * 3600 * 1000),
         });
         expect(report.score).toBe(0);

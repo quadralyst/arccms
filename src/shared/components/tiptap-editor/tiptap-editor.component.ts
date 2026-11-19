@@ -24,6 +24,7 @@ import { Editor } from '@tiptap/core';
 import { TiptapEditorDirective, TiptapBubbleMenuDirective } from 'ngx-tiptap';
 import { placeImage } from './service/image-actions';
 import { SelectionMenuComponent } from './selection-menu/selection-menu.component';
+import { FieldPlaces } from './service/field-place';
 import { editorExtensions } from './editor-extensions';
 import { UrlAddDialog } from './service/url-add-dialog/add-url.component';
 import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/(media)/media.page';
@@ -141,6 +142,8 @@ export default class TiptapEditorComponent {
    * heading: "Image in Summary". None leaves the pickers without a heading.
    */
   @Input() fieldName = '';
+  /** Custom fields that can be placed in this text (VE-D28): the body's editor only; set before it starts. */
+  @Input() places: FieldPlaces | null = null;
   private transloco = inject(TranslocoService);
   private hostRef = inject(ElementRef);
   /** The look's root, the stand-in for the page's body, while a look is shown. */
@@ -258,6 +261,7 @@ export default class TiptapEditorComponent {
         translate: (key) => this.transloco.translate(key),
         tags: () => this.tags ?? [],
         pickers: { uploadImage: () => this.openMediaManagerModal(), attachFile: () => this.openFilePickerModal() },
+        places: this.places,
       }),
       editorProps: {
         attributes: this.editorAttributes([]),

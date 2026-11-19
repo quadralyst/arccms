@@ -191,7 +191,7 @@ describe('InPlaceEditing', () => {
     it('mounts the rich text editor with the draft\'s HTML and writes what is typed', () => {
         const body = q('[data-arc-field="content"]');
         click(body);
-        expect(host.mountRich).toHaveBeenCalledWith(body, '<p>Body</p>', expect.any(Function));
+        expect(host.mountRich).toHaveBeenCalledWith(body, '<p>Body</p>', expect.any(Function), { field: 'content', drawn: expect.any(Map) });
         expect(rich.focus).toHaveBeenCalled();
         expect(host.activeChanged).toHaveBeenLastCalledWith(expect.objectContaining({ field: 'content' }), rich);
         richChange!('<p>Body, longer</p>');

@@ -7,6 +7,7 @@
  * Mirrors functions/src/pages/deployContentPage.ts, which builds the same data
  * for the published page.
  */
+import { moveFieldBlocks, placedFields, PlacedField, prepareFieldPlaces } from '../../core/utils/field-places';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { interpolate } from '../../core/i18n/interpolate';
@@ -43,6 +44,8 @@ export interface DetailPageInput {
 export interface DetailPageData {
     templateData: Record<string, any>;
     loops: Record<string, any[]>;
+    /** Custom fields the body places in its text (VE-D28), shown there instead of in the template's spot. */
+    placed?: PlacedField[];
 }
 
 /** "Updated {date}" or '' unless updatedOn is later than the publish date (D-D3). */
@@ -123,7 +126,9 @@ export function detailPageData(input: DetailPageInput): DetailPageData {
         related: input.related,
         tags,
     };
-    return { templateData, loops };
+    // The page's body in its language, as filled: the markers it holds say which fields it places.
+    const placed = placedFields(templateData['content'], contentType.fields);
+    return { templateData, loops, placed };
 }
 
 /** What the page is filled with besides its own data. */
@@ -147,6 +152,8 @@ export function renderDetailPage(templateHtml: string, page: DetailPageData, con
     const options = { markFields: !!context.markFields };
     let html = TemplateHydrationService.applyStrings(templateHtml, context.strings);
     html = TemplateHydrationService.applySiteInfo(html, context.siteInfo);
+    // Fields placed in the text (VE-D28): their blocks are tagged before the loops fill them.
+    html = prepareFieldPlaces(html, page.placed ?? [], String(page.templateData['contentTypeSlug'] ?? ''));
     // Each loop of another type's entries (data-arc-items-src) becomes a loop
     // of its own, as when published (core/utils/items-from-type.ts).
     const fromTypes = nameItemsFromTypeLoops(html);
@@ -154,5 +161,7 @@ export function renderDetailPage(templateHtml: string, page: DetailPageData, con
         ...page.loops,
         ...context.itemsFromTypeRows(fromTypes.loops),
     }, options);
-    return TemplateHydrationService.hydrateTemplate(html, page.templateData, { ...options, keepEmpty: context.keepEmpty });
+    html = TemplateHydrationService.hydrateTemplate(html, page.templateData, { ...options, keepEmpty: context.keepEmpty });
+    // Each placed field's block goes into its marker in the text.
+    return page.placed?.length ? moveFieldBlocks(html) : html;
 }

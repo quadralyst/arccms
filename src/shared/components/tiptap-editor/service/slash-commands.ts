@@ -1,5 +1,6 @@
 import { Extension } from '@tiptap/core';
 import { ARC_BLOCKS } from './arc-block-extension';
+import { FieldPlaces } from './field-place';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import tippy, { Instance } from 'tippy.js';
@@ -17,13 +18,15 @@ export const SlashCommandsKey = new PluginKey<SlashCommandsPluginState>('slash-c
 export interface SlashCommandsOptions {
   /** Translates a common.slash_commands key into the admin's language; the editor passes Transloco's. */
   translate: (key: string) => string;
+  /** Custom fields that can be placed in the text (VE-D28); none outside the body editor. */
+  places: FieldPlaces | null;
 }
 
 export const SlashCommands = Extension.create<SlashCommandsOptions>({
   name: 'slashCommands',
 
   addOptions() {
-    return { translate: (key: string) => key };
+    return { translate: (key: string) => key, places: null };
   },
 
   addProseMirrorPlugins() {
@@ -104,6 +107,30 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
         },
       },
     });
+
+    const fieldCommands = () => {
+      const places = this.options.places;
+      if (!places) return [];
+      const fields = places.fields();
+      const items: any[] = fields.map((field) => ({
+        title: this.options.translate('common.slash_commands.field').replace('{label}', field.label),
+        type: '',
+        icon: 'bi bi-input-cursor-text',
+        shortcut: '',
+        command: () => this.editor.chain().focus().placeField(field.key).run(),
+      }));
+      if (!fields.some((f) => f.type === 'faq')) {
+        items.push({
+          title: t('faq'),
+          note: t('faq_no_field'),
+          type: '',
+          icon: 'bi bi-patch-question',
+          shortcut: '',
+          command: () => undefined,
+        });
+      }
+      return items;
+    };
 
     /** The query the visible menu was built for; a same-query update keeps the DOM. */
     let shownQuery: string | null = null;
@@ -249,6 +276,9 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
           shortcut: '',
           command: () => this.editor.chain().focus().insertArcBlock(block.kind).run(),
         })),
+        // Custom fields placed in the text (VE-D28): "Field: FAQ". Typing /faq on a type
+        // with no FAQ field says where one is added, instead of matching nothing.
+        ...fieldCommands(),
         {
           title: t('remove_block'),
           type: '',
@@ -369,6 +399,12 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
           title.textContent = cmd.title;
 
           textContainer.appendChild(title);
+          if (cmd.note) {
+            const note = document.createElement('div');
+            note.style.cssText = `font-size: 12px; color: #6b6b6b; white-space: normal;`;
+            note.textContent = cmd.note;
+            textContainer.appendChild(note);
+          }
 
           // Create shortcut element
           const shortcutSpan = document.createElement('span');

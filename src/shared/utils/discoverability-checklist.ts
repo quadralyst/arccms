@@ -22,6 +22,8 @@ export interface ChecklistInput {
     updatedOn: unknown;
     /** Absolute origin of the site, to tell internal links from external ones. */
     siteOrigin: string;
+    /** Questions in the entry's FAQ field: the page's FAQ (VE-D28). */
+    faqCount?: number;
 }
 
 export type ChecklistSeverity = 'high' | 'medium' | 'low';
@@ -89,8 +91,8 @@ export function evaluateDiscoverability(input: ChecklistInput): ChecklistReport 
         // Structure: a list or a table somewhere.
         rule('list_or_table', 'medium', !!body.querySelector('ul, ol, table'));
 
-        // Blocks: FAQ or key takeaways present.
-        rule('blocks', 'high', !!body.querySelector('section[data-arc-block="faq"], section[data-arc-block="takeaways"]'));
+        // An FAQ (the FAQ field, VE-D28) or a key takeaways block.
+        rule('blocks', 'high', (input.faqCount ?? 0) > 0 || !!body.querySelector('section[data-arc-block="takeaways"]'));
 
         // Internal links: three or more to this site.
         const origin = (input.siteOrigin || '').replace(/\/+$/, '').toLowerCase();

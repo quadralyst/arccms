@@ -25,6 +25,6 @@ describe('editor words', () => {
         expect(keys.length).toBeGreaterThan(15);
         const group = (en as any).common.slash_commands;
         expect(keys.filter((k) => !(k in group))).toEqual([]);
-        for (const kind of ['faq', 'takeaways', 'howto', 'definition']) expect(group[`block_${kind}`]).toBeTruthy();
+        for (const kind of ['takeaways', 'howto', 'definition']) expect(group[`block_${kind}`]).toBeTruthy();
     });
 });

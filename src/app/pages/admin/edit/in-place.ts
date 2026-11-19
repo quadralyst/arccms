@@ -108,6 +108,12 @@ export function spotInfo(el: Element, type: ContentType | null): SpotInfo | null
     }
 }
 
+/** What the rich text editor is mounted for: the field, and the placed fields as drawn (VE-D28). */
+export interface RichContext {
+    field: string;
+    drawn: Map<string, Element>;
+}
+
 /** What the screen does for the spots: the draft's values and the boxes in the admin document. */
 export interface InPlaceHost {
     type(): ContentType | null;
@@ -118,8 +124,11 @@ export interface InPlaceHost {
     setRich(field: string, html: string): void;
     /** While a spot is typed in, the page is not redrawn. */
     hold(on: boolean): void;
-    /** Mounts the rich text editor on the element with the field's HTML. */
-    mountRich(el: HTMLElement, html: string, onChange: (html: string) => void): RichHandle;
+    /**
+     * Mounts the rich text editor on the element with the field's HTML. `drawn` holds
+     * the fields the text places (VE-D28) as the page drew them, for their cards.
+     */
+    mountRich(el: HTMLElement, html: string, onChange: (html: string) => void, context?: RichContext): RichHandle;
     image(spot: Spot): void;
     popover(spot: Spot): void;
     panel(spot: Spot): void;
@@ -483,11 +492,17 @@ export class InPlaceEditing {
             : undefined;
         const shown = { before: el.innerHTML, typed: null as string | null };
         this.richShown = shown;
+        // The fields the text places, as drawn, for their cards in the editor (VE-D28).
+        const drawn = new Map<string, Element>();
+        for (const marker of Array.from(el.querySelectorAll('[data-arc-place]'))) {
+            const key = marker.getAttribute('data-arc-place') || '';
+            if (key && !drawn.has(key) && marker.firstElementChild) drawn.set(key, marker.cloneNode(true) as Element);
+        }
         el.innerHTML = '';
         this.rich = this.host.mountRich(el, html, (value) => {
             shown.typed = value;
             this.host.setRich(spot.field, value);
-        });
+        }, { field: spot.field, drawn });
         this.addStyles();
         this.rich.focus(point);
         this.host.activeChanged(spot, this.rich);

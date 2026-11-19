@@ -88,7 +88,8 @@ vi.mock('@tiptap/core', () => {
             create: vi.fn().mockReturnValue({ configure: (options: unknown) => ({ configuredWith: options }) })
         },
         Node: {
-            create: vi.fn().mockReturnValue({})
+            // The field place node is configured with the editor's places (VE-D28).
+            create: vi.fn().mockReturnValue({ configure: (options: unknown) => ({ configuredWith: options }) })
         }
     };
 });

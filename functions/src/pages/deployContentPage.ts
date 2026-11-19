@@ -36,6 +36,7 @@ import {
     poweredByHtml,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
+import { moveFieldBlocks, placedFields, prepareFieldPlaces } from '../shared/field-places.js';
 import { getSiteManifest, loadDetailTemplate, pageStylesheets } from '../shared/site-files.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
 import { siteChrome } from './card-blocks.js';
@@ -409,7 +410,10 @@ export async function generateAndDeployContentDetailPage(
         // same as the app draws them (shared/items-from-type.ts).
         const fromTypes = nameItemsFromTypeLoops(TemplateHydrationService.applySiteInfo(
             TemplateHydrationService.applyStrings(templateHtml, pageStrings), siteInfo));
-        const localizedTemplate = fromTypes.html;
+        // Custom fields the body places in its text (VE-D28): their blocks are tagged before the
+        // loops fill them, and moved into the text once filled (shared/field-places.ts).
+        const placed = placedFields(localizedContent.content, contentType.fields);
+        const localizedTemplate = prepareFieldPlaces(fromTypes.html, placed, contentType.slug);
         const itemsFromType = await readItemsFromType(
             fromTypes.loops, { lang, defaultLang, type: contentTypeSlug, id: docId, timeZone: siteTimeZone(localization) }, itemsFromTypeCache);
 
@@ -429,6 +433,7 @@ export async function generateAndDeployContentDetailPage(
             ...itemsFromType,
         });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
+        if (placed.length) hydratedHtml = moveFieldBlocks(hydratedHtml);
 
         // Replace arc components (header, footer, admin buttons, partials)
         // The partials are one file shared by every language, so their links

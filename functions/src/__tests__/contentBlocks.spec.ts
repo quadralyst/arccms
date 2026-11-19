@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
     abstractFromTakeaways,
     blockJsonLd,
-    buildFaqPage,
     buildHowTo,
     extractBlocks,
     termFromQuestion,
@@ -25,15 +24,12 @@ const DEFINITION = `<section data-arc-block="definition"><h3>What is a headless 
 
 describe('extractBlocks (specs/discoverability-spec.md, D-D10)', () => {
     it('returns empty shapes for plain content and for no content', () => {
-        expect(extractBlocks('')).toEqual({ faqs: [], howTos: [], takeaways: [], definitions: [] });
-        expect(extractBlocks('<h3>Question?</h3><p>Not in a block.</p>').faqs).toEqual([]);
+        expect(extractBlocks('')).toEqual({ howTos: [], takeaways: [], definitions: [] });
+        expect(extractBlocks('<h3>Question?</h3><p>Not in a block.</p>')).toEqual({ howTos: [], takeaways: [], definitions: [] });
     });
 
-    it('reads FAQ pairs: each heading a question, following content the answer, lists flattened', () => {
-        expect(extractBlocks(FAQ).faqs).toEqual([
-            { question: 'What does it cost?', answer: 'It is free. Forever.' },
-            { question: 'Is it open source?', answer: 'Yes MIT licence' },
-        ]);
+    it('reads no FAQ from the text: an FAQ is the FAQ field, placed with /faq (VE-D28)', () => {
+        expect(extractBlocks(FAQ)).toEqual({ howTos: [], takeaways: [], definitions: [] });
     });
 
     it('reads how-to name and steps, with a leading strong as the step name', () => {
@@ -60,7 +56,6 @@ describe('extractBlocks (specs/discoverability-spec.md, D-D10)', () => {
 
     it('reads several blocks of different kinds from one body', () => {
         const blocks = extractBlocks(`<p>Intro</p>${TAKEAWAYS}<p>Body</p>${FAQ}${HOWTO}${DEFINITION}`);
-        expect(blocks.faqs.length).toBe(2);
         expect(blocks.howTos.length).toBe(1);
         expect(blocks.takeaways.length).toBe(2);
         expect(blocks.definitions.length).toBe(1);
@@ -77,13 +72,6 @@ describe('termFromQuestion', () => {
 });
 
 describe('block JSON-LD builders', () => {
-    it('FAQPage nests Question and Answer', () => {
-        const node = buildFaqPage([{ question: 'Q?', answer: 'A.' }])!;
-        expect(node['@type']).toBe('FAQPage');
-        expect(node['mainEntity']).toEqual([{ '@type': 'Question', name: 'Q?', acceptedAnswer: { '@type': 'Answer', text: 'A.' } }]);
-        expect(buildFaqPage([])).toBeNull();
-    });
-
     it('HowTo numbers steps and anchors them to the page', () => {
         const node = buildHowTo({ name: 'How', steps: [{ name: 'One', text: 'One. Do it.' }, { text: 'Two.' }] }, 'https://x.com/a')!;
         expect(node['step']).toEqual([
@@ -100,7 +88,8 @@ describe('block JSON-LD builders', () => {
 
     it('blockJsonLd returns every node in a stable order', () => {
         const nodes = blockJsonLd(extractBlocks(`${FAQ}${HOWTO}${DEFINITION}`), 'https://x.com/a');
-        expect(nodes.map(n => n['@type'])).toEqual(['FAQPage', 'HowTo', 'DefinedTerm']);
+        // An old FAQ block in the text sends nothing: the page's one FAQ list comes from the FAQ field.
+        expect(nodes.map(n => n['@type'])).toEqual(['HowTo', 'DefinedTerm']);
         expect(blockJsonLd(extractBlocks(''))).toEqual([]);
     });
 });

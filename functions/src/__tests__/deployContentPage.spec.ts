@@ -1120,7 +1120,7 @@ describe('deployContentPage', () => {
             expect(md.trimEnd().endsWith('Source: https://example.com/articles/test-article')).toBe(true);
         });
 
-        it('emits FAQPage, HowTo, DefinedTerm and the abstract from body blocks (D-D10)', async () => {
+        it('emits HowTo, DefinedTerm and the abstract from body blocks, and no FAQPage from an old FAQ block (D-D10, VE-D28)', async () => {
             mockCollectionDocGet.mockResolvedValue({
                 exists: true, id: 'doc123',
                 data: () => ({
@@ -1135,11 +1135,32 @@ describe('deployContentPage', () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
             const types = jsonLdNodes().map(n => n['@type']);
-            expect(types).toEqual(['Organization', 'WebSite', 'BreadcrumbList', 'Article', 'FAQPage', 'HowTo', 'DefinedTerm']);
+            expect(types).toEqual(['Organization', 'WebSite', 'BreadcrumbList', 'Article', 'HowTo', 'DefinedTerm']);
             expect(nodeOfType('Article')!.abstract).toBe('Fast. Free.');
-            expect(nodeOfType('FAQPage')!.mainEntity[0].name).toBe('Cost?');
             expect(nodeOfType('HowTo')!.step[0].url).toBe('https://example.com/articles/test-article#step-1');
             expect(nodeOfType('DefinedTerm')!.name).toBe('Arc');
+        });
+
+        it('shows a custom field placed in the text there, in a plain block when the template has none (VE-D28)', async () => {
+            mockContentTypeLimitGet.mockResolvedValue({
+                empty: false,
+                docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, fields: [{ key: 'articles-faq', label: 'FAQ', type: 'faq' }] }) }],
+            });
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true, id: 'doc123',
+                data: () => ({
+                    ...MOCK_CONTENT,
+                    content: '<p>Intro</p><div data-arc-place="articles-faq"></div><p>Outro</p>',
+                    customFields: { 'articles-faq': [{ question: 'Cost?', answer: 'Nothing.', position: 0 }] },
+                }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            expect(html).toMatch(/<p>Intro<\/p><div data-arc-place="articles-faq"><section class="arc-faq">/);
+            expect(html).toContain('<summary>Cost?</summary>');
+            expect(html.indexOf('Cost?')).toBeLessThan(html.indexOf('Outro'));
+            expect(html).not.toContain('data-arc-block-of');
         });
 
         it('emits citations, renders a Sources loop and lists them in the Markdown twin (D-D11)', async () => {

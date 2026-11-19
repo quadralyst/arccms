@@ -5,8 +5,6 @@
  * ordinary headings, paragraphs and lists, so this is a shape reader, not
  * a parser of anything the editor invented:
  *
- *  - faq:        every h2/h3/h4 is a question; what follows it until the
- *                next heading is the answer.
  *  - howto:      the first heading is the name; the first ordered list's
  *                items are the steps (a leading <strong> is the step name).
  *  - takeaways:  the first list's items, joined, become Article.abstract.
@@ -15,17 +13,14 @@
  *
  * Mirrored client-side in src/shared/utils/content-blocks.ts for the SPA.
  */
-import type * as cheerio from 'cheerio';
 import { loadHtml } from './lazy-cheerio.js';
 import { SCHEMA_CONTEXT } from './structured-data.js';
 
-export interface FaqEntry { question: string; answer: string }
 export interface HowToStep { name?: string; text: string }
 export interface HowToBlock { name: string; steps: HowToStep[] }
 export interface DefinitionBlock { term: string; description: string }
 
 export interface ContentBlocks {
-    faqs: FaqEntry[];
     howTos: HowToBlock[];
     takeaways: string[];
     definitions: DefinitionBlock[];
@@ -34,29 +29,10 @@ export interface ContentBlocks {
 const HEADINGS = 'h2, h3, h4';
 
 export function extractBlocks(bodyHtml: string): ContentBlocks {
-    const blocks: ContentBlocks = { faqs: [], howTos: [], takeaways: [], definitions: [] };
+    const blocks: ContentBlocks = { howTos: [], takeaways: [], definitions: [] };
     if (!bodyHtml || !bodyHtml.includes('data-arc-block')) return blocks;
 
     const $ = loadHtml(`<body>${bodyHtml}</body>`, { xmlMode: false });
-
-    $('section[data-arc-block="faq"]').each((_, section) => {
-        let question = '';
-        let answer: string[] = [];
-        const flush = () => {
-            const a = clean(answer.join(' '));
-            if (question && a) blocks.faqs.push({ question, answer: a });
-            answer = [];
-        };
-        $(section).children().each((__, child) => {
-            if ($(child).is(HEADINGS)) {
-                flush();
-                question = clean($(child).text());
-            } else if (question) {
-                answer.push(textWithBreaks($, child));
-            }
-        });
-        flush();
-    });
 
     $('section[data-arc-block="howto"]').each((_, section) => {
         const name = clean($(section).children(HEADINGS).first().text());
@@ -98,19 +74,6 @@ export function termFromQuestion(heading: string): string {
 
 type JsonLd = Record<string, unknown>;
 
-export function buildFaqPage(faqs: FaqEntry[]): JsonLd | null {
-    if (!faqs.length) return null;
-    return {
-        '@context': SCHEMA_CONTEXT,
-        '@type': 'FAQPage',
-        mainEntity: faqs.map(f => ({
-            '@type': 'Question',
-            name: f.question,
-            acceptedAnswer: { '@type': 'Answer', text: f.answer },
-        })),
-    };
-}
-
 export function buildHowTo(block: HowToBlock, pageUrl?: string): JsonLd | null {
     if (!block.name || !block.steps.length) return null;
     const node: JsonLd = {
@@ -146,7 +109,6 @@ export function abstractFromTakeaways(takeaways: string[]): string | undefined {
 /** Every block-derived node for a page, in a stable order. */
 export function blockJsonLd(blocks: ContentBlocks, pageUrl?: string): JsonLd[] {
     return [
-        buildFaqPage(blocks.faqs),
         ...blocks.howTos.map(h => buildHowTo(h, pageUrl)),
         ...buildDefinedTerms(blocks.definitions),
     ].filter((n): n is JsonLd => !!n);
@@ -156,11 +118,3 @@ function clean(text: string): string {
     return (text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** Text of an element with list items and paragraphs separated so an answer reads as prose. */
-function textWithBreaks($: cheerio.CheerioAPI, el: unknown): string {
-    const node = $(el as never);
-    if (node.is('ul, ol')) {
-        return node.children('li').toArray().map(li => clean($(li).text())).filter(Boolean).join(' ');
-    }
-    return clean(node.text());
-}

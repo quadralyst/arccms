@@ -11,10 +11,8 @@ describe('content-blocks (client mirror, D-D10)', () => {
     it('reads every block kind the same way the server does', () => {
         const blocks = extractBlocks(BODY);
         expect(blocks.takeaways).toEqual(['Fast', 'Free.']);
-        expect(blocks.faqs).toEqual([
-            { question: 'Cost?', answer: 'Nothing. Ever.' },
-            { question: 'Licence?', answer: 'MIT' },
-        ]);
+        // An old FAQ block reads as nothing: the FAQ is the FAQ field (VE-D28).
+        expect(blocks).not.toHaveProperty('faqs');
         expect(blocks.howTos).toEqual([{ name: 'How to start', steps: [{ name: 'Install', text: 'Install. Run it.' }, { text: 'Publish.' }] }]);
         expect(blocks.definitions).toEqual([{ term: 'Arc', description: 'Arc is a CMS.' }]);
     });
@@ -25,14 +23,14 @@ describe('content-blocks (client mirror, D-D10)', () => {
     });
 
     it('returns empty shapes without blocks', () => {
-        expect(extractBlocks('<p>plain</p>')).toEqual({ faqs: [], howTos: [], takeaways: [], definitions: [] });
-        expect(extractBlocks('')).toEqual({ faqs: [], howTos: [], takeaways: [], definitions: [] });
+        expect(extractBlocks('<p>plain</p>')).toEqual({ howTos: [], takeaways: [], definitions: [] });
+        expect(extractBlocks('')).toEqual({ howTos: [], takeaways: [], definitions: [] });
     });
 
     it('builds the nodes in a stable order', () => {
         const nodes = blockJsonLd(extractBlocks(BODY), 'https://x.com/a');
-        expect(nodes.map(n => n['@type'])).toEqual(['FAQPage', 'HowTo', 'DefinedTerm']);
-        expect((nodes[1]['step'] as any[])[0]['url']).toBe('https://x.com/a#step-1');
+        expect(nodes.map(n => n['@type'])).toEqual(['HowTo', 'DefinedTerm']);
+        expect((nodes[0]['step'] as any[])[0]['url']).toBe('https://x.com/a#step-1');
     });
 
     it('helpers match the server', () => {

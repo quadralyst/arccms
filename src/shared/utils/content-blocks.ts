@@ -7,47 +7,26 @@
  */
 import { SCHEMA_CONTEXT, JsonLd } from './structured-data';
 
-export interface FaqEntry { question: string; answer: string }
 export interface HowToStep { name?: string; text: string }
 export interface HowToBlock { name: string; steps: HowToStep[] }
 export interface DefinitionBlock { term: string; description: string }
 
 export interface ContentBlocks {
-    faqs: FaqEntry[];
     howTos: HowToBlock[];
     takeaways: string[];
     definitions: DefinitionBlock[];
 }
 
-const EMPTY: ContentBlocks = { faqs: [], howTos: [], takeaways: [], definitions: [] };
+const EMPTY: ContentBlocks = { howTos: [], takeaways: [], definitions: [] };
 const HEADINGS = 'H2,H3,H4';
 
 export function extractBlocks(bodyHtml: string): ContentBlocks {
     if (!bodyHtml || !bodyHtml.includes('data-arc-block') || typeof DOMParser === 'undefined') {
-        return { faqs: [], howTos: [], takeaways: [], definitions: [] };
+        return { howTos: [], takeaways: [], definitions: [] };
     }
     const doc = new DOMParser().parseFromString(`<body>${bodyHtml}</body>`, 'text/html');
-    const blocks: ContentBlocks = { faqs: [], howTos: [], takeaways: [], definitions: [] };
+    const blocks: ContentBlocks = { howTos: [], takeaways: [], definitions: [] };
     const isHeading = (el: Element) => HEADINGS.split(',').includes(el.tagName);
-
-    doc.querySelectorAll('section[data-arc-block="faq"]').forEach(section => {
-        let question = '';
-        let answer: string[] = [];
-        const flush = () => {
-            const a = clean(answer.join(' '));
-            if (question && a) blocks.faqs.push({ question, answer: a });
-            answer = [];
-        };
-        Array.from(section.children).forEach(child => {
-            if (isHeading(child)) {
-                flush();
-                question = clean(child.textContent || '');
-            } else if (question) {
-                answer.push(textWithBreaks(child));
-            }
-        });
-        flush();
-    });
 
     doc.querySelectorAll('section[data-arc-block="howto"]').forEach(section => {
         const heading = Array.from(section.children).find(isHeading);
@@ -97,17 +76,6 @@ export function abstractFromTakeaways(takeaways: string[]): string | undefined {
 
 export function blockJsonLd(blocks: ContentBlocks, pageUrl?: string): JsonLd[] {
     const nodes: JsonLd[] = [];
-    if (blocks.faqs.length) {
-        nodes.push({
-            '@context': SCHEMA_CONTEXT,
-            '@type': 'FAQPage',
-            mainEntity: blocks.faqs.map(f => ({
-                '@type': 'Question',
-                name: f.question,
-                acceptedAnswer: { '@type': 'Answer', text: f.answer },
-            })),
-        });
-    }
     for (const h of blocks.howTos) {
         nodes.push({
             '@context': SCHEMA_CONTEXT,
@@ -133,9 +101,3 @@ function clean(text: string): string {
     return (text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function textWithBreaks(el: Element): string {
-    if (el.tagName === 'UL' || el.tagName === 'OL') {
-        return Array.from(el.querySelectorAll(':scope > li')).map(li => clean(li.textContent || '')).filter(Boolean).join(' ');
-    }
-    return clean(el.textContent || '');
-}

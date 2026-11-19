@@ -1,18 +1,19 @@
 /**
  * Structured content blocks (specs/discoverability-spec.md, D-D10).
  *
- * One Tiptap node, `arcBlock`, with a `kind` attribute: faq, takeaways,
- * howto or definition. Each is a plain wrapper around ordinary block
+ * One Tiptap node, `arcBlock`, with a `kind` attribute: takeaways, howto
+ * or definition. (An FAQ is the FAQ field, placed in the text with `/faq`:
+ * specs/visual-editing-spec.md, VE-D28. A body that still holds an old FAQ
+ * block reads as its plain headings and paragraphs.) Each is a plain wrapper around ordinary block
  * content, so the author edits headings, paragraphs and lists as usual;
  * only the wrapper `<section data-arc-block="…">` is special. That is what
- * lets the publish pipeline recognise the shape (FAQ = h3 + answer pairs,
- * how-to = h3 + ordered list, …) and emit the matching schema.org node
+ * lets the publish pipeline recognise the shape (how-to = h3 + ordered list, …) and emit the matching schema.org node
  * without the two ever disagreeing, and what keeps templates and the
  * Markdown twin free of new bindings: to them it is just sections.
  */
 import { Node, mergeAttributes } from '@tiptap/core';
 
-export type ArcBlockKind = 'faq' | 'takeaways' | 'howto' | 'definition';
+export type ArcBlockKind = 'takeaways' | 'howto' | 'definition';
 
 export interface ArcBlockMeta {
     kind: ArcBlockKind;
@@ -24,13 +25,6 @@ export interface ArcBlockMeta {
 }
 
 export const ARC_BLOCKS: readonly ArcBlockMeta[] = [
-    {
-        kind: 'faq',
-        title: 'FAQ',
-        icon: 'bi bi-patch-question',
-        description: 'Questions people ask, each with a direct answer. Emitted as FAQPage.',
-        seed: '<h3>What is this about?</h3><p>Answer in one or two sentences, then add detail.</p><h3>Another question?</h3><p>Its answer.</p>',
-    },
     {
         kind: 'takeaways',
         title: 'Key takeaways',
@@ -77,7 +71,7 @@ export const ArcBlock = Node.create({
     addAttributes() {
         return {
             kind: {
-                default: 'faq',
+                default: 'takeaways',
                 parseHTML: element => element.getAttribute('data-arc-block'),
                 renderHTML: attributes => ({ 'data-arc-block': attributes['kind'] }),
             },

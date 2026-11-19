@@ -1040,9 +1040,8 @@ describe('ContentDetailComponent', () => {
             const article = JSON.parse(document.getElementById('arc-ld-article')!.textContent || '{}');
             expect(article.abstract).toBe('Fast.');
             expect(article.citation).toEqual([{ '@type': 'CreativeWork', url: 'https://spec.example/one', name: 'Spec' }]);
-            const faq = JSON.parse(document.getElementById('arc-ld-block-0')!.textContent || '{}');
-            expect(faq['@type']).toBe('FAQPage');
-            expect(document.getElementById('arc-ld-block-1')).toBeNull();
+            // An old FAQ block in the text sends no FAQ list: the FAQ is the FAQ field (VE-D28).
+            expect(document.getElementById('arc-ld-block-0')).toBeNull();
 
             const sources: HTMLElement = fixture.nativeElement.querySelector('.article-sources');
             expect(sources).toBeTruthy();

@@ -9,7 +9,7 @@ import { TranslationKey } from '../../../../core/i18n/translation-keys';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule, formatDate } from '@angular/common';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { IDraftContents, INextContentReference } from '../draft-content-store/draft-contents.model';
 import { SeriesLinks, isRealId, linkedId, seriesReference } from '../draft-content-store/series-links';
 import { ActivatedRoute, NavigationCancel, ParamMap, Router, RouterLink } from '@angular/router';
@@ -18,6 +18,7 @@ import { DraftContentsStore } from '../draft-content-store/draft-contents.store'
 import { ContentTypesStore } from '../content-types/content-types.store';
 import { ContentType, ContentTypeField, contentTypeFieldLabel } from '../content-types/content-types.model';
 import TiptapEditorComponent from '../../../../../shared/components/tiptap-editor/tiptap-editor.component';
+import { FieldPlaces, fieldSummary, isPlaceable } from '../../../../../shared/components/tiptap-editor/service/field-place';
 import { TagsStore } from '../content-types/tags/tags.store';
 import { ITag } from '../content-types/tags/tags.model';
 import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page';
@@ -382,6 +383,24 @@ export class CreateContentComponent extends BaseComponent {
    */
   fieldLooks = signal<Record<string, SiteLook | null>>({});
   private fieldLookRequest = 0;
+
+  private translocoService = inject(TranslocoService);
+
+  /**
+   * The body's custom fields that can be placed in its text (VE-D28): `/` offers them,
+   * and a placed field's card shows a few lines of it, with Edit jumping to it here.
+   */
+  readonly fieldPlaces: FieldPlaces = {
+    fields: () => this.currentFields
+      .filter((f) => !!f.key && isPlaceable(f.type))
+      .map((f) => ({ key: f.key, label: this.fieldLabel(f), type: f.type })),
+    open: (key) => this.focusField(key),
+    summary: (key) => {
+      const field = this.currentFields.find((f) => f.key === key);
+      return field ? fieldSummary(field.type, this.customFieldValues[key]) : [];
+    },
+    translate: (key, params) => this.translocoService.translate(key, params),
+  };
 
   // Get current content type fields
   get currentFields(): ContentTypeField[] {
@@ -1506,6 +1525,9 @@ export class CreateContentComponent extends BaseComponent {
       publishedOn: this.lastPublishedDate,
       updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
       siteOrigin: this.domain,
+      faqCount: this.currentFields
+        .filter((f) => f.type === 'faq')
+        .reduce((n, f) => n + (Array.isArray(this.customFieldValues[f.key]) ? this.customFieldValues[f.key].length : 0), 0),
     }));
   }
 
