@@ -6,8 +6,8 @@
  */
 
 // Accounts without email or phone (specs/app-accounts-spec.md)
-export { createAppAccount, deleteAppAccount, restoreAppSignIn, APP_ACCOUNT } from './accounts.js';
-export type { AppAccount, CreateAppAccountInput } from './accounts.js';
+export { createAppAccount, deleteAppAccount, restoreAppSignIn, setAppSignIn, APP_ACCOUNT, SIGN_IN_OFF } from './accounts.js';
+export type { AppAccount, CreateAppAccountInput, SignInOff } from './accounts.js';
 
 // Claims and sessions
 export { isArcAdmin, mergeAppClaims, revokeSessions, sessionClaims } from '../users/claims.js';

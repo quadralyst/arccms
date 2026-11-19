@@ -27,8 +27,10 @@ vi.mock('firebase-admin/firestore', async () => {
 });
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 // The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
+// The rule for new PINs follows it unless a test sets `pins` (weakPins: 'refuse').
 const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
-vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value, fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
+const pins = vi.hoisted(() => ({ value: null as 'strict' | 'simple' | null }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value, pinStrength: () => pins.value ?? strength.value, fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: vi.fn((handler: unknown) => handler),
     HttpsError: class extends Error {
@@ -80,6 +82,7 @@ beforeEach(() => {
     mem.store.clear();
     vi.clearAllMocks();
     strength.value = 'strict';
+    pins.value = null;
     for (const uid of Object.keys(claims)) delete claims[uid];
     owner.createUser.mockResolvedValue({ uid: 'uid-asha' });
     mem.seed('Settings', 'users', { isSignupEnabled: true, phoneSignIn: true });
@@ -318,6 +321,15 @@ describe('signing in with the PIN', () => {
         await expect(call(phone.setPin, { pin: '112233', currentPin: '246810' }, 'uid-asha')).rejects.toMatchObject({ details: { reason: 'weak-pin' } });
         await expect(call(phone.setPin, { pin: '192837', currentPin: '246810' }, 'uid-asha')).resolves.toEqual({ saved: true });
         await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '192837' })).resolves.toEqual({ token: 'token-uid-asha' });
+    });
+
+    it('refuses the current PIN as the new one, once the current one is right (F49)', async () => {
+        await expect(call(phone.setPin, { pin: '246810', currentPin: '246810' }, 'uid-asha'))
+            .rejects.toMatchObject({ code: 'invalid-argument', details: { reason: 'same-pin' } });
+        // A wrong current PIN is told so, whatever the new one is.
+        await expect(call(phone.setPin, { pin: '135790', currentPin: '135790' }, 'uid-asha'))
+            .rejects.toMatchObject({ details: { reason: 'wrong' } });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810' })).resolves.toEqual({ token: 'token-uid-asha' });
     });
 
     it('changing a PIN needs the current one, and a wrong one counts towards the lock', async () => {
@@ -751,6 +763,30 @@ describe('an app that chose simple PINs (specs/sign-in-strength-spec.md)', () =>
         expect(pinTooEasy('246810', 'strict')).toBe(false);
         strength.value = 'strict';
         expect(pinTooEasy('123456')).toBe(true);
+    });
+});
+
+describe("an app with simple passwords that refuses easy PINs (weakPins: 'refuse', F44)", () => {
+    beforeEach(() => {
+        strength.value = 'simple';
+        pins.value = 'strict';
+    });
+
+    it('refuses an easy PIN at sign-up, when changing it and when resetting it', async () => {
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        const { ticket } = await call(phone.verifyPhoneOtp, { phone: NUMBER, code: lastCode(), purpose: 'signup' });
+        await expect(call(phone.completePhoneSignup, { phone: NUMBER, name: 'Asha Rao', pin: '123456', ticket }))
+            .rejects.toMatchObject({ details: { reason: 'weak-pin' } });
+        await call(phone.completePhoneSignup, { phone: NUMBER, name: 'Asha Rao', pin: '246810', ticket });
+        await expect(call(phone.setPin, { pin: '000000', currentPin: '246810' }, 'uid-asha'))
+            .rejects.toMatchObject({ code: 'invalid-argument', details: { reason: 'weak-pin' } });
+        await expect(call(phone.setPin, { pin: '192837', currentPin: '246810' }, 'uid-asha')).resolves.toEqual({ saved: true });
+    });
+
+    it('pinTooEasy follows the PIN rule, not the password strength', async () => {
+        const { pinTooEasy } = await import('../auth/accounts.js');
+        expect(pinTooEasy('123456')).toBe(true);
+        expect(pinTooEasy('246810')).toBe(false);
     });
 });
 

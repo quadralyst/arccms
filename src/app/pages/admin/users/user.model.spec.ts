@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { IUser, UserFormData, COMPONENT_NAME, accountKindConditions, ACCOUNT_KINDS, isAppAccount } from './user.model';
-import { matchesUserSearch, roleLabel, userActionError } from './user.model';
+import { matchesUserSearch, roleLabel, SIGN_IN_OFF, signInOffByApp, userActionError } from './user.model';
 import { UserRole, UserStatus } from '../../../../shared/components/base/base.component';
 import { IBaseModel } from '../../../../shared/models/base-model';
 
@@ -258,5 +258,20 @@ describe('roleLabel and userActionError (RF4)', () => {
         expect(userActionError(refusal('not-active-admin'), t as never, 'admin.users.update_failed')).toBe('admin.users.errors.not_active_admin');
         expect(userActionError(refusal('detached'), t as never, 'admin.users.update_failed')).toBe('admin.users.errors.detached');
         expect(userActionError(refusal('something-new'), t as never, 'admin.users.update_failed')).toBe('admin.users.update_failed');
+    });
+});
+
+describe('an account whose app turned its sign-in off (F50)', () => {
+    it('is known by the status the app kit writes', () => {
+        const server = readFileSync(join(__dirname, '../../../../../functions/src/app-kit/accounts.ts'), 'utf8');
+        expect(server).toContain(`export const SIGN_IN_OFF = '${SIGN_IN_OFF}';`);
+        expect(signInOffByApp({ status: 'Off' } as never)).toBe(true);
+        expect(signInOffByApp({ status: 'Active' } as never)).toBe(false);
+        expect(signInOffByApp(null)).toBe(false);
+    });
+
+    it("says why an admin's Unblock was refused", () => {
+        const refused = Object.assign(new Error('x'), { code: 'functions/failed-precondition', details: { reason: 'sign-in-off' } });
+        expect(userActionError(refused, (key: string) => key, 'admin.users.unblock_failed')).toBe('admin.users.errors.sign_in_off');
     });
 });

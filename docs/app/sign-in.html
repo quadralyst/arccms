@@ -46,13 +46,19 @@ export const CUSTOM_SIGN_IN: SignInChoice = {
       <thead><tr><th></th><th>Strict (empty, or <code>'strict'</code>)</th><th>Simple (<code>'simple'</code>)</th></tr></thead>
       <tbody>
         <tr><td>New password</td><td>8 characters or more; not one character repeated, a run, a common password, or the person's name or email</td><td>6 characters or more</td></tr>
-        <tr><td>New PIN</td><td>6 digits; not one digit repeated, a run like <code>123456</code>, or a common pattern</td><td>Any 6 digits</td></tr>
+        <tr><td>New PIN</td><td>6 digits; not one digit repeated, a run like <code>123456</code>, or a common pattern</td><td>Any 6 digits, unless <code>weakPins: 'refuse'</code> (below)</td></tr>
         <tr><td>The first admin (first-run wizard)</td><td>Strict</td><td>Strict</td></tr>
         <tr><td>Your own PIN stores</td><td>Strict, unless a store names a strength</td><td>Simple, unless a store names a strength (<a href="pin.html#strength">PINs for your app</a>)</td></tr>
         <tr><td>Wrong-try lockouts, rate limits, how PINs are kept</td><td colspan="2">The same in both</td></tr>
       </tbody>
     </table>
-    <p>It is a build-time choice: <code>npm run dev</code> and <code>npm run build</code> read it, and so does every functions build, through a copy <code>scripts/arc-features.mjs</code> writes to <code>functions/src/sign-in.gen.ts</code>. After changing it, deploy the website and the functions that set passwords and PINs; the deploy menu's "only the functions changed" choice finds them. A value other than <code>'strict'</code> or <code>'simple'</code> stops the build with what to write.</p>
+    <p>It is a build-time choice: <code>npm run dev</code> and <code>npm run build</code> read it, and so does every functions build, through a copy <code>scripts/arc-features.mjs</code> writes to <code>functions/src/sign-in.gen.ts</code>. After changing it, deploy the website and the functions that set passwords and PINs; the deploy menu's "only the functions changed" choice finds them. A value other than <code>'strict'</code> or <code>'simple'</code>, or a <code>weakPins</code> other than <code>'refuse'</code>, stops the build with what to write.</p>
+    <p id="weak-pins">A PIN can matter more than a password: one that opens the app in front of others, at a till or a front desk, should not be <code>123456</code>. To keep passwords simple and still refuse easy PINs, add <code>weakPins: 'refuse'</code>:</p>
+    <pre><code>export const CUSTOM_SIGN_IN: SignInChoice = {
+    strength: 'simple',     // passwords of 6 characters or more
+    weakPins: 'refuse',     // no repeated digits, runs or common PINs
+};</code></pre>
+    <p>Every new PIN then meets the strict rule: at sign-up, when changing it (<code>setPin</code>), when resetting it, the first PIN that comes with a new number, and your own PIN stores that name no strength. Under the strict rule it changes nothing. The functions read it from the same generated file, so deploy the functions that set PINs after changing it.</p>
     <p>Only new passwords and PINs are checked, so changing the strength locks nobody out: a password or PIN set before still signs in, and the next new one meets the rule in force. The strength applies to admins too, since a password is chosen before anyone is made an admin; in a simple app, ask admins to sign in with Google.</p>
 
     <h2 id="email-pin">Email with a PIN, and a code on a new device</h2>

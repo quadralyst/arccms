@@ -106,3 +106,17 @@ describe('the PIN error under Show PIN (F29)', () => {
         expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.pin-error \{\s*animation: none;/);
     });
 });
+
+describe('the number box beside the country chip (F49)', () => {
+    // Measured in a browser on a desk and a phone: at rest, hovered, focused, invalid and
+    // busy, the chip and the box keep one unbroken outline.
+    const box = rule('.input-group > arc-phone-country + .form-control');
+
+    it('keeps the box square where it meets the chip, in either direction, over the focus and error rounding', () => {
+        expect(box).toContain('border-start-start-radius: 0 !important');
+        expect(box).toContain('border-end-start-radius: 0 !important');
+        // The rules it must win against round a focused or invalid field all round.
+        expect(rule('input:valid:focus')).toContain('border-radius: var(--arc-sign-in-field-radius, 3px) !important');
+        expect(rule('.form-control.is-invalid,\n.was-validated .form-control:invalid')).toContain('!important');
+    });
+});

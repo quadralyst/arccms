@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { resolveFixedSignIn, resolveSignInStrength } from './sign-in-strength';
+import { resolveFixedSignIn, resolvePinStrength, resolveSignInStrength } from './sign-in-strength';
 import * as server from '../../../functions/src/shared/sign-in-strength';
 import { CUSTOM_SIGN_IN } from '../../custom/sign-in';
 
@@ -49,5 +49,23 @@ describe('resolveFixedSignIn (F31)', () => {
     it('stops the build on anything else, saying what to write', () => {
         expect(() => resolveFixedSignIn({ emailSignIn: 'PIN' } as never)).toThrow(/emailSignIn: 'pin' or 'password'/);
         expect(() => resolveFixedSignIn({ newDeviceCode: 'on' } as never)).toThrow(/newDeviceCode: true or false/);
+    });
+});
+
+describe("resolvePinStrength (F44: weakPins: 'refuse')", () => {
+    it('follows the strength when the app said nothing about PINs, as Arc CMS ships it', () => {
+        expect(resolvePinStrength(CUSTOM_SIGN_IN)).toBe('strict');
+        expect(resolvePinStrength({ strength: 'simple' })).toBe('simple');
+    });
+
+    it('refuses easy PINs while passwords stay simple, on both sides', () => {
+        expect(resolvePinStrength({ strength: 'simple', weakPins: 'refuse' })).toBe('strict');
+        expect(server.resolvePinStrength({ strength: 'simple', weakPins: 'refuse' })).toBe('strict');
+        expect(resolveSignInStrength({ strength: 'simple', weakPins: 'refuse' })).toBe('simple');
+    });
+
+    it('stops the build on anything else, saying what to write', () => {
+        expect(() => resolvePinStrength({ weakPins: 'allow' } as never)).toThrow(/weakPins: 'refuse'/);
+        expect(() => server.resolvePinStrength({ weakPins: true } as never)).toThrow(/weakPins: 'refuse'/);
     });
 });

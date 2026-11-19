@@ -12,17 +12,18 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { ArcTime } from '../../../../core/time/arc-time.service';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { UserStore } from '../user.store';
-import { IUser, roleLabel } from '../user.model';
+import { IUser, roleLabel, signInOffByApp } from '../user.model';
 import type { TranslationKey } from '../../../../core/i18n/translation-keys';
 import { roleGuard } from '../../../../guards/role.guard';
 
-/** The statuses a user record can have (UserStatus, and Detached), by their stored value in lower case. */
+/** The statuses a user record can have (UserStatus, Detached, and Off from setAppSignIn), by their stored value in lower case. */
 const VIEW_STATUSES: Record<string, TranslationKey> = {
     active: 'admin.users.status_active',
     pending: 'admin.users.status_pending',
     disable: 'admin.users.status_blocked',
     disabled: 'admin.users.status_blocked',
     detached: 'admin.users.status_detached',
+    off: 'admin.users.status_sign_in_off',
 };
 
 export const routeMeta: RouteMeta = {
@@ -74,6 +75,9 @@ export default class ViewUserComponent extends BaseComponent {
         return key ? this.t(key) : (this.currentItem?.status || this.t('admin.users.view.none'));
     }
 
+    /** Its app turned this account's sign-in off (setAppSignIn): the reason shows, if the app gave one. */
+    readonly signInOff = () => signInOffByApp(this.currentItem);
+
     closeView(): void {
         this.close.emit();
     }
@@ -95,6 +99,8 @@ export default class ViewUserComponent extends BaseComponent {
             case 'disable':
             case 'disabled':
                 return 'bg-danger';
+            case 'off':
+                return 'bg-warning text-dark';
             default:
                 return 'bg-secondary';
         }

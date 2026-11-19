@@ -175,6 +175,17 @@ describe('ViewUserComponent', () => {
             expect(el.querySelector('.close-btn')!.getAttribute('aria-label')).toBe('Close');
         });
 
+        it('says Sign-in off with the app\'s reason for an account its app turned off (F50)', () => {
+            mockUserStore.currentItem.set({ ...mockUser, email: '', by: 'app', status: 'Off', isActive: false, signInOff: { reason: 'Removed by the owner' } });
+            fixture.detectChanges();
+            const el: HTMLElement = fixture.nativeElement;
+            expect(component.statusText()).toBe('Sign-in off');
+            expect(component.getStatusBadgeClass()).toBe('bg-warning text-dark');
+            expect(el.textContent).toContain('Why sign-in is off');
+            expect(el.textContent).toContain('Removed by the owner');
+            expect(el.textContent).not.toContain('Blocked');
+        });
+
         it('links an email that is there', () => {
             mockUserStore.currentItem.set({ ...mockUser, email: 'a@b.co' });
             fixture.detectChanges();

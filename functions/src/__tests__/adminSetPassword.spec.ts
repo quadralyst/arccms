@@ -32,7 +32,7 @@ vi.mock('../init', () => ({ db: m.db, owner: m.owner }));
 vi.mock('../search/auth', () => ({ requireAdmin: m.requireAdmin }));
 // The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
 const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
-vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value, fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value, pinStrength: () => strength.value, fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: (...args: any[]) => args[args.length - 1],
     HttpsError: class HttpsError extends Error {

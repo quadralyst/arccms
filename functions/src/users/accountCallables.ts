@@ -12,7 +12,8 @@
  *                     in onUserDelete.ts (never a locked app account: its app
  *                     deletes it, with deleteAppAccount); more than 10 minutes
  *                     after signing in, only with a fresh code's proof
- *                     (`freshProof`, purpose `delete-account`)
+ *                     (`freshProof`, purpose `delete-account`); never when the
+ *                     app chose `selfDelete: false` (src/custom/own-account.ts)
  *   rememberThisDevice  remember the device a signed-in person is on for PIN sign-in,
  *                     so "Ask for a code on a new device" asks nothing there
  *                     (specs/sign-in-pin-spec.md); the page calls it once per device
@@ -25,6 +26,8 @@ import { readDeviceKey, rememberDevice } from '../auth/devices.js';
 import { refuseOtherSignIn } from '../auth/appAccountLock.js';
 import { DELETE_ACCOUNT_PURPOSE, freshCodeTarget, useFreshCodeProof } from '../auth/freshCode.js';
 import { eraseContact } from '../email-core/eraseContact.js';
+import { refuse } from '../auth/refusal.js';
+import { ownAccount } from '../own-account-choice.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 
 /** How recent a sign-in must be to delete the account. */
@@ -54,6 +57,9 @@ export function signedInRecently(authTimeSeconds: unknown, now = Date.now()): bo
 
 export const deleteMyAccount = onCall(async (request) => {
     const record = await requireOwnRecord(request);
+    if (!ownAccount().selfDelete) {
+        throw refuse('failed-precondition', 'self-delete-off', "Your account can't be deleted here. Please contact the site's team.");
+    }
     if (record.data['role'] === 'admin') {
         throw new HttpsError('failed-precondition', 'An administrator account is removed by another administrator, under Users.');
     }

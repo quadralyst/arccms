@@ -6,7 +6,8 @@
  * Changing a PIN the account already has needs that PIN (`currentPin`), checked like a
  * sign-in: a wrong one counts towards the same lock, so a session left open on someone
  * else's device cannot quietly take over the PIN. A first PIN needs none, and Forgot
- * PIN is resetPin / resetEmailPin, with a code. `{ status: true }` only answers whether
+ * PIN is resetPin / resetEmailPin, with a code. A new PIN the same as the current one
+ * is refused (`same-pin`). `{ status: true }` only answers whether
  * the account has a PIN (`hasPin`), so the profile knows to ask for it.
  *
  * Deployed whatever the app's features: an email account has a PIN without the `sms`
@@ -32,6 +33,8 @@ export const setPin = onCall(async (request) => {
         if (!isValidPin(current)) throw refuse('failed-precondition', 'current-pin-required', 'Enter your current PIN.');
         const result = await checkPin(uid, current);
         if (!result.ok) throw pinRefusal(result);
+        // Checked once the current PIN is right, so the reason gives nothing away (F49).
+        if (pin === current) throw refuse('invalid-argument', 'same-pin', 'Choose a PIN different from your current one.');
     }
     await storePin(uid, pin);
     const [dropped] = await Promise.all([dropPasswordForPin(record), rememberDevice(uid, readDeviceKey(request.data?.deviceKey))]);

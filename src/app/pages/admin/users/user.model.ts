@@ -33,6 +33,8 @@ export interface IUser extends IBaseModel {
     authOwner?: string;
     /** An app account its app opened to self-service (docs/app/app-accounts.html). */
     selfService?: boolean;
+    /** While `status` is `Off`: its app turned its sign-in off (setAppSignIn, docs/app/app-accounts.html#sign-in-off). */
+    signInOff?: { reason?: string; wasBlocked?: boolean };
     /**
      * The admin UI language this person reads (M-D11). Independent of the
      * languages the site publishes in: see core/i18n/admin-language.service.ts.
@@ -129,6 +131,7 @@ const USER_REFUSALS: Record<string, TranslationKey> = {
     'country-not-allowed': 'admin.users.errors.country_not_allowed',
     'not-active-admin': 'admin.users.errors.not_active_admin',
     'detached': 'admin.users.errors.detached',
+    'sign-in-off': 'admin.users.errors.sign_in_off',
 };
 
 /** Refusals that carry no reason, known by their code alone. */
@@ -187,4 +190,12 @@ export function roleLabel(role: string, t: (key: TranslationKey) => string): str
     if (role === 'user') return t('admin.users.roles.user');
     const words = role.replace(/([a-z\d])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim().toLowerCase();
     return words ? words.charAt(0).toUpperCase() + words.slice(1) : role;
+}
+
+/** The `status` of an account whose app turned its sign-in off (setAppSignIn in the app kit). */
+export const SIGN_IN_OFF = 'Off';
+
+/** Whether its app turned this account's sign-in off: Users shows "Sign-in off", and only the app turns it on. */
+export function signInOffByApp(user: Pick<IUser, 'status'> | null | undefined): boolean {
+    return String(user?.status ?? '') === SIGN_IN_OFF;
 }

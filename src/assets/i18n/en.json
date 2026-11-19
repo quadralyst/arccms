@@ -2251,6 +2251,7 @@
         "check_details": "Some details were not accepted. Check them and try again.",
         "not_active_admin": "Your admin access has ended. Sign in again.",
         "detached": "This account is detached: its only email or number moved to another account, so it can't sign in. Delete it instead.",
+        "sign_in_off": "The app turned this account's sign-in off. Only the app can turn it on again.",
         "unverified_add": "This address already has a sign-in that was never verified, so it could belong to someone else. Add them as a User, or ask them to verify their email first."
       },
       "add_role": "Add {{ role }}",
@@ -2258,6 +2259,7 @@
       "status_blocked": "Blocked",
       "status_pending": "Pending",
       "status_detached": "Detached",
+      "status_sign_in_off": "Sign-in off",
       "close": "Close",
       "form": {
         "add_title": "Add user",
@@ -2312,6 +2314,7 @@
         "status": "Status",
         "role": "Role",
         "account": "Account",
+        "sign_in_off_reason": "Why sign-in is off",
         "email_verified": "Email verified",
         "verified": "Verified",
         "not_verified": "Not verified",
@@ -4492,7 +4495,10 @@
         "fresh_purpose": "That action can't be confirmed with a code.",
         "locked_here": "Too many wrong PINs here. Try again after {{ time }}.",
         "last_admin": "This is the site's only admin account, so its sign-in cannot move. Ask the site to add another admin first.",
-        "delete_failed": "We couldn't delete your account. Please try again with a new code."
+        "delete_failed": "We couldn't delete your account. Please try again with a new code.",
+        "on_another_account": "This is on another account, so it can't be added here.",
+        "self_delete_off": "Your account can't be deleted here. Please contact the site's team.",
+        "same_pin": "Choose a PIN different from your current one."
       },
       "step_title_reset_password": "Reset your password",
       "step_title_new_password": "Choose a new password",
@@ -4624,6 +4630,8 @@
       "invalid_email": "Enter a valid email address.",
       "invalid_phone": "Enter a valid mobile number.",
       "blocked_email": "This email is used by an account that cannot be moved here.",
+      "taken_email": "This email is on another account. Use a different email.",
+      "taken_number": "This number is on another account. Use a different number.",
       "new_code": "A new code is on its way",
       "enter_code": "Please enter the 6-digit code.",
       "email_moved": "Email moved to this account.",

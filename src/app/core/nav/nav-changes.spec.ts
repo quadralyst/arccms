@@ -229,3 +229,30 @@ describe('the core menus', () => {
         expect(menuIds(memberMenu({ ...state, role: 'user' }, changes, () => false))).toEqual(['dashboard', 'lessons', 'profile']);
     });
 });
+
+describe('the NavChange type', () => {
+    // Vitest strips types without checking them, so this compiles a sample the way
+    // src/custom/nav-changes.ts is compiled: a change names only what it changes.
+    it('takes a change that only hides, moves or re-routes an item, with no label', async () => {
+        const ts = await import('typescript');
+        const { resolve } = await import('node:path');
+        const sample = resolve(__dirname, '__nav-change-sample.ts');
+        const source = [
+            "import type { NavChanges } from './nav-changes';",
+            'export const changes: NavChanges = { admin: [',
+            "    { id: 'media', hide: true },",
+            "    { id: 'users', after: 'dashboard' },",
+            "    { id: 'about', route: '/admin/about', roles: ['editor'] },",
+            "], member: [{ id: 'premium', hide: true, roles: ['user'] }] };",
+        ].join('\n');
+        const options = { strict: true, noEmit: true, skipLibCheck: true, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler };
+        const host = ts.createCompilerHost(options);
+        const read = host.readFile.bind(host);
+        host.readFile = (file) => (resolve(file) === sample ? source : read(file));
+        const fileExists = host.fileExists.bind(host);
+        host.fileExists = (file) => resolve(file) === sample || fileExists(file);
+        const program = ts.createProgram([sample], options, host);
+        const errors = ts.getPreEmitDiagnostics(program, program.getSourceFile(sample)).map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'));
+        expect(errors).toEqual([]);
+    }, 30_000);
+});

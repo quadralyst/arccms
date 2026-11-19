@@ -165,9 +165,12 @@ describe('only the functions changed since the last deploy', () => {
             ['auth/phoneAuth.ts', "import { signInStrength } from '../sign-in-choice.js';\nexport const setPin = onCall(async () => {});"],
             ['feature-flags.ts', "import { ENABLED_FEATURES } from './enabled-features.gen.js';"],
             ['search/search.ts', "import { isFeatureOn } from '../feature-flags.js';\nexport const search = onCall(async () => {});"],
+            ['own-account-choice.ts', "import { OWN_ACCOUNT } from './own-account.gen.js';\nexport function ownAccount() {}"],
+            ['users/accountCallables.ts', "import { ownAccount } from '../own-account-choice.js';\nexport const deleteMyAccount = onCall(async () => {});"],
         ]);
-        const all = ['setPin', 'search'];
+        const all = ['setPin', 'search', 'deleteMyAccount'];
         expect(affectedFunctions({ graph: withGen, changed: ['src/custom/sign-in.ts'], deployable: all, previous: all }).names).toEqual(['setPin']);
+        expect(affectedFunctions({ graph: withGen, changed: ['src/custom/own-account.ts'], deployable: all, previous: all }).names).toEqual(['deleteMyAccount']);
         expect(affectedFunctions({ graph: withGen, changed: ['src/custom/features.ts'], deployable: all, previous: all }).names).toEqual(['search']);
         expect(affectedFunctions({ graph: withGen, changed: ['src/custom/home.ts'], deployable: all, previous: all }).names).toEqual([]);
     });

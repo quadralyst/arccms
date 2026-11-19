@@ -392,6 +392,9 @@ describe('UsersComponent', () => {
             const status = component.tableColumns.find((c) => c.key === 'isActive')!;
             expect(status.badgeConfig!.textFn!({ isActive: true })).toBe('Active');
             expect(status.badgeConfig!.textFn!({ isActive: false })).toBe('Blocked');
+            // An app account whose app turned its sign-in off (F50, setAppSignIn) is not Active, nor an admin's Blocked.
+            expect(status.badgeConfig!.textFn!({ isActive: false, status: 'Off', by: 'app' })).toBe('Sign-in off');
+            expect(status.classFn!({ isActive: false, status: 'Off' })).toBe('inactive');
             const role = component.tableColumns.find((c) => c.key === 'role')!;
             expect(role.transformFn!({ role: 'admin' })).toBe('Admin');
         });
@@ -493,6 +496,8 @@ describe('UsersComponent', () => {
             expect(named('toggleActive').labelFn!({ isActive: false })).toBe('admin.users.unblock');
             // Unblocking a detached record could not let it in; a locked app account is its app's to delete.
             expect(named('toggleActive').hide!({ id: 'other', uid: 'other-uid', status: 'Detached' })).toBe(true);
+            // Its app turned its sign-in off: only the app turns it on (F50).
+            expect(named('toggleActive').hide!({ id: 'other', uid: 'other-uid', status: 'Off', isActive: false })).toBe(true);
             expect(named('delete').hide!({ id: 'till', uid: 'till-uid', by: 'app' })).toBe(true);
             expect(named('delete').hide!({ id: 'open', uid: 'open-uid', by: 'app', selfService: true })).toBe(false);
         });

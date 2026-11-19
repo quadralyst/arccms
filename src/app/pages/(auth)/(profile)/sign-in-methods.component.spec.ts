@@ -80,6 +80,15 @@ describe('SignInMethodsComponent', () => {
         expect(c['flow']().step).toBe('code');
     });
 
+    it('says a number or email on another account is taken when the app keeps it there, and sends no code (F44)', async () => {
+        const c = ctx({ status: 'taken' });
+        c['flow'].set({ kind: 'phone', step: 'enter', typed: '98765 43210', check: null });
+        await proto['sendCode'].call(c);
+        expect(c['error']()).toBe('This number is on another account. Use a different number.');
+        expect(c['signIn'].requestPhoneCode).not.toHaveBeenCalled();
+        expect(c['flow']().step).toBe('enter');
+    });
+
     it('reads a number against the site\'s default country code (Settings, SMS)', async () => {
         const c = ctx({ value: '+447700900123' }, '44');
         c['flow'].set({ kind: 'phone', step: 'enter', typed: '07700 900123', check: null });

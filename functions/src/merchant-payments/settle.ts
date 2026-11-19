@@ -169,7 +169,8 @@ async function noteFinished(record: PaymentRecord, via: 'event' | 'sweep' | 'app
         if (!snap.exists) return null;
         const current = snap.data() as AccountDoc;
         const silentFinishes = silent ? (current.silentFinishes ?? 0) + 1 : 0;
-        tx.update(ref, { lastPaymentAtIso: new Date(nowMs).toISOString(), lastPaymentStatus: record.status, silentFinishes });
+        // Silent again: a silence the webhook saw end has not ended after all.
+        tx.update(ref, { lastPaymentAtIso: new Date(nowMs).toISOString(), lastPaymentStatus: record.status, silentFinishes, ...(silent ? { silenceEnded: FieldValue.delete() } : {}) });
         return { ...current, silentFinishes };
     });
     if (account && silent && account.silentFinishes >= SILENT_FINISHES_ALERT) {
@@ -228,6 +229,7 @@ export function resultFrom(record: PaymentRecord, item: PendingResult): PaymentR
         providerId: record.providerId,
         mode: record.mode,
         late: item.late,
+        eventSeen: record.eventSeen ?? false,
         ...(item.resolvedBy ? { resolvedBy: item.resolvedBy } : {}),
     };
 }
@@ -242,6 +244,9 @@ async function sendToApp(record: PaymentRecord, item: PendingResult): Promise<vo
             mode: record.mode,
             reference: record.reference,
             reasons: record.heldReasons,
+            // What the provider said reached the account, when it said: not what was asked.
+            ...(record.paidMinor !== undefined ? { amountMinor: record.paidMinor } : {}),
+            ...(record.paidCurrency !== undefined ? { currency: record.paidCurrency } : {}),
             detail: `The payment ${record.reference} is held for a person: ${record.heldReasons.join(', ')} did not match.`,
         });
         return;

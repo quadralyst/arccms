@@ -2,7 +2,9 @@
  * Adding or changing the email or phone number of the signed-in account, from
  * the profile page. Both go through a verification code, and a verified code
  * is proof enough of ownership: when the number or address is on another
- * account it moves here.
+ * account it moves here, unless the app chose `moveIdentifiers: false`
+ * (src/custom/own-account.ts): then it is refused (`on-another-account`), and the
+ * check answers `taken`.
  *
  * The other account keeps everything else (profiles, progress, purchases). If
  * the move leaves it no way to sign in it is detached: kept, blocked, and
@@ -63,12 +65,24 @@ import { isBlank } from '../shared/blank.js';
 import { queueEmail } from '../email-core/queueEmail.js';
 import { readEmailBrand, wrapInEmailLayout } from '../email-core/emailLayout.js';
 import { isActiveAdmin, requireAnotherActiveAdmin } from '../users/activeAdmins.js';
+import { ownAccount } from '../own-account-choice.js';
 
 const HOUR = 60 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export type LinkKind = 'email' | 'phone';
-export type LinkStatus = 'available' | 'yours' | 'other' | 'blocked';
+/** `other`: on another account, and moves here; `taken`: on another account, and the app keeps it there. */
+export type LinkStatus = 'available' | 'yours' | 'other' | 'taken' | 'blocked';
+
+/** Refuse a move from another account when the app chose `moveIdentifiers: false`. */
+function refuseMoveWhenOff(kind: LinkKind): void {
+    if (ownAccount().moveIdentifiers) return;
+    const label = kind === 'email' ? 'email' : 'number';
+    throw refuse('failed-precondition', 'on-another-account', `This ${label} is on another account, so it can't be added here.`);
+}
+
+/** `other` when moves are allowed, `taken` when the app keeps addresses and numbers where they are. */
+const onAnotherAccount = (): LinkStatus => (ownAccount().moveIdentifiers ? 'other' : 'taken');
 
 export function normalizeEmailAddress(raw: unknown): string {
     const email = cleanEmail(raw);
@@ -205,7 +219,7 @@ export const checkIdentifierForLink = onCall(async (request) => {
         const record = await findUserByEmail(email);
         let status: LinkStatus = 'available';
         if (record) {
-            status = arccmsOwnsAuthAccount(record.data) ? 'other' : 'blocked';
+            status = arccmsOwnsAuthAccount(record.data) ? onAnotherAccount() : 'blocked';
         } else {
             const holder = await owner.getUserByEmail(email).catch(() => null);
             if (holder && holder.uid !== uid) status = 'blocked';
@@ -218,7 +232,7 @@ export const checkIdentifierForLink = onCall(async (request) => {
     const needsPin = !(await hasPin(uid));
     if (me.data['phone'] === phone) return { kind: 'phone', value: phone, status: 'yours', needsPin };
     const record = await findUserByPhone(phone);
-    return { kind: 'phone', value: phone, status: record ? 'other' : 'available', needsPin };
+    return { kind: 'phone', value: phone, status: record ? onAnotherAccount() : 'available', needsPin };
 });
 
 export const requestEmailLinkOtp = onCall(async (request) => {
@@ -265,7 +279,10 @@ export const linkPhone = onCall(async (request) => {
     }
     // Before any code is used up: the move must not leave the site without an admin.
     const current = await findUserByPhone(phone);
-    if (current && current.ref.id !== me.ref.id) await refuseDetachingLastAdmin(current, 'phone');
+    if (current && current.ref.id !== me.ref.id) {
+        refuseMoveWhenOff('phone');
+        await refuseDetachingLastAdmin(current, 'phone');
+    }
     // Before the number's code is used up, so a page that still needs the fresh code keeps it.
     await requireLinkProof(request, me, uid, 'phone');
     if (!(await consumeVerifiedPhoneOtp(phone, 'link', { uid }))) {
@@ -287,7 +304,8 @@ export const linkPhone = onCall(async (request) => {
             if (snap.exists && snap.data()?.['phone'] === phone) holder = { ref: snap.ref, data: snap.data() ?? {} };
         }
 
-        // Again in the transaction: an admin may have gone meanwhile.
+        // Again in the transaction: the number may have gone to another account, or an admin away, meanwhile.
+        if (holder) refuseMoveWhenOff('phone');
         await refuseDetachingLastAdmin(holder, 'phone', tx);
         if (holder) tx.update(holder.ref, removalUpdate(holder.data, 'phone', now));
         tx.set(newIndex, { userDocId: me.ref.id, uid, createdAt: now });
@@ -337,7 +355,10 @@ export const linkEmail = onCall(async (request) => {
         throw refuse('failed-precondition', 'email-not-movable', "This email is used by a sign-in that can't be moved here.");
     }
 
-    if (from && from.ref.id !== me.ref.id) await refuseDetachingLastAdmin(from, 'email');
+    if (from && from.ref.id !== me.ref.id) {
+        refuseMoveWhenOff('email');
+        await refuseDetachingLastAdmin(from, 'email');
+    }
 
     // Before the address's code is used up, so a page that still needs the fresh code keeps it.
     await requireLinkProof(request, me, uid, 'email');

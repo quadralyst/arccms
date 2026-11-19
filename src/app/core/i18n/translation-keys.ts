@@ -3396,6 +3396,7 @@ export type TranslationKey =
     | 'admin.users.errors.own_account'
     | 'admin.users.errors.pin_sign_in'
     | 'admin.users.errors.shared_account'
+    | 'admin.users.errors.sign_in_off'
     | 'admin.users.errors.unverified_account'
     | 'admin.users.errors.unverified_add'
     | 'admin.users.form.add_title'
@@ -3469,6 +3470,7 @@ export type TranslationKey =
     | 'admin.users.status_blocked'
     | 'admin.users.status_detached'
     | 'admin.users.status_pending'
+    | 'admin.users.status_sign_in_off'
     | 'admin.users.unblock'
     | 'admin.users.unblock_failed'
     | 'admin.users.unblock_message'
@@ -3486,6 +3488,7 @@ export type TranslationKey =
     | 'admin.users.view.none'
     | 'admin.users.view.not_verified'
     | 'admin.users.view.role'
+    | 'admin.users.view.sign_in_off_reason'
     | 'admin.users.view.status'
     | 'admin.users.view.title'
     | 'admin.users.view.updated'
@@ -3937,12 +3940,15 @@ export type TranslationKey =
     | 'member.auth.server_error.no_email_account'
     | 'member.auth.server_error.no_pin'
     | 'member.auth.server_error.number_taken'
+    | 'member.auth.server_error.on_another_account'
     | 'member.auth.server_error.password_required'
     | 'member.auth.server_error.phone_off'
     | 'member.auth.server_error.pin_format'
     | 'member.auth.server_error.pin_required'
     | 'member.auth.server_error.pin_sign_in'
     | 'member.auth.server_error.pin_sign_in_off'
+    | 'member.auth.server_error.same_pin'
+    | 'member.auth.server_error.self_delete_off'
     | 'member.auth.server_error.session_claims'
     | 'member.auth.server_error.sign_in_again'
     | 'member.auth.server_error.sign_in_managed'
@@ -4077,6 +4083,8 @@ export type TranslationKey =
     | 'member.methods.save_pin'
     | 'member.methods.send_code'
     | 'member.methods.sign_in_elsewhere'
+    | 'member.methods.taken_email'
+    | 'member.methods.taken_number'
     | 'member.methods.title'
     | 'member.methods.verified'
     | 'member.not_found.description'
@@ -7735,6 +7743,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.users.errors.own_account',
     'admin.users.errors.pin_sign_in',
     'admin.users.errors.shared_account',
+    'admin.users.errors.sign_in_off',
     'admin.users.errors.unverified_account',
     'admin.users.errors.unverified_add',
     'admin.users.form.add_title',
@@ -7808,6 +7817,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.users.status_blocked',
     'admin.users.status_detached',
     'admin.users.status_pending',
+    'admin.users.status_sign_in_off',
     'admin.users.unblock',
     'admin.users.unblock_failed',
     'admin.users.unblock_message',
@@ -7825,6 +7835,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.users.view.none',
     'admin.users.view.not_verified',
     'admin.users.view.role',
+    'admin.users.view.sign_in_off_reason',
     'admin.users.view.status',
     'admin.users.view.title',
     'admin.users.view.updated',
@@ -8276,12 +8287,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.no_email_account',
     'member.auth.server_error.no_pin',
     'member.auth.server_error.number_taken',
+    'member.auth.server_error.on_another_account',
     'member.auth.server_error.password_required',
     'member.auth.server_error.phone_off',
     'member.auth.server_error.pin_format',
     'member.auth.server_error.pin_required',
     'member.auth.server_error.pin_sign_in',
     'member.auth.server_error.pin_sign_in_off',
+    'member.auth.server_error.same_pin',
+    'member.auth.server_error.self_delete_off',
     'member.auth.server_error.session_claims',
     'member.auth.server_error.sign_in_again',
     'member.auth.server_error.sign_in_managed',
@@ -8416,6 +8430,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.methods.save_pin',
     'member.methods.send_code',
     'member.methods.sign_in_elsewhere',
+    'member.methods.taken_email',
+    'member.methods.taken_number',
     'member.methods.title',
     'member.methods.verified',
     'member.not_found.description',

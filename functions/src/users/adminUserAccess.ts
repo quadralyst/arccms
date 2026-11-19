@@ -43,6 +43,8 @@ export const OWN_RECORD = "You can't change your own access here. Another admin 
 export const NOT_ACTIVE_ADMIN = 'Your admin access has ended. Sign in again.';
 export const UNVERIFIED_ROLE = "This person's email was never verified, so the sign-in could belong to someone else. Ask them to verify their email, or set a new password for them first in Edit user.";
 export const DETACHED = "This account is detached: its only email or number moved to another account, so it can't sign in. Delete it instead.";
+/** Said when an admin unblocks an account whose app turned its sign-in off (setAppSignIn). */
+export const SIGN_IN_OFF_BY_APP = "The app turned this account's sign-in off. Only the app can turn it on again.";
 export const NO_USER = 'That user no longer exists.';
 
 /** The record id from the request, or the refusal for a missing or odd one. */
@@ -157,6 +159,9 @@ export const adminSetUserBlocked = onCall(async (request) => {
         } else if (data['status'] === 'Detached') {
             // isActive alone cannot open it: its sign-in moved away.
             throw refuse('failed-precondition', 'detached', DETACHED);
+        } else if (data['status'] === 'Off') {
+            // The app turned it off, and its Firebase sign-in is disabled: the app turns it on.
+            throw refuse('failed-precondition', 'sign-in-off', SIGN_IN_OFF_BY_APP);
         }
         tx.update(ref, { isActive: !blocked, ...changedBy(request) });
     });

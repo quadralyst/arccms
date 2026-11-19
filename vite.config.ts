@@ -10,8 +10,10 @@ import { appleIconAsset, resolvePwaConfig, resolvePwaIcon } from './src/app/core
 import { CUSTOM_PWA } from './src/custom/pwa';
 import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
-import { resolveSignInStrength } from './src/shared/utils/sign-in-strength';
+import { resolveFixedSignIn, resolvePinStrength, resolveSignInStrength } from './src/shared/utils/sign-in-strength';
 import { CUSTOM_SIGN_IN } from './src/custom/sign-in';
+import { resolveOwnAccount } from './src/shared/utils/own-account';
+import { CUSTOM_OWN_ACCOUNT } from './src/custom/own-account';
 import { resolveClock } from './src/app/core/time/clock-config';
 import { CUSTOM_CLOCK } from './src/custom/clock';
 import { CUSTOM_BRAND } from './src/custom/brand';
@@ -31,8 +33,12 @@ import { vendorScripts } from './scripts/vite-vendor-scripts';
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
 const features = resolveFeatures(CUSTOM_FEATURES);
-// The same for the password and PIN strength (src/custom/sign-in.ts): a wrong value stops here.
+// The same for the password and PIN strength and the sign-in choices (src/custom/sign-in.ts): a wrong value stops here.
 resolveSignInStrength(CUSTOM_SIGN_IN);
+resolvePinStrength(CUSTOM_SIGN_IN);
+resolveFixedSignIn(CUSTOM_SIGN_IN);
+// The same for what a person may do to their own account (src/custom/own-account.ts).
+resolveOwnAccount(CUSTOM_OWN_ACCOUNT);
 // The same for the clock's skew threshold (src/custom/clock.ts).
 resolveClock(CUSTOM_CLOCK);
 // The same for the app's sign-up and contact notices (src/custom/notices.ts): a link that

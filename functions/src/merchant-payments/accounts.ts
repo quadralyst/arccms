@@ -10,7 +10,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { isFeatureOn } from '../feature-flags.js';
 import { db } from '../init.js';
-import { clearAccountProblem } from './alerts.js';
+import { clearAccountProblem, problemsSaid, sayCleared } from './alerts.js';
 import { connectorFor, offeredModes } from './connectors/index.js';
 import { ACCOUNT_KEYS, ACCOUNTS, newWebhookId, PAYMENTS, readAccount, readAccountKeys, WEBHOOKS, webhookAddress, type AccountDoc, type PaymentRecord } from './store.js';
 import { CALL_TIMEOUT_MS, holdPayment } from './settle.js';
@@ -29,7 +29,7 @@ export function goodAccountId(accountId: unknown): accountId is string {
 
 /** What a page may read, with the address built, and nothing of Arc's bookkeeping. */
 export function publicView(account: AccountDoc): PublicPaymentAccount {
-    const { webhookId, alertsSaid: _said, silentFinishes: _silent, ...open } = account;
+    const { webhookId, alertsSaid: _said, silentFinishes: _silent, silenceEnded: _ended, ...open } = account;
     return { ...open, problems: account.problems ?? {}, webhookAddress: webhookAddress(webhookId) };
 }
 
@@ -132,6 +132,8 @@ export async function connectPaymentAccount(input: ConnectPaymentAccountInput): 
     batch.set(db.collection(WEBHOOKS).doc(webhookId), { accountId: input.accountId, provider: connector.info.id });
     if (before?.webhookId && before.webhookId !== webhookId) batch.delete(db.collection(WEBHOOKS).doc(before.webhookId));
     await batch.commit();
+    // New keys start with no problems: what the app was told of before has gone (once, best effort).
+    for (const type of problemsSaid(existing)) await sayCleared({ ...account, provider: existing!.provider, mode: existing!.mode }, type);
     return { ok: true, account: publicView(account) };
 }
 

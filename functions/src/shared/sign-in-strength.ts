@@ -28,6 +28,12 @@ export interface SignInChoice {
      * Leave it out and the admin chooses in Settings, User Settings (off unless they change it).
      */
     newDeviceCode?: boolean;
+    /**
+     * `refuse`: every new PIN that is easy to guess is refused, whatever `strength`
+     * says, so passwords can stay simple while a PIN that opens the app in front of
+     * others cannot be 123456. Leave it out and `strength` decides for PINs too.
+     */
+    weakPins?: 'refuse';
 }
 
 /** The sign-in choices an app fixed; `null` where it left the choice to the admin. */
@@ -45,6 +51,21 @@ export function resolveSignInStrength(choice: SignInChoice | undefined): SignInS
         `src/custom/sign-in.ts: strength is ${JSON.stringify(strength)}. Write strength: 'simple' for casual apps, ` +
             `or leave it out (or write 'strict') for the full password and PIN rule.`,
     );
+}
+
+/**
+ * The rule for new PINs: `strict` (easy ones refused) under the strict rule or with
+ * `weakPins: 'refuse'`, `simple` otherwise. A value that is not one stops the build.
+ */
+export function resolvePinStrength(choice: SignInChoice | undefined): SignInStrength {
+    const weakPins = choice?.weakPins;
+    if (weakPins !== undefined && weakPins !== 'refuse') {
+        throw new Error(
+            `src/custom/sign-in.ts: weakPins is ${JSON.stringify(weakPins)}. Write weakPins: 'refuse' to refuse PINs that are easy to guess, ` +
+                `or leave it out for the strength to decide.`,
+        );
+    }
+    return weakPins === 'refuse' ? 'strict' : resolveSignInStrength(choice);
 }
 
 /** The sign-in choices an app fixed; a value that is not one stops the build with what to write. */
