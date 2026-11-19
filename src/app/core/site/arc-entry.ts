@@ -22,9 +22,16 @@ export const arcEntry = {
 /**
  * Writes the page's arc-entry meta, or removes it (null) when the page is left or
  * is not one to name, and has the admin strip follow it (editor-strip.ts).
+ * `editable` adds `data-arc-editable=""`, as publishing does for a static page
+ * with marked areas (specs/visual-editing-spec.md, VE-D56).
  */
-export function setArcEntry(meta: Meta, entry: string | null): void {
-    if (entry) meta.updateTag({ name: 'arc-entry', content: entry });
-    else meta.removeTag("name='arc-entry'");
+export function setArcEntry(meta: Meta, entry: string | null, editable = false): void {
+    if (entry) {
+        const tag = meta.updateTag(editable ? { name: 'arc-entry', content: entry, 'data-arc-editable': '' } : { name: 'arc-entry', content: entry });
+        // The same tag carries on from the page before: it may have said so.
+        if (!editable) tag?.removeAttribute('data-arc-editable');
+    } else {
+        meta.removeTag("name='arc-entry'");
+    }
     refreshEditorStrip();
 }

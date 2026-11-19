@@ -11,6 +11,8 @@ import { versionSiteUrls } from '../shared/site-urls.js';
 import { liveSiteScript, loadSiteNotices, prepareLiveParts } from '../shared/live-parts.js';
 import { siteChrome } from './card-blocks.js';
 import { withImageAttributes } from './image-attributes.js';
+import { applyPageText, hasPageTextMarks, pageTextId } from '../shared/page-text.js';
+import { loadPublishedPageText } from './page-text-store.js';
 
 /**
  * Generates and deploys a processed static page (e.g., privacy-policy, terms).
@@ -55,12 +57,18 @@ export async function generateAndDeployStaticPage(
     const strings = await getUiStrings(defaultLang);
     const withSiteInfo = (html: string) =>
         TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, strings), siteInfo);
+    // What editors changed on the page, as published (specs/visual-editing-spec.md, VE-D40),
+    // before the strings, so an editor's value wins (VE-D43).
+    // Only a page with marked areas has any (it is the only kind editors open, VE-D48).
+    const editable = hasPageTextMarks(rawHtml);
+    const pageText = editable ? await loadPublishedPageText(pageTextId.staticPage(pageSlug)) : null;
+    const editedHtml = applyPageText(rawHtml, pageText, { lang: defaultLang, defaultLang, ownFile: true, strings });
 
     // 3. Replace arc components, the search widget built for that language. The
     // header and footer have their card blocks filled, once per release (card-blocks.ts).
     const chrome = await siteChrome(partials, defaultLang, defaultLang, strings, siteInfo, batch);
     let processedHtml = replaceArcComponents(
-        withSiteInfo(rawHtml),
+        withSiteInfo(editedHtml),
         chrome.headerHtml,
         chrome.footerHtml,
         '',
@@ -99,8 +107,8 @@ export async function generateAndDeployStaticPage(
             $('head').append(`<meta name="arc-deployed-at" content="${new Date().toISOString()}">`);
         }
 
-        // The admin strip's link to this page (VE-D11).
-        setArcEntryMeta($, arcEntry.staticPage(pageSlug));
+        // The admin strip's link to this page (VE-D11), and whether it has areas to edit (VE-D56).
+        setArcEntryMeta($, arcEntry.staticPage(pageSlug), editable);
 
         // 6. The "Built with Arc CMS" line, in the page's words, if enabled
         if (miscSettings.showPoweredBy) {

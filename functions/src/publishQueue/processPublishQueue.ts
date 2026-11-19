@@ -26,11 +26,12 @@ import { runReindex } from '../search/reindexSearch.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
 import { claimCoalesced, coalescedIdFor, finishCoalesced, requestCoalesced } from './coalesced-items.js';
+import { pageOfPageTextId, publishPageTextDraft } from '../pages/page-text-store.js';
 import type { RebuildCursor } from '../pages/items-from-type-pages.js';
 import type { ItemsFromTypeCache } from '../pages/published-entries.js';
 
 interface QueueItem {
-    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'order' | 'items-from';
+    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'order' | 'items-from' | 'page-text';
     contentTypeSlug: string;
     docId: string;
     timestamp: Timestamp;
@@ -80,6 +81,20 @@ export async function queuePagesShowingItemsOf(slug: string): Promise<void> {
         console.log(`Rebuilding the pages that show entries of ${slug} (${outcome})`);
     } catch (error) {
         console.error(`Could not queue the pages that show entries of ${slug}:`, error);
+    }
+}
+
+/**
+ * Queues a rebuild of the home page in every language, coalesced
+ * (coalesced-items.ts, specs/visual-editing-spec.md VE-D57): five cards and the
+ * page text published together make one release of the home page, not one each.
+ */
+export async function queueHomePage(reason: string): Promise<void> {
+    try {
+        const outcome = await requestCoalesced('home');
+        console.log(`Rebuilding the home page (${outcome}): ${reason}`);
+    } catch (error) {
+        console.error(`Could not queue the home page rebuild (${reason}):`, error);
     }
 }
 
@@ -475,10 +490,12 @@ export const processPublishQueue = onDocumentCreated({
     const queueId = queueDocRef?.id ?? event.params?.queueId ?? '';
 
     // 'redeploy-all' and 'home' are site-wide, so they name no content type and no
-    // document; 'order' is about a whole content type, so it names no document.
+    // document; 'order' is about a whole content type, so it names no document;
+    // 'page-text' names a page (`home`, `p-{name}`) and no content type.
     const siteWide = action === 'redeploy-all' || action === 'home';
     const typeWide = action === 'order' || action === 'items-from';
-    if (!action || (!siteWide && (!contentTypeSlug || (!typeWide && !docId)))) {
+    const pageWide = action === 'page-text';
+    if (!action || (pageWide ? !docId : (!siteWide && (!contentTypeSlug || (!typeWide && !docId))))) {
         console.error('Invalid queue item — missing required fields:', queueData);
         if (queueDocRef) await queueDocRef.delete();
         return;
@@ -495,28 +512,62 @@ export const processPublishQueue = onDocumentCreated({
     /** Pages left at an old address (moved-page.ts): not sent to IndexNow as new pages. */
     const movedPaths = new Set<string>();
 
-    // The home page alone, after a setting it shows changed (onSiteSettingsWritten).
-    if (action === 'home') {
+    // A page's text was published (specs/visual-editing-spec.md, VE-D57): its draft
+    // becomes the published copy, kept in History, and the page is rebuilt. The
+    // home page joins the coalesced home page rebuild, with any cards published
+    // with it; a static page goes out in this item's own release.
+    if (action === 'page-text') {
+        const page = pageOfPageTextId(docId);
         try {
-            await generateAndDeployHomePage(batch);
-            if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '', itemRelease(runStart));
+            if (!page) throw new Error(`not a page: ${docId}`);
+            await publishPageTextDraft(docId);
+            if (page.kind === 'home') {
+                await queueHomePage('its page text was published');
+            } else {
+                await generateAndDeployStaticPage(page.name, batch);
+                if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, 'static_pages', page.name, itemRelease(runStart));
+            }
         } catch (error) {
-            console.error('Home page republish failed:', error);
+            console.error(`Publishing the page text of ${docId} failed:`, error);
         }
         if (queueDocRef) await queueDocRef.delete();
         return;
     }
 
-    // A whole-site republish and a rebuild of the pages showing a type's entries
-    // coalesce (coalesced-items.ts): each is one queue document with a fixed id.
-    // One added any other way (the admin's Republish button, a settings change)
-    // joins it, so it cannot run beside it and race its release.
+    // A whole-site republish, a rebuild of the pages showing a type's entries and
+    // a rebuild of the home page coalesce (coalesced-items.ts): each is one queue
+    // document with a fixed id. One added any other way (the admin's Republish
+    // button, a settings change) joins it, so it cannot run beside it and race
+    // its release.
     const coalescedId = coalescedIdFor(action, contentTypeSlug);
     if (coalescedId && queueId !== coalescedId) {
         if (action === 'redeploy-all') await queueRedeployAll(`asked for by queue item ${queueId}`);
+        else if (action === 'home') await queueHomePage(`asked for by queue item ${queueId}`);
         else await requestCoalesced('items-from', contentTypeSlug).catch((error) =>
             console.error(`Could not queue the pages that show entries of ${contentTypeSlug}:`, error));
         if (queueDocRef) await queueDocRef.delete();
+        return;
+    }
+
+    // The home page in every language: after a setting it shows changed
+    // (onSiteSettingsWritten), its cards' entries changed, or its page text was
+    // published. However many asked, one run builds it from what is published then.
+    if (action === 'home') {
+        const claimed = await claimCoalesced(coalescedId);
+        if (!claimed) return;
+        let failure = '';
+        try {
+            await generateAndDeployHomePage(batch);
+            const run = await releaseRun(batch, runStart);
+            failure = run.failure;
+            // Search engines hear of the new home page, as they did when it went out with an entry.
+            if (run.released && isFeatureOn('seo')) await submitBatchToIndexNow(batch.files.map((f) => f.path), batch.removedPaths);
+        } catch (error: any) {
+            failure = error?.message || String(error);
+            console.error('Home page republish failed:', error);
+        }
+        if (failure) await finishCoalesced(coalescedId, undefined, { failed: true, error: failure });
+        else await finishCoalesced(coalescedId);
         return;
     }
 
@@ -852,14 +903,11 @@ export const processPublishQueue = onDocumentCreated({
                 console.warn(`Unknown action: ${action}`);
         }
 
-        // The home page shows cards of some types, public pages or not: republish
-        // it with them.
+        // The home page shows cards of some types, public pages or not: it is
+        // rebuilt in a coalesced item of its own (VE-D57), so many entries
+        // published together make one release of it.
         if (await homeShowsType(contentTypeSlug).catch(() => false)) {
-            try {
-                await generateAndDeployHomePage(batch);
-            } catch (homeErr) {
-                console.error(`Home page rebuild failed after ${action} ${contentTypeSlug}/${docId}:`, homeErr);
-            }
+            await queueHomePage(`${action} ${contentTypeSlug}/${docId}`);
         }
 
         // Regenerate sitemap and RSS feeds after any content change

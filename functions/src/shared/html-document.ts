@@ -137,9 +137,13 @@ export const arcEntry = {
     staticPage: (name: string): string => `p/${name}`,
 };
 
-/** `<meta name="arc-entry" content="…">`, its value escaped. */
-export function arcEntryMetaTag(entry: string): string {
-    return `<meta name="arc-entry" content="${escapeAttr(entry)}">`;
+/**
+ * `<meta name="arc-entry" content="…">`, its value escaped. `editable` adds
+ * `data-arc-editable`: a static page with marked areas, which the strip offers
+ * to edit (specs/visual-editing-spec.md, VE-D56).
+ */
+export function arcEntryMetaTag(entry: string, editable = false): string {
+    return `<meta name="arc-entry" content="${escapeAttr(entry)}"${editable ? ' data-arc-editable=""' : ''}>`;
 }
 
 /**
@@ -147,9 +151,9 @@ export function arcEntryMetaTag(entry: string): string {
  * home page, static pages). One that came with the file is replaced: the
  * value is always the page's own.
  */
-export function setArcEntryMeta($: cheerio.CheerioAPI, entry: string): void {
+export function setArcEntryMeta($: cheerio.CheerioAPI, entry: string, editable = false): void {
     $('meta[name="arc-entry"]').remove();
-    $('head').append(`${arcEntryMetaTag(entry)}\n`);
+    $('head').append(`${arcEntryMetaTag(entry, editable)}\n`);
 }
 
 /**

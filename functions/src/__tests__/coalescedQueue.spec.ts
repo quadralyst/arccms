@@ -74,11 +74,11 @@ vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: () => ({ seconds:
 
 import {
     claimCoalesced, coalescedIdFor, finishCoalesced, itemsFromId, MAX_FAILED_RUNS, recoverStaleCoalesced, requestCoalesced,
-    REDEPLOY_ALL_ID, STALE_MS,
+    REDEPLOY_ALL_ID, STALE_MS, HOME_PAGE_ID,
 } from '../publishQueue/coalesced-items.js';
 
 const item = (id: string): Data | undefined => queue.docs.get(id)?.data;
-const ask = (n: number, action: 'redeploy-all' | 'items-from' = 'redeploy-all', slug = '') =>
+const ask = (n: number, action: 'redeploy-all' | 'items-from' | 'home' = 'redeploy-all', slug = '') =>
     Promise.all(Array.from({ length: n }, () => requestCoalesced(action, slug)));
 
 describe('coalesced queue items', () => {
@@ -88,12 +88,23 @@ describe('coalesced queue items', () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
     });
 
-    it('has one fixed id per kind: the whole site, and each type', () => {
+    it('has one fixed id per kind: the whole site, the home page, and each type', () => {
         expect(coalescedIdFor('redeploy-all', '')).toBe(REDEPLOY_ALL_ID);
+        expect(coalescedIdFor('home', '')).toBe(HOME_PAGE_ID);
         expect(coalescedIdFor('items-from', 'events')).toBe(itemsFromId('events'));
         expect(itemsFromId('events')).not.toBe(itemsFromId('news'));
         expect(coalescedIdFor('publish', 'events')).toBe('');
         expect(coalescedIdFor('items-from', '')).toBe('');
+    });
+
+    // VE-D57: five cards and the page text published together, one home page release.
+    it('turns six requests for the home page into one queue item, and runs it again for one made while it runs', async () => {
+        expect((await ask(6, 'home')).filter((o) => o === 'queued')).toHaveLength(1);
+        expect(item(HOME_PAGE_ID)).toMatchObject({ action: 'home', state: 'waiting' });
+        await claimCoalesced(HOME_PAGE_ID);
+        expect(await requestCoalesced('home')).toBe('dirty');
+        await finishCoalesced(HOME_PAGE_ID);
+        expect(item(HOME_PAGE_ID)).toMatchObject({ action: 'home', state: 'waiting', dirty: false });
     });
 
     it('turns 20 simultaneous requests for a whole-site republish into one queue item', async () => {

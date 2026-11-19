@@ -33,4 +33,15 @@ describe('arc-entry meta (VE-D11)', () => {
         setArcEntry(meta, null);
         expect(head.querySelector('meta[name="arc-entry"]')).toBeNull();
     });
+
+    it('says when a static page has areas to edit, and stops saying it for the next page (VE-D56)', () => {
+        const meta = TestBed.inject(Meta);
+        const head = TestBed.inject(DOCUMENT).head;
+        setArcEntry(meta, 'p/about-us', true);
+        expect(head.querySelector('meta[name="arc-entry"]')?.outerHTML).toBe('<meta name="arc-entry" content="p/about-us" data-arc-editable="">');
+        setArcEntry(meta, 'p/terms');
+        expect(head.querySelectorAll('meta[name="arc-entry"]').length).toBe(1);
+        expect(head.querySelector('meta[name="arc-entry"]')?.hasAttribute('data-arc-editable')).toBe(false);
+        setArcEntry(meta, null);
+    });
 });

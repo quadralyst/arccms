@@ -148,6 +148,13 @@ vi.mock('../publishQueue/coalesced-items', async (importOriginal) => ({
 }));
 const requested = (action: string) => mockRequestCoalesced.mock.calls.filter(([a]) => a === action);
 
+// Page text (VE-D57): the draft's publish, as a spy.
+const { mockPublishPageTextDraft } = vi.hoisted(() => ({ mockPublishPageTextDraft: vi.fn(async (_id: string) => undefined) }));
+vi.mock('../pages/page-text-store', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../pages/page-text-store.js')>()),
+    publishPageTextDraft: (id: string) => mockPublishPageTextDraft(id),
+}));
+
 // The search index rebuild after a whole-site republish.
 const { mockRunReindex } = vi.hoisted(() => ({ mockRunReindex: vi.fn(async () => []) }));
 vi.mock('../search/reindexSearch', () => ({ runReindex: (...args: unknown[]) => mockRunReindex(...(args as [])) }));
@@ -445,22 +452,87 @@ describe('processPublishQueue', () => {
         });
     });
 
-    describe('home action: the home page alone, after a setting it shows changed', () => {
-        it('republishes the home page in one release and removes the queue item', async () => {
-            mockGenerateHome.mockImplementation(async (batch: any) => { batch.add('/index.html', '<html></html>'); });
+    // VE-D57 (specs/visual-editing-spec.md): the home page rebuild coalesces.
+    describe('home action: the home page alone, coalesced', () => {
+        it('joins the one coalesced home page item when added any other way (a setting changed)', async () => {
             const event = createEvent('home', '', '');
             await handler(event);
-            expect(mockGenerateHome).toHaveBeenCalledTimes(1);
-            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
-            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(requested('home')).toHaveLength(1);
+            expect(mockGenerateHome).not.toHaveBeenCalled();
             expect(event.data.ref.delete).toHaveBeenCalled();
         });
 
-        it('removes the queue item even when the home page cannot be built', async () => {
+        it('claims the item, republishes the home page in one release, then finishes the item', async () => {
+            mockGenerateHome.mockImplementation(async (batch: any) => { batch.add('/index.html', '<html></html>'); });
+            vi.stubEnv('ARC_HOSTING_SITE', 'my-site');
+            mockDeployBatchToHosting.mockResolvedValueOnce(true);
+            await handler(createEvent('home', '', '', 'home-page'));
+            vi.unstubAllEnvs();
+            expect(mockClaimCoalesced).toHaveBeenCalledWith('home-page');
+            expect(mockGenerateHome).toHaveBeenCalledTimes(1);
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+            expect(mockDeployBatchToHosting.mock.calls[0][2]).toBe('');
+            expect(mockSubmitBatchToIndexNow).toHaveBeenCalledWith(['/index.html'], expect.anything());
+            expect(mockFinishCoalesced).toHaveBeenCalledWith('home-page');
+        });
+
+        it('finishes the item as failed when the home page cannot be built, so it runs again', async () => {
             mockGenerateHome.mockRejectedValue(new Error('no home page'));
-            const event = createEvent('home', '', '');
-            await handler(event);
+            await handler(createEvent('home', '', '', 'home-page'));
             expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
+            expect(mockFinishCoalesced).toHaveBeenCalledWith('home-page', undefined, { failed: true, error: 'no home page' });
+        });
+
+        it('runs nothing when another delivery of the trigger is running it', async () => {
+            mockClaimCoalesced.mockResolvedValueOnce(null);
+            await handler(createEvent('home', '', '', 'home-page'));
+            expect(mockGenerateHome).not.toHaveBeenCalled();
+            expect(mockFinishCoalesced).not.toHaveBeenCalled();
+        });
+    });
+
+    // VE-D57: a page's text published, through the queue.
+    describe('page-text action', () => {
+        it('publishes the home page\'s draft and asks for the coalesced home page rebuild', async () => {
+            const event = createEvent('page-text', '', 'home');
+            await handler(event);
+            expect(mockPublishPageTextDraft).toHaveBeenCalledWith('home');
+            expect(requested('home')).toHaveLength(1);
+            expect(mockGenerateHome).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('publishes a static page\'s draft and rebuilds that page in its own release', async () => {
+            mockGenerateStaticPage.mockImplementationOnce(async (_slug: string, batch: any) => { batch.add('/pages/about-us/index.html', 'x'); });
+            const event = createEvent('page-text', '', 'p-about-us');
+            await handler(event);
+            expect(mockPublishPageTextDraft).toHaveBeenCalledWith('p-about-us');
+            expect(mockGenerateStaticPage).toHaveBeenCalledWith('about-us', expect.anything());
+            expect(mockDeployBatchToHosting).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'static_pages', 'about-us', expect.anything());
+            expect(requested('home')).toHaveLength(0);
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('publishes nothing for an id that names no page, and removes the item', async () => {
+            const event = createEvent('page-text', '', 'about');
+            await handler(event);
+            expect(mockPublishPageTextDraft).not.toHaveBeenCalled();
+            expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('removes the item, releasing nothing, when the draft cannot be published', async () => {
+            mockPublishPageTextDraft.mockRejectedValueOnce(new Error('offline'));
+            const event = createEvent('page-text', '', 'p-about-us');
+            await handler(event);
+            expect(mockGenerateStaticPage).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('needs a page', async () => {
+            const event = createEvent('page-text', '', '');
+            await handler(event);
+            expect(mockPublishPageTextDraft).not.toHaveBeenCalled();
             expect(event.data.ref.delete).toHaveBeenCalled();
         });
     });
@@ -1172,7 +1244,9 @@ describe('processPublishQueue', () => {
 
             await handler(createEvent('publish', 'services', 'doc1'));
 
-            expect(mockGenerateHome).toHaveBeenCalledTimes(1);
+            // In the coalesced home page item (VE-D57), not this item's release.
+            expect(requested('home')).toHaveLength(1);
+            expect(mockGenerateHome).not.toHaveBeenCalled();
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
             expect(mockGenerateListPage).not.toHaveBeenCalled();
         });
@@ -1184,6 +1258,17 @@ describe('processPublishQueue', () => {
             await handler(createEvent('publish', 'services', 'doc1'));
 
             expect(mockGenerateHome).not.toHaveBeenCalled();
+            expect(requested('home')).toHaveLength(0);
+        });
+
+        it('a bulk publish of five cards the home page shows asks for one coalesced rebuild each, and builds it in none', async () => {
+            buildChain({ hasPublicUrl: false });
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Design', urlSlug: 'design' }) });
+            mockHomeShowsType.mockResolvedValue(true);
+            for (let i = 0; i < 5; i++) await handler(createEvent('publish', 'services', `doc${i}`, `q${i}`));
+            expect(requested('home')).toHaveLength(5);
+            expect(mockGenerateHome).not.toHaveBeenCalled();
+            mockHomeShowsType.mockResolvedValue(false);
         });
 
         it('should deploy static HTML when ContentType.hasPublicUrl is undefined (backward compat)', async () => {

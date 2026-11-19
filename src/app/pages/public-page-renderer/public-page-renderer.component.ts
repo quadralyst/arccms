@@ -18,6 +18,9 @@ import { applySiteInfoToHtml } from '../../core/site/apply-site-info-dom';
 import { attachLiveParts } from '../../core/site/live-parts';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
+import { LocalizationService } from '../../core/services/localization.service';
+import { PageTextService } from '../../core/site/page-text.service';
+import { applyPageText, hasPageTextMarks, pageTextId } from '../../core/utils/page-text';
 
 @Component({
     selector: 'app-public-page-renderer',
@@ -59,6 +62,10 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
     private siteIdentity = inject(SiteIdentityService);
     private sitePages = inject(SitePagesService);
     private uiStrings = inject(UiStringsService);
+    private localization = inject(LocalizationService);
+    private pageText = inject(PageTextService);
+    /** Whether the page has areas editors can change, for its arc-entry meta (VE-D56). */
+    private editable = false;
     private cdr = inject(ChangeDetectorRef);
     private document = inject(DOCUMENT);
     /** `<html lang>` and `dir`: the site's default language, the one static pages are in. */
@@ -126,6 +133,18 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
             /** Whether the page was left while its data was read. */
             const left = () => asked !== this.asked;
             if (htmlContent) {
+                // What editors published in the page's marked areas (specs/visual-editing-spec.md,
+                // VE-D40), filled as publishing fills it, before the strings (VE-D43). Static
+                // pages are in the default language only.
+                this.editable = hasPageTextMarks(htmlContent);
+                if (this.editable) {
+                    const [edited, settings] = await Promise.all([
+                        this.pageText.published(pageTextId.staticPage(this.pageName)), this.localization.load(),
+                    ]);
+                    if (left()) return;
+                    const lang = settings.defaultLanguage || '';
+                    htmlContent = applyPageText(htmlContent, edited, { lang, defaultLang: lang, ownFile: true });
+                }
                 // The site's own details for data-arc-site (SS3), read only when the page asks.
                 // Read only for a page that asks: the site's details (SS3), and the
                 // standard pages (SS6) for its forms' notice links and site loops.
@@ -214,7 +233,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
         }
 
         // What the page is, for the admin strip (VE-D11): its own name, over any the file had.
-        setArcEntry(this.metaService, this.pageName ? arcEntry.staticPage(this.pageName) : null);
+        setArcEntry(this.metaService, this.pageName ? arcEntry.staticPage(this.pageName) : null, this.editable);
 
         // 3. The page's own <head>, for its stylesheets and scripts (drawPageHead).
         this.pageHead = processedHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? '';

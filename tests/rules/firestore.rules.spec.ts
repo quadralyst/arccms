@@ -470,6 +470,18 @@ describe('publish queue (functions/src/publishQueue/processPublishQueue.ts)', ()
         await assertFails(add(item({ timestamp: 'now' })));
     });
 
+    it('lets staff ask for a page\'s text to be published, naming only the page (VE-D57)', async () => {
+        const add = (db: ReturnType<typeof editor>, fields: Record<string, unknown>) => addDoc(collection(db, '_publish_queue'), item(fields));
+        await assertSucceeds(add(editor(), { action: 'page-text', contentTypeSlug: '', docId: 'home' }));
+        await assertSucceeds(add(admin(), { action: 'page-text', contentTypeSlug: '', docId: 'p-about-us' }));
+        await assertFails(add(editor(), { action: 'page-text', contentTypeSlug: 'articles', docId: 'home' }));
+        await assertFails(add(editor(), { action: 'page-text', contentTypeSlug: '', docId: '' }));
+        await assertFails(add(editor(), { action: 'page-text', contentTypeSlug: '', docId: 'p-../x' }));
+        await assertFails(add(alice(), { action: 'page-text', contentTypeSlug: '', docId: 'home' }));
+        // The coalesced home page rebuild is the functions' own.
+        await assertFails(setDoc(doc(editor(), '_publish_queue', 'home-page'), item({ action: 'page-text', contentTypeSlug: '', docId: 'home' })));
+    });
+
     it('lets nobody read, change or delete a queue item', async () => {
         await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), '_publish_queue', 'q1'), item()));
         await assertFails(getDoc(doc(admin(), '_publish_queue', 'q1')));
@@ -884,5 +896,55 @@ describe('audience and email records are admin only', () => {
         await assertFails(deleteDoc(doc(admin(), 'Suppression', 'h1')));
         await assertSucceeds(setDoc(doc(admin(), 'Lists', 'vip'), { name: 'VIP' }));
         await assertSucceeds(updateDoc(doc(admin(), 'EmailLogs', 'l1'), { note: 'checked' }));
+    });
+});
+
+// Page text (specs/visual-editing-spec.md, VE-D39): editors keep a draft, anyone
+// reads what is published, only the publish function writes it and its history.
+describe('page text (SitePageTextDrafts, SitePageText)', () => {
+    const draft = (fields: Record<string, unknown> = {}) => ({
+        text: { en: { hero: { value: 'Hi' } } }, updatedAt: serverTimestamp(), updatedBy: 'editor-uid', ...fields,
+    });
+
+    it('lets editors read and write the draft, a field at a time', async () => {
+        await assertSucceeds(setDoc(doc(editor(), 'SitePageTextDrafts', 'home'), draft()));
+        await assertSucceeds(getDoc(doc(editor(), 'SitePageTextDrafts', 'home')));
+        await assertSucceeds(updateDoc(doc(editor(), 'SitePageTextDrafts', 'home'), {
+            'text.hi.hero': { value: 'नमस्ते' }, 'urls.photo': { value: '/a.jpg' }, updatedAt: serverTimestamp(), updatedBy: 'editor-uid',
+        }));
+        await assertSucceeds(setDoc(doc(admin(), 'SitePageTextDrafts', 'p-about-us'), draft({ updatedBy: 'admin-uid', seo: { en: {} }, shareImage: { value: '/s.jpg' } })));
+        await assertSucceeds(deleteDoc(doc(admin(), 'SitePageTextDrafts', 'p-about-us')));
+    });
+
+    it('keeps the draft from everyone else', async () => {
+        await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'SitePageTextDrafts', 'home'), { text: {} }));
+        await assertFails(getDoc(doc(anon(), 'SitePageTextDrafts', 'home')));
+        await assertFails(getDoc(doc(alice(), 'SitePageTextDrafts', 'home')));
+        await assertFails(setDoc(doc(alice(), 'SitePageTextDrafts', 'home'), draft({ updatedBy: ALICE })));
+        await assertFails(updateDoc(doc(alice(), 'SitePageTextDrafts', 'home'), { 'text.en.hero': { value: 'x' } }));
+        await assertFails(deleteDoc(doc(alice(), 'SitePageTextDrafts', 'home')));
+    });
+
+    it('refuses a draft with other fields, a page id that is not one, or another person\'s name on it', async () => {
+        await assertFails(setDoc(doc(editor(), 'SitePageTextDrafts', 'home'), draft({ status: 'publish' })));
+        await assertFails(setDoc(doc(editor(), 'SitePageTextDrafts', 'about'), draft()));
+        await assertFails(setDoc(doc(editor(), 'SitePageTextDrafts', 'home'), draft({ updatedBy: 'admin-uid' })));
+        await assertFails(setDoc(doc(editor(), 'SitePageTextDrafts', 'home'), draft({ updatedAt: new Date(0) })));
+        await assertFails(setDoc(doc(editor(), 'SitePageTextDrafts', 'home'), draft({ text: 'x' })));
+    });
+
+    it('lets anyone read the published copy, and nobody write it or its history', async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), 'SitePageText', 'home'), { text: {} });
+            await setDoc(doc(ctx.firestore(), 'SitePageText', 'home', 'History', 'h1'), { text: {} });
+        });
+        await assertSucceeds(getDoc(doc(anon(), 'SitePageText', 'home')));
+        await assertFails(setDoc(doc(admin(), 'SitePageText', 'home'), { text: {} }));
+        await assertFails(updateDoc(doc(editor(), 'SitePageText', 'home'), { 'text.en.hero': { value: 'x' } }));
+        await assertFails(deleteDoc(doc(admin(), 'SitePageText', 'home')));
+        await assertSucceeds(getDoc(doc(editor(), 'SitePageText', 'home', 'History', 'h1')));
+        await assertFails(getDoc(doc(alice(), 'SitePageText', 'home', 'History', 'h1')));
+        await assertFails(getDoc(doc(anon(), 'SitePageText', 'home', 'History', 'h1')));
+        await assertFails(setDoc(doc(admin(), 'SitePageText', 'home', 'History', 'h2'), { text: {} }));
     });
 });

@@ -2,8 +2,11 @@ import { Timestamp, type DocumentReference, type DocumentSnapshot } from 'fireba
 import { db } from '../init.js';
 
 /**
- * Queue items that coalesce: a whole-site republish ('redeploy-all') and a
- * rebuild of the pages showing one type's entries ('items-from'). Each is one
+ * Queue items that coalesce: a whole-site republish ('redeploy-all'), a
+ * rebuild of the pages showing one type's entries ('items-from') and a rebuild
+ * of the home page in every language ('home', specs/visual-editing-spec.md,
+ * VE-D57: five cards and the page text published together make one release of
+ * the home page, not six). Each is one
  * queue document with a fixed id, so however many changes ask for it at once,
  * at most one waits and at most one runs:
  *
@@ -40,10 +43,13 @@ const ATTEMPTS = 8;
 /** How many runs in a row of one item may fail before it is not run again until a change asks for it. */
 export const MAX_FAILED_RUNS = 3;
 
-export type CoalescedAction = 'redeploy-all' | 'items-from';
+export type CoalescedAction = 'redeploy-all' | 'items-from' | 'home';
 
 /** The fixed id of the one whole-site republish. */
 export const REDEPLOY_ALL_ID = 'redeploy-all';
+
+/** The fixed id of the one rebuild of the home page. */
+export const HOME_PAGE_ID = 'home-page';
 
 /** The fixed id of the one rebuild of the pages showing entries of `slug`. */
 export function itemsFromId(slug: string): string {
@@ -53,6 +59,7 @@ export function itemsFromId(slug: string): string {
 /** The fixed id an action's item has, or '' for an action that does not coalesce. */
 export function coalescedIdFor(action: string, contentTypeSlug: string): string {
     if (action === 'redeploy-all') return REDEPLOY_ALL_ID;
+    if (action === 'home') return HOME_PAGE_ID;
     if (action === 'items-from' && contentTypeSlug) return itemsFromId(contentTypeSlug);
     return '';
 }
@@ -233,7 +240,7 @@ function nextRun(
 }
 
 function actionAndSlug(id: string, data: Partial<CoalescedItem>): [CoalescedAction, string] {
-    const action = (data.action ?? (id === REDEPLOY_ALL_ID ? 'redeploy-all' : 'items-from')) as CoalescedAction;
+    const action = (data.action ?? (id === REDEPLOY_ALL_ID ? 'redeploy-all' : id === HOME_PAGE_ID ? 'home' : 'items-from')) as CoalescedAction;
     const slug = data.contentTypeSlug ?? (id.startsWith('items-from--') ? id.slice('items-from--'.length) : '');
     return [action, slug];
 }

@@ -36,6 +36,10 @@ vi.mock('../pages/deployToHosting', () => ({
     deployFileToHosting: mockDeployFileToHosting,
 }));
 
+// Page text (specs/visual-editing-spec.md, VE-D40): what editors published, none unless a test says.
+const { mockLoadPageText } = vi.hoisted(() => ({ mockLoadPageText: vi.fn(async (_id: string): Promise<unknown> => null) }));
+vi.mock('../pages/page-text-store', () => ({ loadPublishedPageText: (id: string) => mockLoadPageText(id) }));
+
 import { generateAndDeployStaticPage, staticPageSlugs } from '../pages/deployStaticPage.js';
 import { clearSiteFilesCache } from '../shared/site-files.js';
 
@@ -101,6 +105,35 @@ describe('deployStaticPage', () => {
             ok: true,
             status: 200,
             text: () => Promise.resolve(RAW_HTML),
+        });
+    });
+
+    // VE-D40, VE-D56: a page's published text in its marked areas, and the strip told it has some.
+    describe('page text', () => {
+        const PAGE = '<html><head><title>About</title></head><body><arc-header></arc-header>'
+            + '<h1 data-arc-edit="heading" data-arc-t="about_heading">About us</h1><p data-arc-edit="intro">We bake.</p><arc-footer></arc-footer></body></html>';
+
+        it('fills the marked areas, before the strings, and marks the page editable', async () => {
+            mockFetch.mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve(PAGE) });
+            mockGetUiStrings.mockResolvedValue({ about_heading: 'From the strings' });
+            mockLoadPageText.mockResolvedValueOnce({ text: { en: { heading: { value: 'Our <story>' } } }, seo: { en: { title: { value: 'Our story' } } } });
+
+            await generateAndDeployStaticPage('about-us');
+
+            expect(mockLoadPageText).toHaveBeenCalledWith('p-about-us');
+            const html = mockDeployFileToHosting.mock.calls[0][2] as string;
+            expect(html).toContain('<h1>Our &lt;story&gt;</h1>');
+            expect(html).toContain('<p>We bake.</p>');
+            expect(html).toContain('<title>Our story</title>');
+            expect(html).not.toMatch(/data-arc-edit(-kind)?=/);
+            expect(html).toContain('<meta name="arc-entry" content="p/about-us" data-arc-editable="">');
+        });
+
+        it('leaves a page with no marks unmarked for the strip', async () => {
+            await generateAndDeployStaticPage('privacy-policy');
+            const html = mockDeployFileToHosting.mock.calls[0][2] as string;
+            expect(html).toContain('<meta name="arc-entry" content="p/privacy-policy">');
+            expect(mockLoadPageText).not.toHaveBeenCalled();
         });
     });
 

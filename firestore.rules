@@ -68,6 +68,11 @@ service cloud.firestore {
       return isAdmin() || (isAuthenticated() && arcRole() == 'editor');
     }
 
+    // A page's id for its text (VE-D39): `home`, or `p-{name}` for a static page.
+    function isPageTextId(id) {
+      return id is string && id.matches('^(home|p-[A-Za-z0-9_-]{1,100})$');
+    }
+
     // ============================================================
     // 1. PUBLIC READ + AUTHENTICATED WRITE
     //    SSR (unauthenticated) needs to read these collections.
@@ -388,21 +393,55 @@ service cloud.firestore {
 
     // Publish queue: staff add trigger docs (PublishQueueService); processPublishQueue
     // runs and deletes them. Create only, with exactly the fields the admin app sends.
-    // Never with the fixed id of a whole-site republish or an items-from rebuild
-    // (functions/src/publishQueue/coalesced-items.ts): those hold the run's state
+    // Never with the fixed id of a whole-site republish, an items-from rebuild or the
+    // home page rebuild (functions/src/publishQueue/coalesced-items.ts): those hold the run's state
     // (`running`, `since`), and a forged one would block the run.
+    // A page's text (specs/visual-editing-spec.md, VE-D39): `page-text` names the page
+    // (`home` or `p-{name}`) and no content type.
     match /_publish_queue/{queueId} {
       allow read: if false;       // Cloud Functions use Admin SDK (bypasses rules)
       allow create: if isEditor()
                     && queueId != 'redeploy-all'
+                    && queueId != 'home-page'
                     && !queueId.matches('items-from--.*')
                     && request.resource.data.keys().hasOnly(['action', 'contentTypeSlug', 'docId', 'timestamp'])
                     && request.resource.data.keys().hasAll(['action', 'contentTypeSlug', 'docId', 'timestamp'])
-                    && request.resource.data.action in ['publish', 'unpublish', 'update', 'delete', 'redeploy', 'redeploy-all', 'order']
+                    && request.resource.data.action in ['publish', 'unpublish', 'update', 'delete', 'redeploy', 'redeploy-all', 'order', 'page-text']
                     && request.resource.data.contentTypeSlug is string
                     && request.resource.data.docId is string
-                    && request.resource.data.timestamp is timestamp;
+                    && request.resource.data.timestamp is timestamp
+                    && (request.resource.data.action != 'page-text'
+                        || (request.resource.data.contentTypeSlug == '' && isPageTextId(request.resource.data.docId)));
       allow update, delete: if false;
+    }
+
+    // Page text (specs/visual-editing-spec.md, VE-D39): what editors changed on the
+    // home page and the static pages, by key, filled into the page's marked areas
+    // when it is published. `pageId` is `home` or `p-{name}`.
+    //   SitePageTextDrafts → the editors' draft, saved a field at a time.
+    //   SitePageText       → what is published: on the public page anyway, so anyone
+    //                        reads it; only the publish function writes it.
+    //   History            → every publish, for Restore; Cloud Functions write it.
+    match /SitePageTextDrafts/{pageId} {
+      allow read: if isEditor();
+      allow create, update: if isEditor()
+                            && isPageTextId(pageId)
+                            && request.resource.data.keys().hasOnly(['text', 'urls', 'seo', 'shareImage', 'updatedAt', 'updatedBy'])
+                            && (!('text' in request.resource.data) || request.resource.data.text is map)
+                            && (!('urls' in request.resource.data) || request.resource.data.urls is map)
+                            && (!('seo' in request.resource.data) || request.resource.data.seo is map)
+                            && (!('shareImage' in request.resource.data) || request.resource.data.shareImage is map)
+                            && request.resource.data.updatedAt == request.time
+                            && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if isEditor();
+    }
+    match /SitePageText/{pageId} {
+      allow read: if true;
+      allow write: if false;
+      match /History/{historyId} {
+        allow read: if isEditor();
+        allow write: if false;
+      }
     }
 
     // Draft search queue (specs/feature-flags-spec.md 6.5): the editor writes an

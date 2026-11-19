@@ -62,6 +62,8 @@ const HOME = `<!doctype html><html lang="en"><head>
 const MANIFEST = { version: 1, home: { default: 'app' }, templates: {}, pages: { terms: 'app', 'privacy-policy': 'core' }, strings: ['hi'], files: { 'assets/js/arc-site.js': 'j1' } };
 
 let onboarding: Record<string, unknown> | null;
+/** What editors published on the home page (SitePageText/home, VE-D39), none unless a test says. */
+let pageText: Record<string, unknown> | null;
 let emailLookupEmpty: boolean;
 /** The content types the home page's card blocks find, by slug. */
 let types: Record<string, Record<string, unknown>>;
@@ -70,6 +72,9 @@ function wireDb(): void {
     mockCollection.mockImplementation((name: string) => {
         if (name === 'Settings') {
             return { doc: () => ({ get: async () => ({ exists: !!onboarding, data: () => onboarding }) }) };
+        }
+        if (name === 'SitePageText') {
+            return { doc: (id: string) => ({ get: async () => ({ exists: id === 'home' && !!pageText, data: () => pageText }) }) };
         }
         if (name === 'email_lookup') {
             return { limit: () => ({ get: async () => ({ empty: emailLookupEmpty }) }) };
@@ -116,6 +121,7 @@ describe('deployHomePage', () => {
         mockLocalization.mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' }] });
         mockDeployBatch.mockResolvedValue(true);
         onboarding = { completed: true };
+        pageText = null;
         emailLookupEmpty = false;
         types = { articles: { slug: 'articles', name: 'Articles', templateFolder: '' } };
         wireDb();
@@ -361,6 +367,42 @@ describe('deployHomePage', () => {
             const $ = loadHtml(released()['/index.html'], { xmlMode: false });
             expect($('h1').text()).toBe('Hello');
             expect($('script[src^="/assets/js/arc-site.js"]').attr('data-strings')).toBeUndefined();
+        });
+    });
+
+    // VE-D40, VE-D43: what editors published, in every language's page.
+    describe('page text', () => {
+        const MARKED = HOME
+            .replace('<h1 data-arc-t="home_heading">Hello</h1>', '<h1 data-arc-edit="heading" data-arc-t="home_heading">Hello</h1><p data-arc-edit="intro">Welcome in.</p>')
+            .replace('section-title="From the blog"', 'section-title="From the blog" data-arc-edit="blog_title"');
+
+        it('fills each language\'s page in the language order, with the SEO words', async () => {
+            mockGetSiteFile.mockImplementation(async (path: string) => (path === 'home.html' ? MARKED : null));
+            pageText = {
+                text: { en: { heading: { value: 'Hi there' }, intro: { value: 'Come in.' }, blog_title: { value: 'Our news' } }, hi: { intro: { value: 'अंदर आइए।' } } },
+                seo: { en: { description: { value: 'Fresh lessons.' } } },
+            };
+            await generateAndDeployHomePage();
+
+            const en = loadHtml(released()['/index.html'], { xmlMode: false });
+            expect(en('h1').text()).toBe('Hi there');
+            expect(en('p').first().text()).toBe('Come in.');
+            expect(en('h2').text()).toBe('Our news');
+            expect(en('meta[name="description"]').attr('content')).toBe('Fresh lessons.');
+            expect(released()['/index.html']).not.toContain('data-arc-edit');
+
+            const hi = loadHtml(released()['/hi/index.html'], { xmlMode: false });
+            // A translation of the heading wins over the default language's edit.
+            expect(hi('h1').text()).toBe('नमस्ते');
+            expect(hi('p').first().text()).toBe('अंदर आइए।');
+            expect(hi('h2').text()).toBe('Our news');
+        });
+
+        it('builds the page from its file alone when nothing is published', async () => {
+            await generateAndDeployHomePage();
+            const $ = loadHtml(released()['/index.html'], { xmlMode: false });
+            expect($('h1').text()).toBe('Hello');
+            expect($('h2').text()).toBe('From the blog');
         });
     });
 

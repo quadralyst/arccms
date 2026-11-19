@@ -21,6 +21,7 @@ import { setSiteManifestForTesting } from '../core/site/site';
 import { coreSiteManifest } from '../../test/core-site';
 import { PublicContentTypesService } from '../core/site/public-content-types';
 import { translocoTestingModule } from '../../test/transloco-test-providers';
+import { PageTextService } from '../core/site/page-text.service';
 
 const HOME = `<!doctype html><html lang="en"><head>
     <title data-arc-t="home_title">My Site</title>
@@ -41,6 +42,8 @@ describe('HomeComponent (home page preview)', () => {
     let http: { get: ReturnType<typeof vi.fn> };
     let onboarding: { shouldShowOnboarding: ReturnType<typeof vi.fn> };
     let strings: Record<string, string>;
+    /** What editors published on the home page (VE-D40): nothing unless a test says. */
+    let published: ReturnType<typeof vi.fn>;
     const localization = () => ({
         load: vi.fn().mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [{ code: 'en' }, { code: 'hi' }, { code: 'ar', rtl: true }] }),
         languageVariants: signal<string[] | null>(null),
@@ -68,6 +71,7 @@ describe('HomeComponent (home page preview)', () => {
                 },
                 { provide: PublicContentTypesService, useValue: { slugs: signal(new Set(['articles'])), load: vi.fn().mockResolvedValue(new Set(['articles'])) } },
                 { provide: ContentTypesStore, useValue: { items: signal([]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() } },
+                { provide: PageTextService, useValue: { published } },
                 ...extra,
             ],
         })
@@ -88,6 +92,7 @@ describe('HomeComponent (home page preview)', () => {
         http = { get: vi.fn().mockReturnValue(of(HOME)) };
         onboarding = { shouldShowOnboarding: vi.fn().mockReturnValue(of(false)) };
         strings = {};
+        published = vi.fn().mockResolvedValue(null);
     });
 
     afterEach(() => setSiteManifestForTesting());
@@ -124,6 +129,19 @@ describe('HomeComponent (home page preview)', () => {
         expect(onboarding.shouldShowOnboarding).not.toHaveBeenCalled();
         expect(el.querySelector('.hero h1')!.textContent).toBe('नमस्ते');
         expect(el.querySelector('a.more')!.getAttribute('href')).toBe('/hi/articles');
+    });
+
+    // VE-D40, VE-D43: what editors published, filled as publishing fills it.
+    it('fills the areas editors changed, before the strings, and shows no marks', async () => {
+        http.get.mockReturnValue(of(HOME.replace('<h1 data-arc-t="home_heading">Hello</h1>', '<h1 data-arc-edit="hero" data-arc-t="home_heading">Hello</h1>')));
+        strings = { home_heading: 'From the strings' };
+        published.mockResolvedValue({ text: { en: { hero: { value: 'Welcome in' } } }, seo: { en: { title: { value: 'Our bakery' } } } });
+        const el = await open();
+        // The code that fills the page is loaded only when needed: wait for the page, not a number of ticks.
+        await vi.waitFor(() => expect(el.querySelector('.hero h1')?.textContent).toBe('Welcome in'), { timeout: 5000 });
+        expect(published).toHaveBeenCalledWith('home');
+        expect(el.querySelector('[data-arc-edit]')).toBeNull();
+        expect(TestBed.inject(Title).getTitle()).toBe('Our bakery');
     });
 
     it('names the home page for the admin strip (VE-D11), and takes it away when it goes', async () => {

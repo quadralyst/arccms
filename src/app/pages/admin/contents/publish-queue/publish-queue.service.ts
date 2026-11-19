@@ -8,8 +8,11 @@ import { Firestore, collection, addDoc, doc, runTransaction } from '@angular/fir
  *
  * `order` is for a whole content type, with no document: its entries were put
  * in a new order (specs/site-sections-spec.md, SS2).
+ *
+ * `page-text` publishes a page's text (specs/visual-editing-spec.md, VE-D57):
+ * its document is the page (`home`, `p-{name}`), with no content type.
  */
-export type PublishAction = 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'order';
+export type PublishAction = 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'order' | 'page-text';
 
 export interface PublishQueueItem {
     action: PublishAction;
@@ -79,6 +82,11 @@ export class PublishQueueService {
      */
     async reorder(contentTypeSlug: string): Promise<void> {
         await this.addSiteItem('order', contentTypeSlug);
+    }
+
+    /** Publishes a page's text (VE-D57): `home`, or `p-{name}` for a static page. */
+    async publishPageText(pageId: string): Promise<void> {
+        await this.enqueue('page-text', '', pageId);
     }
 
     private async addSiteItem(action: 'redeploy-all' | 'order', contentTypeSlug: string): Promise<void> {

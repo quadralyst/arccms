@@ -9,6 +9,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
+import { PageTextService } from '../../core/site/page-text.service';
 import { setSiteManifestForTesting } from '../../core/site/site';
 
 // A plain header and footer, not the app's own: an app's may hold card blocks,
@@ -40,6 +41,7 @@ describe('PublicPageRendererComponent', () => {
 
     // The header (language switcher, public search) loads localization
     // settings; a single-language stub keeps these tests off Firestore.
+    const mockPageText = { published: vi.fn(async (_id: string): Promise<unknown> => null) };
     const mockLocalization = {
         load: vi.fn().mockResolvedValue(undefined),
         enabledLanguages: signal([]),
@@ -73,7 +75,8 @@ describe('PublicPageRendererComponent', () => {
                 { provide: Title, useValue: titleSpy },
                 { provide: Meta, useValue: metaSpy },
                 { provide: GaTrackingService, useValue: mockGaTrackingService },
-                { provide: LocalizationService, useValue: mockLocalization }
+                { provide: LocalizationService, useValue: mockLocalization },
+                { provide: PageTextService, useValue: mockPageText },
             ]
         }).compileComponents();
 
@@ -144,6 +147,37 @@ describe('PublicPageRendererComponent', () => {
     });
 
     // specs/form-gamification-spec.md G-D4: the default language's strings file words a static page.
+    // VE-D40, VE-D56: what editors published in the page's marked areas, and the strip told.
+    it('fills a page\'s marked areas with what editors published, and says it has areas to edit', async () => {
+        setSiteManifestForTesting({ version: 1, home: {}, templates: {}, strings: [], files: {}, pages: { 'about-us': 'app' } });
+        mockLocalization.load.mockResolvedValue({ defaultLanguage: 'en' });
+        mockPageText.published.mockResolvedValueOnce({ text: { en: { heading: { value: 'Our <story>' } } } });
+        paramsSubject.next({ fileName: 'about-us' });
+        createComponent();
+
+        httpMock.expectOne('/_site/pages/about-us.html').flush('<body><h1 data-arc-edit="heading">About</h1><p data-arc-edit="intro">We bake.</p></body>');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        fixture.detectChanges();
+
+        const page = fixture.nativeElement as HTMLElement;
+        expect(mockPageText.published).toHaveBeenCalledWith('p-about-us');
+        expect(page.querySelector('h1')?.textContent).toBe('Our <story>');
+        expect(page.querySelector('p')?.textContent).toBe('We bake.');
+        expect(page.querySelector('[data-arc-edit]')).toBeNull();
+        expect(metaSpy.updateTag).toHaveBeenCalledWith({ name: 'arc-entry', content: 'p/about-us', 'data-arc-editable': '' });
+        mockLocalization.load.mockResolvedValue(undefined);
+    });
+
+    it('reads no page text for a page with no marked areas', async () => {
+        setSiteManifestForTesting({ version: 1, home: {}, templates: {}, strings: [], files: {}, pages: { 'plain': 'app' } });
+        paramsSubject.next({ fileName: 'plain' });
+        createComponent();
+        httpMock.expectOne('/_site/pages/plain.html').flush('<body><h1>Plain</h1></body>');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(mockPageText.published).not.toHaveBeenCalled();
+        expect(metaSpy.updateTag).toHaveBeenCalledWith({ name: 'arc-entry', content: 'p/plain' });
+    });
+
     it('applies the default language\'s strings file to a page that uses data-arc-t', async () => {
         setSiteManifestForTesting({
             version: 1, home: {}, templates: {}, strings: ['en'], files: {},

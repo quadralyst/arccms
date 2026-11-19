@@ -21,6 +21,8 @@ import { arcSiteScript, loadSiteNotices, prepareLiveParts, setupState } from '..
 
 import { arcHostingSite } from '../arc-config.js';
 import { withImageAttributes } from './image-attributes.js';
+import { applyPageText, pageTextId } from '../shared/page-text.js';
+import { loadPublishedPageText } from './page-text-store.js';
 
 // The live parts moved to shared/live-parts.ts (SS5), the card blocks to card-blocks.ts;
 // re-exported for existing callers.
@@ -33,7 +35,8 @@ export { partialPageData } from './card-blocks.js';
  * The site's home page is a whole HTML document: the app's
  * src/custom/site/home.html (or Arc CMS's placeholder), served at
  * /_site/home.html. For every enabled language this reads it from the live site,
- * fills the Arc CMS elements (<arc-header>, <arc-footer>,
+ * fills the areas editors changed (page text, specs/visual-editing-spec.md
+ * VE-D40), fills the Arc CMS elements (<arc-header>, <arc-footer>,
  * <arc-content-partials>, <arc-search>, <arc-language-switcher>), translates
  * `data-arc-t`, adds every SEO tag the page does not set itself, and writes it to
  * Hosting as /index.html and /{lang}/index.html.
@@ -121,6 +124,8 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
     const labels = Object.fromEntries(languages.map((l) => [l.code, l.nativeLabel || l.label]));
     // The app's own sign-up and contact notices (src/custom/notices.ts), read once.
     const notices = await loadSiteNotices(manifest);
+    // What editors changed on the page, as published (VE-D39): the same in every language's build.
+    const pageText = await loadPublishedPageText(pageTextId.home());
 
     for (const language of languages) {
         const lang = language.code;
@@ -133,7 +138,9 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
 
         // Body: words, the site's details (SS3) and standard pages (SS6), cards, chrome, links, notices.
         const siteInfo = await siteInfoFor(lang, defaultLang);
-        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(source.html, strings), siteInfo);
+        // The page text first: a value an editor set wins over the strings (VE-D43).
+        const edited = applyPageText(source.html, pageText, { lang, defaultLang, ownFile: source.ownFile, strings });
+        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(edited, strings), siteInfo);
         const $body = loadHtml(html, { xmlMode: false });
         await renderCardBlocks($body, lang, defaultLang, strings, siteInfo);
         // Signup and contact forms: their notices, and contact forms only with the feature (SS5).

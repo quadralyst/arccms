@@ -33,6 +33,8 @@ import { arcSiteScriptElement, prepareLiveParts } from '../core/site/live-parts'
 import { letIntoSearch } from '../core/site/search-engines';
 import { pageLanguageHold, siteLanguageDir } from '../core/site/page-language';
 import { DetailSource } from './page.parts/detail-source';
+import { PageTextService } from '../core/site/page-text.service';
+import { hasPageTextMarks, pageTextId } from '../core/utils/page-text-model';
 
 export const routeMeta: RouteMeta = {
     title: 'Home',
@@ -86,6 +88,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
     private contentTypes = inject(PublicContentTypesService);
     private siteIdentity = inject(SiteIdentityService);
     private sitePages = inject(SitePagesService);
+    private pageText = inject(PageTextService);
     /** On the live preview, the page's language comes from the editor, not the route (VE-D10). */
     private source = inject(DetailSource, { optional: true });
     /** `<html lang>` and `dir`: the page's own while it shows (core/site/page-language.ts). */
@@ -139,10 +142,24 @@ export default class HomeComponent implements OnInit, OnDestroy {
         this.pageDir = siteLanguageDir(this.pageLang, settings.enabledLanguages);
 
         const ownFile = !!lang && !!siteManifest().home[lang];
-        const html = await firstValueFrom(this.http.get(ownFile ? `/_site/home.${lang}.html` : '/_site/home.html', { responseType: 'text' }));
+        const [file, edited] = await Promise.all([
+            firstValueFrom(this.http.get(ownFile ? `/_site/home.${lang}.html` : '/_site/home.html', { responseType: 'text' })),
+            // What editors published on the page (specs/visual-editing-spec.md, VE-D40).
+            this.pageText.published(pageTextId.home()),
+        ]);
         if (this.destroyed) return;
+        const defaultLang = settings.defaultLanguage || '';
+        const pageStrings = ownFile ? {} : strings;
+        // Filled as publishing fills it, before the strings (VE-D43). The code that does
+        // it is loaded only for a page that has something to fill.
+        let html = file;
+        if (edited || hasPageTextMarks(file)) {
+            const { applyPageText } = await import('../core/utils/page-text');
+            html = applyPageText(file, edited, { lang: this.pageLang, defaultLang, ownFile: ownFile || !lang || lang === defaultLang, strings: pageStrings });
+            if (this.destroyed) return;
+        }
         // A language's own file is already in its words; its forms' panels still take the strings, as when published.
-        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types, about, pages, strings);
+        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, pageStrings, types, about, pages, strings);
     }
 
     private render(
