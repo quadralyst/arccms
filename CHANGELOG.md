@@ -137,6 +137,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- **The admin strip and the Visual Editor, five small fixes.** On the pages the app draws, the admin bar on the site uses the page's language, as on published pages, and follows a language change. A content type slugged `home` or `p` gets the right links on its list page and its entries, told apart from the home page and hand-written pages by the page's address. Switching language twice quickly on the Visual Editor or in the form editor shows the language chosen last. A field's card pasted or dropped into the body again moves the field instead of placing it twice, and a card pasted into another rich text field, or for a field the entry cannot place, is left out. On the Visual Editor, work that finishes after the screen is closed no longer acts on it, and a field's box stays on its value as the page scrolls.
 - **The map picker draws its map.** Leaflet's own styles never reached the map it draws, so tiles piled in one corner, and its pin image was missing; both are fixed in the form editor and on the Visual Editor, and the map's layers stay inside it.
 - **The free images Search button keeps its size while searching.** The spinner was drawn at the size of the box's magnifying glass, which made the button taller and put the spinner and "Searching..." off centre.
 - **An empty headline stays in place on the Visual Editor** while it is typed in, instead of moving up beside the card's icon.

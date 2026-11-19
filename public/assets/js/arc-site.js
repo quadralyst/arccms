@@ -45,9 +45,10 @@
  *   --arc-strip-height on <html> for a template that places such a header itself.
  *   It hides when printing, and its close button hides it until the page is loaded
  *   again (a link on a published page, or a refresh). Visitors
- *   get nothing. window.arcSite.drawEditorStrip() draws it again for the page as
- *   it is now: the app calls it when a page it draws changes its arc-entry, and
- *   loads this script with data-parts="strip" to run only the strip.
+ *   get nothing. window.arcSite.drawEditorStrip(strings) draws it again for the
+ *   page as it is now: the app calls it when a page it draws changes its arc-entry
+ *   or its language (with its strip_* strings), and loads this script with
+ *   data-parts="strip" to run only the strip.
  *
  * Callables are called over plain fetch with the callable protocol ({ data } in,
  * { result } or { error } out), like arc-search.js.
@@ -848,25 +849,56 @@
     }
 
     /**
+     * A strip string in the page's language: on a page the app draws, the strings it
+     * hands the strip (drawEditorStrip), English where they have none, since the page's
+     * language may have changed since the script tag was written; elsewhere the ones
+     * publishing put on the script tag.
+     */
+    function stripT(key, english) {
+        var given = site.stripStrings;
+        if (!given) return t(key, english);
+        return typeof given[key] === 'string' && given[key] ? given[key] : english;
+    }
+
+    /** A path's parts, the last without .html: what a page's own address ends in. */
+    function pathParts(path) {
+        var parts = String(path || '').split('/').filter(Boolean).map(function (part) {
+            try { return decodeURIComponent(part); } catch (e) { return part; }
+        });
+        if (parts.length) parts[parts.length - 1] = parts[parts.length - 1].replace(/\.html$/, '');
+        return parts;
+    }
+
+    /**
      * The strip's links for a page (VE-D13): a content page is edited on the
      * page, a list page adds an entry of its type; every page leads back to the
      * admin, to the type's entries when the page has a type.
+     *
+     * `home` and `p/{name}` also fit a type slugged `home` or `p` (its list page, its
+     * entries): the page's own address tells them apart (VE3.11). A type's list page
+     * is at `/home`, never the home page; an entry of a type `p` is at `/p/{URL slug}`,
+     * which is not its id, where a static page's address ends in its name.
      */
-    function stripLinks(entry) {
+    function stripLinks(entry, path) {
         var enc = encodeURIComponent;
         var links = [];
         var type = '';
         var parts = entry.split('/');
-        if (entry === 'home' || parts[0] === 'p' || !entry) {
+        var where = pathParts(path === undefined ? location.pathname : path);
+        var at = where.length ? where[where.length - 1] : '';
+        var homePage = entry === 'home' && at !== 'home';
+        var entryOfP = parts.length === 2 && parts[0] === 'p' && where[where.length - 2] === 'p' && at !== parts[1];
+        var staticPage = parts.length === 2 && parts[0] === 'p' && !entryOfP;
+        if (!entry || homePage || staticPage) {
             // The home page and static pages are edited from VE5.
         } else if (parts.length === 2 && parts[0] && parts[1]) {
             type = parts[0];
-            links.push({ name: 'edit', text: t('strip_edit', 'Edit this page'), href: '/admin/edit/' + enc(type) + '/' + enc(parts[1]) });
+            links.push({ name: 'edit', text: stripT('strip_edit', 'Edit this page'), href: '/admin/edit/' + enc(type) + '/' + enc(parts[1]) });
         } else if (parts.length === 1) {
             type = parts[0];
-            links.push({ name: 'add', text: t('strip_add', 'Add new'), href: '/admin/contents/' + enc(type) + '/add' });
+            links.push({ name: 'add', text: stripT('strip_add', 'Add new'), href: '/admin/contents/' + enc(type) + '/add' });
         }
-        links.push({ name: 'admin', text: t('strip_admin', 'Back to admin'), href: type ? '/admin/contents/' + enc(type) : '/admin' });
+        links.push({ name: 'admin', text: stripT('strip_admin', 'Back to admin'), href: type ? '/admin/contents/' + enc(type) : '/admin' });
         return links;
     }
 
@@ -907,11 +939,13 @@
     /** Draws, or redraws, the strip's links for the page as it is now. */
     function fillStrip(root) {
         var entry = pageEntry();
-        // The same page: the links stay, so a press that drew them again never loses its click.
-        if (root.host && root.host.getAttribute('data-entry') === entry && root.querySelector('a')) return;
-        if (root.host) root.host.setAttribute('data-entry', entry);
+        // The same page in the same words: the links stay, so a press that drew them again never loses its click.
+        var drawn = entry + '|' + location.pathname + '|' + JSON.stringify(site.stripStrings || {});
+        if (root.host && root.host.getAttribute('data-entry') === drawn && root.querySelector('a')) return;
+        if (root.host) root.host.setAttribute('data-entry', drawn);
         var bar = root.querySelector('.bar');
         bar.innerHTML = '';
+        bar.setAttribute('aria-label', stripT('strip_label', 'Editing'));
         var links = stripLinks(entry);
         // Back to admin on the left, where a way back is looked for; the page's own action on the right.
         var add = function (link) {
@@ -931,8 +965,8 @@
         close.type = 'button';
         close.className = 'close';
         close.setAttribute('data-arc-strip', 'close');
-        close.setAttribute('aria-label', t('strip_close', 'Hide for now'));
-        close.title = t('strip_close', 'Hide for now');
+        close.setAttribute('aria-label', stripT('strip_close', 'Hide for now'));
+        close.title = stripT('strip_close', 'Hide for now');
         close.textContent = '×';
         close.addEventListener('click', function () {
             site.stripClosed = true;
@@ -1008,8 +1042,12 @@
         pushPage(false);
     }
 
-    /** Draws the strip for the page as it is now, follows a page the app moved to, or takes it away. */
-    function drawEditorStrip() {
+    /**
+     * Draws the strip for the page as it is now, follows a page the app moved to, or
+     * takes it away. The app passes its strings for the page's language (`strip_*`).
+     */
+    function drawEditorStrip(strings) {
+        if (strings && typeof strings === 'object') site.stripStrings = strings;
         var old = document.getElementById(STRIP_ID);
         if (!stripWanted()) {
             removeStrip();
@@ -1028,7 +1066,6 @@
         style.textContent = STRIP_CSS;
         var bar = document.createElement('nav');
         bar.className = 'bar';
-        bar.setAttribute('aria-label', t('strip_label', 'Editing'));
         root.appendChild(style);
         root.appendChild(bar);
         document.body.appendChild(host);

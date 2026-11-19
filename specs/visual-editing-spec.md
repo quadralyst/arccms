@@ -166,6 +166,23 @@ deploy beyond the hosted admin.
 **Deploy:** functions (publish pipeline), then hosting (`arc-site.js`), then Republish website so
 every page carries the meta.
 
+**Build note, VE3.11 low items fixed (2026-11-19, `fix/ve3-low-items`):** five of the items below.
+The strip on pages the app draws takes the page's strings: `UiStringsService.use` hands them to
+`setEditorStripStrings` (editor-strip.ts), which passes them to `drawEditorStrip(strings)`; there
+they win over the script tag's, English where they have none. A type slugged `home` or `p` is told
+apart by the page's address (`stripLinks(entry, path)`): `home` at `/home` is that type's list
+page, and `p/{id}` under `/p/` ending in something other than the id is an entry of type `p`.
+`EntryDraftSession.switchLanguage` counts its switches: one still loading its translation is not
+put on screen once another was asked for, and its copy is kept. Markers pasted or dropped into a
+rich text (`pastedMarkersFixed` in field-place.ts) go when the text places no fields or the entry
+cannot place that field, and a field brought in again keeps only the new marker. The edit screen
+drops late work once closed (the move to the classic editor, the refresh after a language switch,
+picker results, the draw wait), and the field's box follows its value on scroll, redraws and width
+changes (`placePopover`). Still left: the strip's pinned-header check reads every element's style
+while scrolling; a selected field card can be replaced by Insert block or table (undo brings it
+back); a map in a card loads its frame again on a redraw; Publish and Close can scroll off the
+strip on a phone.
+
 **Build note, VE3.11 (2026-11-19), low items left:** the strip on pages the app draws shows English when no site strings are loaded; a content type slugged `home` or `p` confuses the strip's links; the strip's pinned-header check reads every element's style while scrolling; a selected field card can be replaced by Insert block or table (undo brings it back); a pasted or copy-dragged card can give a field two markers (published once); a map in a card loads its frame again on a redraw; a marker can be pasted into a rich text field outside the body; switching language twice quickly can apply the first; work that finishes after the screen closes still refreshes it; the field box does not follow the page as it scrolls; Publish and Close can scroll off the strip on a phone.
 
 **Build note, after VE3.10 (2026-11-19):** the panel scroll fix (VE-D29), the shared selection

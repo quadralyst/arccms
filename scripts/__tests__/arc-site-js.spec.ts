@@ -613,6 +613,33 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         }
     });
 
+    it('tells a type slugged home or p from the home page and static pages by the address (VE3.11)', () => {
+        page('<p>Page</p>', '', entry('articles/doc1'));
+        const stripLinks = (window as unknown as { arcSite: { _internal: { stripLinks: (e: string, path: string) => { name: string; href: string }[] } } })
+            .arcSite._internal.stripLinks;
+        const names = (e: string, path: string) => stripLinks(e, path).map((l) => `${l.name} ${l.href}`);
+        expect(names('home', '/')).toEqual(['admin /admin']);
+        expect(names('home', '/hi')).toEqual(['admin /admin']);
+        expect(names('home', '/home')).toEqual(['add /admin/contents/home/add', 'admin /admin/contents/home']);
+        expect(names('home', '/hi/home.html')).toEqual(['add /admin/contents/home/add', 'admin /admin/contents/home']);
+        expect(names('p/privacy-policy', '/p/privacy-policy')).toEqual(['admin /admin']);
+        expect(names('p/privacy-policy', '/p/privacy-policy.html')).toEqual(['admin /admin']);
+        expect(names('p/doc1', '/p/my-first-entry')).toEqual(['edit /admin/edit/p/doc1', 'admin /admin/contents/p']);
+        expect(names('p', '/p')).toEqual(['add /admin/contents/p/add', 'admin /admin/contents/p']);
+    });
+
+    it('says its links in the strings the app hands it, over the script tag\'s (VE3.11)', () => {
+        const hindi = ` data-parts="strip" data-strings="${JSON.stringify({ strip_edit: 'संपादित करें' }).replace(/"/g, '&quot;')}"`;
+        page('<p>Page</p>', '', entry('articles/doc1'), hindi);
+        expect(links().find((l) => l[0] === 'edit')![2]).toBe('संपादित करें');
+        const site = (window as unknown as { arcSite: { drawEditorStrip: (s?: Record<string, string>) => void } }).arcSite;
+        site.drawEditorStrip({ strip_edit: 'Modifier', strip_admin: 'Admin' });
+        expect(links()).toEqual([['admin', '/admin/contents/articles', 'Admin'], ['edit', '/admin/edit/articles/doc1', 'Modifier']]);
+        // The page went back to a language with no strings: English, not the tag's Hindi.
+        site.drawEditorStrip({});
+        expect(links().find((l) => l[0] === 'edit')![2]).toBe('Edit this page');
+    });
+
     it('draws nothing on a page that does not name what it is', () => {
         page('<p>Page</p>', '', '');
         expect(strip()).toBeNull();

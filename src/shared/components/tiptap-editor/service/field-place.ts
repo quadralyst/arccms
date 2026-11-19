@@ -10,9 +10,13 @@
  * In the editor the marker is a card: a "Field" tag and the field's name, what
  * the field holds (a few lines in the form editor, the field as drawn on the
  * Visual Editor), and Edit, which opens the field. One marker per field: placing
- * a field again moves its marker.
+ * a field again moves its marker, and so does pasting or dropping in a copy. A text
+ * that places no fields (any rich text but the body) takes no marker pasted into it.
  */
 import { Node } from '@tiptap/core';
+import { EditorState, Plugin, PluginKey, Transaction } from '@tiptap/pm/state';
+import { Mapping } from '@tiptap/pm/transform';
+import type { Node as PmNode } from '@tiptap/pm/model';
 
 /** The field types that show as a block of their own and can be placed in the text. */
 export const PLACEABLE_FIELD_TYPES = ['faq', 'gallery', 'infocard', 'labelvalue', 'maplocation', 'image', 'file', 'richtext'] as const;
@@ -126,6 +130,18 @@ export const FieldPlace = Node.create<FieldPlaceOptions>({
         };
     },
 
+    addProseMirrorPlugins() {
+        const places = () => this.options.places;
+        const name = this.name;
+        return [
+            new Plugin({
+                key: new PluginKey('fieldPlaceGuard'),
+                appendTransaction: (transactions, oldState, newState) =>
+                    pastedMarkersFixed(transactions, oldState.doc, newState, name, places()),
+            }),
+        ];
+    },
+
     addCommands() {
         return {
             placeField:
@@ -144,6 +160,54 @@ export const FieldPlace = Node.create<FieldPlaceOptions>({
         };
     },
 });
+
+/**
+ * Markers that a paste or a drop (a copy-drag) brought in, checked (VE3.11): a text that
+ * places no fields (any rich text but the body) takes none, a marker for a field this
+ * entry cannot place goes, and a field already placed keeps one marker, the one just
+ * brought in, as placing a field again moves it. Typing, loading and a plain drag that
+ * moves a card are left alone. Null when nothing needs changing.
+ */
+export function pastedMarkersFixed(
+    transactions: readonly Transaction[], oldDoc: PmNode, newState: EditorState, name: string, places: FieldPlaces | null,
+): Transaction | null {
+    const newDoc = newState.doc;
+    const brought = transactions.some((tr) => tr.docChanged && (tr.getMeta('uiEvent') === 'paste' || tr.getMeta('uiEvent') === 'drop'));
+    if (!brought) return null;
+    const markers: { pos: number; size: number; key: string }[] = [];
+    newDoc.descendants((node, pos) => {
+        if (node.type.name === name) markers.push({ pos, size: node.nodeSize, key: String(node.attrs['field'] ?? '') });
+    });
+    if (!markers.length) return null;
+    // The markers that were there before, where they are now.
+    const mapping = new Mapping();
+    for (const tr of transactions) mapping.appendMapping(tr.mapping);
+    const kept = new Set<number>();
+    const oldKeys = new Set<string>();
+    oldDoc.descendants((node, pos) => {
+        if (node.type.name !== name) return;
+        oldKeys.add(String(node.attrs['field'] ?? ''));
+        const at = mapping.mapResult(pos, 1);
+        if (!at.deleted) kept.add(at.pos);
+    });
+    const placeable = new Set((places?.fields() ?? []).map((f) => f.key));
+    const drop = new Set<number>();
+    const newKeys = new Set<string>();
+    for (const m of markers) {
+        if (kept.has(m.pos)) continue;
+        // Brought in: never twice, and not where no field is placed nor for a field this entry
+        // cannot place, unless the text already had it (a card dragged to another place).
+        const foreign = !oldKeys.has(m.key) && (!places || !placeable.has(m.key));
+        if (foreign || newKeys.has(m.key)) drop.add(m.pos);
+        else newKeys.add(m.key);
+    }
+    // A field brought in again: its older marker goes.
+    for (const m of markers) if (kept.has(m.pos) && newKeys.has(m.key)) drop.add(m.pos);
+    if (!drop.size) return null;
+    const tr = newState.tr;
+    for (const m of [...markers].reverse()) if (drop.has(m.pos)) tr.delete(m.pos, m.pos + m.size);
+    return tr;
+}
 
 /** What the card would show, as a string: drawn as on the page, or the summary lines. */
 function cardSignature(key: string, places: FieldPlaces | null): string {

@@ -69,6 +69,7 @@ describe('EntryEditPage', () => {
     const router = { navigate: vi.fn(async () => true) };
     let page: EntryEditPage;
     let editor: ReturnType<typeof fakeEditor>;
+    let fixture: ReturnType<typeof TestBed.createComponent<EntryEditPage>>;
 
     beforeEach(() => {
         router.navigate.mockClear();
@@ -82,7 +83,7 @@ describe('EntryEditPage', () => {
             ],
         });
         TestBed.overrideComponent(EntryEditPage, { set: { template: '<div></div>', imports: [] } });
-        const fixture = TestBed.createComponent(EntryEditPage);
+        fixture = TestBed.createComponent(EntryEditPage);
         page = fixture.componentInstance;
         editor = fakeEditor();
         page.editor = editor as never;
@@ -154,6 +155,25 @@ describe('EntryEditPage', () => {
         await page.toForm();
         expect(router.navigate).not.toHaveBeenCalled();
         expect(page.panel.open()).toBe(true);
+    });
+
+    it('drops work that finishes after the screen closed: no move to the form, no refresh (VE3.11)', async () => {
+        page.ngAfterViewInit();
+        editor.session.unsaved = true;
+        let saved!: () => void;
+        editor.saveAsDraft.mockImplementation(() => new Promise<void>((resolve) => { saved = () => { editor.session.unsaved = false; resolve(); }; }));
+        let switched!: () => void;
+        editor.switchLanguage.mockImplementation(() => new Promise<void>((resolve) => { switched = resolve; }));
+        const toForm = page.toForm();
+        const toHindi = page.switchLanguage('hi');
+        const read = vi.spyOn(page, 'readStatus');
+        fixture.destroy();
+        saved();
+        switched();
+        await toForm;
+        await toHindi;
+        expect(router.navigate).not.toHaveBeenCalled();
+        expect(read).not.toHaveBeenCalled();
     });
 
     it('Live Preview opens the entry\'s preview window, as the classic editor does', () => {
@@ -248,6 +268,26 @@ describe('EntryEditPage', () => {
             expect(panel.querySelector('#req-events-price')).not.toBeNull();
             expect(body.children).toHaveLength(0);
             expect(page.pop()).toBeNull();
+            panel.remove();
+        });
+
+        it('keeps the field\'s box on its value as the page scrolls (VE3.11)', () => {
+            const panel = document.createElement('div');
+            panel.innerHTML = '<div id="req-events-price"><input type="number"></div>';
+            document.body.appendChild(panel);
+            page.popBody = { nativeElement: document.createElement('div') } as never;
+            const el = document.createElement('span');
+            document.body.appendChild(el);
+            let top = 200;
+            el.getBoundingClientRect = () => ({ top, bottom: top + 20, left: 100, right: 200, width: 100, height: 20, x: 100, y: top, toJSON: () => ({}) });
+            page.openPopover(spot('events-price', el));
+            expect(page.pop()!.top).toBe(226);
+            top = 150;
+            page.placePopover();
+            expect(page.pop()!.top).toBe(176);
+            expect(page.pop()!.left).toBe(100);
+            page.closePopover();
+            el.remove();
             panel.remove();
         });
 

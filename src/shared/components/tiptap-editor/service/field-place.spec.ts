@@ -88,6 +88,68 @@ describe('FieldPlace', () => {
     it('keeps a marker in a text with no places offered', () => {
         expect(mount(`<p>x</p>${MARKER}`, null).getHTML()).toContain(MARKER);
     });
+
+    describe('markers pasted or dropped in (VE3.11)', () => {
+        // A paste as the browser makes one (the test page has no ClipboardEvent).
+        const paste = (e: Editor, html: string) => e.view.pasteHTML(html, new Event('paste') as ClipboardEvent);
+        const count = (e: Editor, key = 'articles-faq') => e.getHTML().split(`data-arc-place="${key}"`).length - 1;
+        const both = () => places({ fields: () => [{ key: 'articles-faq', label: 'FAQ', type: 'faq' }, { key: 'articles-gallery', label: 'Gallery', type: 'gallery' }] });
+
+        it('a pasted copy of a placed field moves it: one marker, the pasted one', () => {
+            const e = mount(`${MARKER}<p>Middle</p><p>End</p>`);
+            e.commands.setTextSelection(e.state.doc.content.size - 1);
+            paste(e, `<p>Pasted</p>${MARKER}`);
+            expect(count(e)).toBe(1);
+            // The older one, at the top, went.
+            expect(e.state.doc.firstChild!.type.name).toBe('paragraph');
+        });
+
+        it('a pasted field placed nowhere yet stays, but only once', () => {
+            const e = mount(`<p>Text</p>`, both());
+            e.commands.setTextSelection(2);
+            paste(e, `${MARKER}<div data-arc-place="articles-gallery"></div>${MARKER}`);
+            expect(count(e)).toBe(1);
+            expect(count(e, 'articles-gallery')).toBe(1);
+        });
+
+        it('a text that places no fields takes none pasted into it', () => {
+            const e = mount(`<p>Text</p>`, null);
+            e.commands.setTextSelection(2);
+            paste(e, `<p>Words</p>${MARKER}`);
+            expect(count(e)).toBe(0);
+            expect(e.getHTML()).toContain('Words');
+        });
+
+        it('a pasted marker for a field this entry cannot place goes', () => {
+            const e = mount(`<p>Text</p>`);
+            e.commands.setTextSelection(2);
+            paste(e, '<div data-arc-place="other-type-faq"></div>');
+            expect(e.getHTML()).not.toContain('other-type-faq');
+        });
+
+        it('a copy dropped in moves the field; a marker already there is never touched by typing', () => {
+            const e = mount(`${MARKER}<p>End</p>`);
+            const card = e.state.schema.nodes['fieldPlace'].create({ field: 'articles-faq' });
+            e.view.dispatch(e.state.tr.insert(e.state.doc.content.size, card).setMeta('uiEvent', 'drop'));
+            expect(count(e)).toBe(1);
+            // The older one, at the top, went; the dropped one is after End.
+            expect(e.state.doc.firstChild!.textContent).toBe('End');
+            e.destroy();
+            // A card dragged to another place stays, even for a field the type no longer has.
+            const moved = mount(`<div data-arc-place="gone"></div><p>x</p>`, null);
+            const from = moved.state.doc.firstChild!;
+            const tr = moved.state.tr.delete(0, from.nodeSize);
+            tr.insert(tr.doc.content.size, from);
+            moved.view.dispatch(tr.setMeta('uiEvent', 'drop'));
+            expect(moved.getHTML()).toContain('data-arc-place="gone"');
+            expect(moved.state.doc.firstChild!.textContent).toBe('x');
+            moved.destroy();
+            // Typing keeps whatever markers the text holds, even a field it no longer has.
+            const old = mount(`<div data-arc-place="gone"></div><p>x</p>`);
+            old.commands.insertContentAt(old.state.doc.content.size - 1, 'y');
+            expect(old.getHTML()).toContain('data-arc-place="gone"');
+        });
+    });
 });
 
 describe('fieldSummary', () => {

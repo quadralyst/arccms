@@ -50,6 +50,18 @@ describe('UiStringsService', () => {
         expect(service.translate('read_more', 'Read Article')).toBe('लेख पढ़ें');
     });
 
+    it('hands the admin strip the page\'s strings once they are the page\'s (VE3.11)', async () => {
+        const drawEditorStrip = vi.fn();
+        (window as Window & { arcSite?: unknown }).arcSite = { drawEditorStrip };
+        try {
+            get.mockReturnValue(of({ strip_edit: 'संपादित करें', read_more: 'लेख पढ़ें' }));
+            await service.use('hi');
+            expect(drawEditorStrip).toHaveBeenLastCalledWith({ strip_edit: 'संपादित करें' });
+        } finally {
+            delete (window as Window & { arcSite?: unknown }).arcSite;
+        }
+    });
+
     it('requests nothing for a language the site has no strings for', async () => {
         await service.use('ta');
 

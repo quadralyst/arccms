@@ -482,6 +482,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             // The page may have been drawn again: the bar follows its row, the buttons their value.
             this.syncBar();
             this.syncSpotActions();
+            this.placePopover();
         }, STATUS_EVERY_MS);
         const onKey = (event: KeyboardEvent) => this.onKey(event);
         this.document.addEventListener('keydown', onKey);
@@ -586,6 +587,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const onScroll = () => {
             this.syncBar();
             this.syncSpotActions();
+            this.placePopover();
         };
         // A value growing as it is typed in: its buttons move with its end.
         const onInput = () => this.syncSpotActions();
@@ -609,7 +611,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     private waitForDraw(doc: Document, win: Window): void {
         const started = Date.now();
         const check = () => {
-            if (this.frameDocument() !== doc) return;
+            if (this.destroyed || this.frameDocument() !== doc) return;
             // A page with no field marks but empty fields' boxes is drawn too.
             if (doc.querySelector('[data-arc-field], [data-arc-empty]')) {
                 this.drawn.set(true);
@@ -637,6 +639,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (win && doc) this.scrollbar.set(Math.max(0, win.innerWidth - doc.documentElement.clientWidth));
         this.syncBar();
         this.syncSpotActions();
+        this.placePopover();
     }
 
     /** The page is drawn in the frame: the place for editing in place to start. */
@@ -935,6 +938,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         // Undo puts a row back in the default language: not from another one.
         this.clearUndo();
         await this.editor.switchLanguage(code);
+        // The screen closed meanwhile: nothing is left to refresh.
+        if (this.destroyed) return;
         this.readStatus();
         // The spots shared by every language change with it.
         this.inPlace?.mark();
@@ -1228,7 +1233,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (bulk) {
             // A gallery item is its photo: the photos are picked, one item each.
             this.openRowPicker(ref.def, bulk, true).subscribe((result: MediaSelection | null) => {
-                if (result?.type !== 'submit') return;
+                if (result?.type !== 'submit' || this.destroyed) return;
                 const urls = result.mediaUrls?.length ? result.mediaUrls : result.mediaUrl ? [result.mediaUrl] : [];
                 if (!urls.length) return;
                 const added = urls.map((url) => ({ ...newRepeaterRow(ref.schema, 0), [bulk.key]: url }));
@@ -1319,7 +1324,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (!ref || !sub || !spot.rowId) return;
         const id = spot.rowId;
         this.openRowPicker(ref.def, sub, false).subscribe((result: MediaSelection | null) => {
-            if (result?.type !== 'submit') return;
+            if (result?.type !== 'submit' || this.destroyed) return;
             const chosen = result.kind === 'icon' && result.icon && sub.iconKey ? { [sub.iconKey]: result.icon }
                 : result.mediaUrl ? { [sub.key]: result.mediaUrl } : null;
             if (chosen) this.writeRows(spot.field, setRowMedia(this.rows(spot.field), id, sub, chosen));
@@ -1355,22 +1360,11 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (open?.location && open.spot.field === spot.field && open.spot.rowId === spot.rowId) return;
         const num = (value: unknown) => (typeof value === 'number' ? value : null);
         this.showPopover(spot, false);
-        // The map box is wide and tall: it opens where all of it fits in the window, and
-        // scrolls inside when the window is shorter than it.
-        const win = this.document.defaultView;
-        const height = win?.innerHeight ?? 768;
-        const width = win?.innerWidth ?? 1024;
-        this.pop.update((p) => {
-            if (!p) return p;
-            const top = Math.max(48, Math.min(p.top, height - MAP_BOX_HEIGHT - 8));
-            return {
+        this.pop.update((p) => p && {
             ...p,
-            top,
-            left: Math.max(8, Math.min(p.left, width - MAP_BOX_WIDTH - 8)),
-            maxHeight: height - top - 8,
+            ...this.popPlace(spot.el, true),
             title: spot.label ?? sub.label,
             location: { address: typeof row[sub.key] === 'string' ? row[sub.key] as string : '', lat: num(row[sub.latKey]), lng: num(row[sub.lngKey]), zoom: num(row[sub.zoomKey]) },
-            };
         });
     }
 
@@ -1510,7 +1504,9 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         node.parentNode?.insertBefore(marker, node);
         body.appendChild(node);
         this.popReturn = { node, marker };
-        setTimeout(() => node.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea, button')?.focus());
+        setTimeout(() => {
+            if (!this.destroyed) node.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea, button')?.focus();
+        });
     }
 
     /** The custom field's box in the panel (`#req-{key}`), on the Basic tab. */
@@ -1526,21 +1522,33 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
 
     private showPopover(spot: Spot, image: boolean): void {
         this.closePopover();
+        this.pop.set({ title: spot.label ?? this.fieldTitle(spot.field), ...this.popPlace(spot.el, false), image, spot });
+    }
+
+    /**
+     * Where the box on a value goes: under it, kept inside the window. The map box is
+     * wide and tall: it goes where all of it fits, and scrolls inside when the window is
+     * shorter than it.
+     */
+    private popPlace(el: Element, map: boolean): { top: number; left: number; maxHeight?: number } {
         const frame = this.frame?.nativeElement.getBoundingClientRect();
-        const box = spot.el.getBoundingClientRect();
+        const box = el.getBoundingClientRect();
         const win = this.document.defaultView;
-        const width = 320;
-        const top = (frame?.top ?? 0) + box.bottom + 6;
-        const left = (frame?.left ?? 0) + box.left;
-        const maxLeft = (win?.innerWidth ?? 1024) - width - 8;
-        const maxTop = (win?.innerHeight ?? 768) - 160;
-        this.pop.set({
-            title: spot.label ?? this.fieldTitle(spot.field),
-            top: Math.max(48, Math.min(top, maxTop)),
-            left: Math.max(8, Math.min(left, maxLeft)),
-            image,
-            spot,
-        });
+        const height = win?.innerHeight ?? 768;
+        const width = win?.innerWidth ?? 1024;
+        const top = Math.max(48, Math.min((frame?.top ?? 0) + box.bottom + 6, height - 160));
+        const left = Math.max(8, Math.min((frame?.left ?? 0) + box.left, width - 320 - 8));
+        if (!map) return { top, left };
+        const mapTop = Math.max(48, Math.min(top, height - MAP_BOX_HEIGHT - 8));
+        return { top: mapTop, left: Math.max(8, Math.min(left, width - MAP_BOX_WIDTH - 8)), maxHeight: height - mapTop - 8 };
+    }
+
+    /** The box stays on its value as the page scrolls, is drawn again or changes width. */
+    placePopover(): void {
+        const p = this.pop();
+        if (!p || !p.spot.el.isConnected) return;
+        const at = this.popPlace(p.spot.el, !!p.location);
+        if (at.top !== p.top || at.left !== p.left || at.maxHeight !== p.maxHeight) this.pop.set({ ...p, ...at });
     }
 
     /**
@@ -1597,7 +1605,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     // ── The strip's buttons ──────────────────────────────────────────────────
     /** The form editor for the same entry, saving first; it stays here when the save did not land. */
     async toForm(): Promise<void> {
-        if (!(await this.saveFirst())) return;
+        // The screen closed while saving: the editor has gone somewhere else already.
+        if (!(await this.saveFirst()) || this.destroyed) return;
         void this.router.navigate(['/admin/contents', this.type, 'edit', this.id]);
     }
 
@@ -1620,6 +1629,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const editor = this.editor;
         if (!editor) return true;
         if (editor.hasUnsavedChanges()) await editor.saveAsDraft();
+        if (this.destroyed) return false;
         this.readStatus();
         if (editor.hasUnsavedChanges()) {
             this.panel.setOpen(true);

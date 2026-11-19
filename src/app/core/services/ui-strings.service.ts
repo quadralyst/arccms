@@ -18,6 +18,7 @@ import { inject, Injectable, Injector, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { siteStringsUrl } from '../site/site';
+import { setEditorStripStrings } from '../site/editor-strip';
 import { LocalizationService } from './localization.service';
 
 @Injectable({ providedIn: 'root' })
@@ -49,7 +50,11 @@ export class UiStringsService {
         this.activeLang.set(lang);
         const strings = await this.load(lang);
         // A later call may have switched the page's language while this one loaded.
-        if (this.activeLang() === lang) this.strings.set(strings);
+        if (this.activeLang() === lang) {
+            this.strings.set(strings);
+            // The admin strip on a page the app draws says its links in the page's language.
+            setEditorStripStrings(strings);
+        }
         return strings;
     }
 

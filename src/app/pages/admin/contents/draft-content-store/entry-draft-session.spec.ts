@@ -383,6 +383,47 @@ describe('EntryDraftSession', () => {
       expect(view.values.title).toBe('Guide');
     });
 
+    it('the last of two quick switches wins: a translation still loading is not put on screen (VE3.11)', async () => {
+      await session.initLanguages();
+      loadStored();
+      let landHindi!: (value: unknown) => void;
+      drafts.getTranslation.mockImplementation((_type: string, _id: string, code: string) =>
+        code === 'hi' ? new Promise((resolve) => { landHindi = resolve; }) : Promise.resolve(null));
+
+      // Hindi, then back to English before it loaded: English stays.
+      const toHindi = session.switchLanguage('hi');
+      await session.switchLanguage('en');
+      landHindi({ lang: 'hi', title: 'Hindi title' });
+      await toHindi;
+      expect(session.activeLang()).toBe('en');
+      expect(view.values.title).toBe('Guide');
+      // Hindi, loaded meanwhile, shows at once when asked for again.
+      await session.switchLanguage('hi');
+      expect(view.values.title).toBe('Hindi title');
+    });
+
+    it('a switch to a language still loading, then another still loading: the last one shows (VE3.11)', async () => {
+      const TAMIL = { code: 'ta', label: 'Tamil', nativeLabel: 'Tamil' };
+      localization.enabledLanguages.set([ENGLISH, HINDI, TAMIL]);
+      await session.initLanguages();
+      loadStored();
+      const landing: Record<string, (value: unknown) => void> = {};
+      drafts.getTranslation.mockImplementation((_type: string, _id: string, code: string) =>
+        new Promise((resolve) => { landing[code] = resolve; }));
+      const toHindi = session.switchLanguage('hi');
+      const toTamil = session.switchLanguage('ta');
+      // Tamil lands first, Hindi after it: Tamil, the last asked for, stays.
+      landing['ta']({ lang: 'ta', title: 'Tamil title' });
+      await toTamil;
+      landing['hi']({ lang: 'hi', title: 'Hindi title' });
+      await toHindi;
+      expect(session.activeLang()).toBe('ta');
+      expect(view.values.title).toBe('Tamil title');
+      // Hindi's copy was kept for when it is asked for.
+      await session.switchLanguage('hi');
+      expect(view.values.title).toBe('Hindi title');
+    });
+
     it('a publish whose translation did not save does not go live, and Retry publishes', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => undefined);
       contents.pollDeployStatus.mockReturnValue(of({}));

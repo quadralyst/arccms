@@ -5,11 +5,11 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Meta } from '@angular/platform-browser';
-import { refreshEditorStrip, STRIP_SCRIPT_ID } from './editor-strip';
+import { refreshEditorStrip, setEditorStripStrings, STRIP_SCRIPT_ID } from './editor-strip';
 import { setArcEntry } from './arc-entry';
 import { EDITOR_STRIP_KEY, rememberEditorStrip } from './signed-in-hint';
 
-type ArcWindow = Window & { arcSite?: { drawEditorStrip?: () => void } };
+type ArcWindow = Window & { arcSite?: { drawEditorStrip?: (strings?: Record<string, string>) => void } };
 
 describe('refreshEditorStrip', () => {
     const script = () => document.getElementById(STRIP_SCRIPT_ID) as HTMLScriptElement | null;
@@ -20,6 +20,7 @@ describe('refreshEditorStrip', () => {
     });
 
     afterEach(() => {
+        setEditorStripStrings({});
         script()?.remove();
         delete (window as ArcWindow).arcSite;
         localStorage.removeItem(EDITOR_STRIP_KEY);
@@ -56,6 +57,18 @@ describe('refreshEditorStrip', () => {
         setArcEntry(meta, null);
         expect(document.querySelector('meta[name="arc-entry"]')).toBeNull();
         expect(drawEditorStrip).toHaveBeenCalledTimes(2);
+    });
+
+    it('hands the strip the page\'s strings, and follows a change of language (VE3.11)', () => {
+        localStorage.setItem(EDITOR_STRIP_KEY, '1');
+        setEditorStripStrings({ strip_edit: 'संपादित करें', title: 'not the strip\'s', signup_send: 'भेजें' });
+        expect(JSON.parse(script()!.getAttribute('data-strings')!)).toEqual({ strip_edit: 'संपादित करें', signup_send: 'भेजें' });
+        const drawEditorStrip = vi.fn();
+        (window as ArcWindow).arcSite = { drawEditorStrip };
+        setEditorStripStrings({});
+        expect(drawEditorStrip).toHaveBeenLastCalledWith({});
+        setEditorStripStrings({ strip_edit: 'Modifier' });
+        expect(drawEditorStrip).toHaveBeenLastCalledWith({ strip_edit: 'Modifier' });
     });
 
     it('follows signing out at once', () => {

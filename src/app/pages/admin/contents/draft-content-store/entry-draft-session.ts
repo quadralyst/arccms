@@ -610,9 +610,22 @@ export class EntryDraftSession implements OnDestroy {
    * Switches to another language, stashing the current language's edits in
    * memory first so switching never discards work.
    */
+  /** Counts language switches, so only the last one is applied (VE3.11). */
+  private switchTurn = 0;
+  /** The language a switch is loading, until it is on screen. */
+  private switchingTo: string | null = null;
+
   async switchLanguage(code: string): Promise<void> {
     const current = this.activeLang();
-    if (!code || code === current) return;
+    // A switch still loading its translation counts as where the screen is going.
+    if (!code || code === (this.switchingTo ?? current)) return;
+    // The last switch wins: one still loading is dropped when it lands.
+    const turn = ++this.switchTurn;
+    if (code === current) {
+      // Back to the language on screen before the other one loaded: it simply stays.
+      this.switchingTo = null;
+      return;
+    }
 
     const captured = this.view.capture();
     if (current === this.defaultLang()) {
@@ -632,12 +645,23 @@ export class EntryDraftSession implements OnDestroy {
     // else start from blank fields that fall back to the base content.
     let values = this.translationEdits.get(code);
     if (!values && !this.loadedTranslations.has(code)) {
-      const stored = this.contentId
-        ? await this.draftContentsService.getTranslation(this.typeSlug(), this.contentId, code)
-        : null;
-      this.loadedTranslations.add(code);
-      values = this.toTranslatableValues(stored);
-      this.translationEdits.set(code, values);
+      this.switchingTo = code;
+      let stored: IContentTranslation | null;
+      try {
+        stored = this.contentId
+          ? await this.draftContentsService.getTranslation(this.typeSlug(), this.contentId, code)
+          : null;
+      } finally {
+        if (turn === this.switchTurn) this.switchingTo = null;
+      }
+      // Another load of the same language landed first: its copy, perhaps typed in since, stays.
+      if (!this.loadedTranslations.has(code)) {
+        this.loadedTranslations.add(code);
+        this.translationEdits.set(code, this.toTranslatableValues(stored));
+      }
+      values = this.translationEdits.get(code);
+      // A later switch was made while this one loaded: that one is on screen.
+      if (turn !== this.switchTurn) return;
     }
 
     this.activeLang.set(code);
