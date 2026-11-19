@@ -101,8 +101,10 @@ export function editFrameUrl(type: string, id: string): string {
         </span>
         }
         <span class="arc-ed-group" role="group" [attr.aria-label]="'admin.preview.width' | transloco">
-            <button type="button" class="arc-ed-btn" [class.arc-ed-on]="!phone()" [attr.aria-pressed]="!phone()" (click)="phone.set(false)">{{ 'admin.preview.full_width' | transloco }}</button>
-            <button type="button" class="arc-ed-btn" [class.arc-ed-on]="phone()" [attr.aria-pressed]="phone()" (click)="phone.set(true)" data-testid="edit-phone">{{ 'admin.preview.phone' | transloco }}</button>
+            <button type="button" class="arc-ed-btn" [class.arc-ed-on]="!phone()" [attr.aria-pressed]="!phone()" (click)="phone.set(false)"
+                [title]="'admin.preview.full_width' | transloco" [attr.aria-label]="'admin.preview.full_width' | transloco" data-testid="edit-desktop"><i class="bi bi-display" aria-hidden="true"></i></button>
+            <button type="button" class="arc-ed-btn" [class.arc-ed-on]="phone()" [attr.aria-pressed]="phone()" (click)="phone.set(true)" data-testid="edit-phone"
+                [title]="'admin.preview.phone' | transloco" [attr.aria-label]="'admin.preview.phone' | transloco"><i class="bi bi-phone" aria-hidden="true"></i></button>
         </span>
         <button type="button" class="arc-ed-btn" (click)="toForm()" [disabled]="busy()" [title]="'admin.edit_page.form_title' | transloco" data-testid="edit-form">{{ 'admin.edit_page.form' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="panel.toggle()" [class.arc-ed-on]="panel.open()"
@@ -210,7 +212,10 @@ export function editFrameUrl(type: string, id: string): string {
             transition: transform .25s ease;
         }
         .arc-ed-panel.arc-ed-dragging { transition: none; }
-        .arc-ed-panel-body { display: flex; flex-direction: column; height: 100%; min-width: 0; overflow: hidden; }
+        .arc-ed-panel-body { display: flex; flex-direction: column; height: 100%; min-width: 0; overflow: clip; }
+        /* The form editor fills the panel's height, so its own list scrolls; clip (not hidden) so a
+           jump to a field can never scroll the panel itself and push the tabs out of sight. */
+        .arc-ed-panel-body > arc-create-content { display: block; flex: 1 1 auto; min-height: 0; height: 100%; }
         .arc-ed-handle {
             position: absolute; right: 100%; top: 50%; width: 24px; height: 48px; margin-top: -24px; padding: 0;
             display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none;

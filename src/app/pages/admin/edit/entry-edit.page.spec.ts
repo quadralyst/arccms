@@ -5,6 +5,8 @@
  * mode has its own spec; here it is a stand-in.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
@@ -307,5 +309,20 @@ describe('inSentence', () => {
         expect(inSentence('FAQ')).toBe('FAQ');
         expect(inSentence('URL slug')).toBe('URL slug');
         expect(inSentence('टिकट मूल्य')).toBe('टिकट मूल्य');
+    });
+});
+
+describe('the Page settings panel scrolls (layout rules)', () => {
+    // jsdom draws no layout, so the rules themselves are checked: without them the form
+    // editor grows to its full height, its own list never scrolls and a jump to a field
+    // scrolls the clipped panel instead, pushing the tabs out of sight.
+    const source = readFileSync(resolve(__dirname, 'entry-edit.page.ts'), 'utf8');
+
+    it('holds the form editor to the panel height', () => {
+        expect(source).toMatch(/\.arc-ed-panel-body > arc-create-content \{[^}]*min-height: 0;[^}]*height: 100%;/);
+    });
+
+    it('clips the panel body so a jump to a field cannot scroll it', () => {
+        expect(source).toMatch(/\.arc-ed-panel-body \{[^}]*overflow: clip;/);
     });
 });
