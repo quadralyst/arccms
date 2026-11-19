@@ -204,6 +204,8 @@ export interface InPlaceHost {
     image(spot: Spot): void;
     popover(spot: Spot): void;
     panel(spot: Spot): void;
+    /** A spot was cancelled (VE-D37): a row just added and still blank goes. */
+    cancelled?(spot: Spot): void;
     /** The spot being edited changed (null: none), for the strip's formatting buttons. */
     activeChanged(spot: Spot | null, rich: RichHandle | null): void;
     /** An empty field's placeholder, "Add {label}" (VE-D18), in the admin's language; a row value's or a heading's from `info`. */
@@ -269,7 +271,10 @@ iframe[data-arc-sub][data-arc-edit-kind] { pointer-events: none; }
 [data-arc-empty-loop][data-arc-edit-kind="add"] { cursor: pointer; }
 /* A site sheet may hide an empty element (:empty): on this screen such a spot shows, to be filled in. */
 [data-arc-unhide] { display: revert !important; }
-[data-arc-editing]:empty { display: inline-block; min-width: 1ch; }
+/* An empty spot being typed in keeps the page's layout (a headline stays on its own line);
+   only a value inside a line of text gets room for the cursor. */
+[data-arc-editing]:empty { min-height: 1em; }
+[data-arc-editing][data-arc-inline]:empty { display: inline-block; min-width: 1ch; }
 /* A value worked out by the site (VE-D17): its title says where it comes from. */
 [data-arc-field][data-arc-hint] { cursor: help; }
 /* Shared by every language, while a translation is on screen (VE3.8). */
@@ -298,6 +303,8 @@ export class InPlaceEditing {
     private richShown: { before: string; typed: string | null } | null = null;
     /** The text spot's words when it was opened: leaving writes them back only when changed. */
     private textAtStart: string | null = null;
+    /** What the spot held when opened, as stored and as drawn: Cancel puts it back (VE-D37). */
+    private opened: { value: string; html: string } | null = null;
     /** A text spot drawn differently while typed (an FAQ answer's paragraphs): put back when left unchanged. */
     private textShown: string | null = null;
     /** A row just added: its first text spot opens once the page draws it (VE-D32). */
@@ -729,6 +736,11 @@ export class InPlaceEditing {
         const el = spot.el;
         this.active = spot;
         this.host.hold(true);
+        this.opened = {
+            value: isRowPart(spot) ? this.host.partText?.(spot) ?? plainText(el) : String(this.host.value(spot.field) ?? ''),
+            html: el.innerHTML,
+        };
+        this.markInline(el);
         el.setAttribute('data-arc-editing', '');
         el.removeAttribute('data-arc-ph');
         el.setAttribute('contenteditable', 'plaintext-only');
@@ -758,9 +770,11 @@ export class InPlaceEditing {
         const el = spot.el;
         this.active = spot;
         this.host.hold(true);
+        this.markInline(el);
         el.setAttribute('data-arc-editing', '');
         el.removeAttribute('data-arc-ph');
         const html = String(this.host.value(spot.field) ?? '');
+        this.opened = { value: html, html: el.innerHTML };
         const point: RichAt | undefined = at
             ? { ...at, text: textAt(this.doc, el, at) ?? undefined, image: pictureAt(this.doc, el, at) ?? undefined }
             : undefined;
@@ -780,6 +794,35 @@ export class InPlaceEditing {
         this.addStyles();
         this.rich.focus(point);
         this.host.activeChanged(spot, this.rich);
+    }
+
+    /** A value drawn inside a line of text: while empty and typed in, it gets room for the cursor. */
+    private markInline(el: HTMLElement): void {
+        const display = this.doc.defaultView?.getComputedStyle?.(el).display ?? '';
+        el.toggleAttribute('data-arc-inline', display === 'inline');
+    }
+
+    /**
+     * Cancel (VE-D37): the spot goes back to what it held when it was opened, in the draft
+     * and on the page, and is left. Nothing typed in it is kept.
+     */
+    cancel(): void {
+        const active = this.active;
+        const opened = this.opened;
+        if (!active || !opened) return;
+        if (active.kind === 'text') {
+            if (this.typedText(active) !== this.textAtStart) {
+                if (isRowPart(active)) this.host.setPartText?.(active, opened.value);
+                else this.host.setText(active.field, opened.value);
+            }
+            active.el.innerHTML = opened.html;
+            this.textShown = null;
+        } else if (active.kind === 'rich' && this.richShown) {
+            if (this.richShown.typed !== null) this.host.setRich(active.field, opened.value);
+            this.richShown.typed = null;
+        }
+        this.dropActive();
+        this.host.cancelled?.(active);
     }
 
     /** Leaves the spot being edited; the page is drawn again with the draft. */
@@ -802,7 +845,9 @@ export class InPlaceEditing {
         this.active = null;
         this.textAtStart = null;
         this.textShown = null;
+        this.opened = null;
         active.el.removeAttribute('data-arc-multiline');
+        active.el.removeAttribute('data-arc-inline');
         this.rich?.destroy();
         this.rich = null;
         const shown = this.richShown;

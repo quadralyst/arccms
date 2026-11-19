@@ -4181,7 +4181,10 @@
       "row_move_left": "बाएँ ले जाएँ",
       "row_move_right": "दाएँ ले जाएँ",
       "row_removed": "{{row}} हटाया गया",
-      "use_video": "या YouTube वीडियो"
+      "use_video": "या YouTube वीडियो",
+      "editing": "संपादन",
+      "done_title": "यह बदलाव रखें। कहीं और क्लिक करने पर भी यह रहता है।",
+      "cancel_title": "जो पहले था, वही वापस रखें"
     }
   },
   "user": {

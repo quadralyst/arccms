@@ -206,6 +206,55 @@ describe('InPlaceEditing', () => {
         expect(editing.current()).toBeNull();
     });
 
+    it('Cancel puts back what a text spot held, in the draft and on the page (VE-D37)', () => {
+        const title = q('[data-arc-field="title"]');
+        host.value.mockImplementation((field: string) => (field === 'title' ? 'Concert' : values[field] ?? ''));
+        click(title);
+        title.textContent = 'Something else';
+        title.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(host.setText).toHaveBeenLastCalledWith('title', 'Something else');
+        editing.cancel();
+        expect(host.setText).toHaveBeenLastCalledWith('title', 'Concert');
+        expect(title.textContent).toBe('Concert');
+        expect(editing.current()).toBeNull();
+        expect(host.hold).toHaveBeenLastCalledWith(false);
+    });
+
+    it('Cancel on an unchanged spot writes nothing', () => {
+        click(q('[data-arc-field="title"]'));
+        editing.cancel();
+        expect(host.setText).not.toHaveBeenCalled();
+    });
+
+    it('Cancel puts back a rich spot\'s HTML and what the page showed', () => {
+        const body = q('[data-arc-field="content"]');
+        click(body);
+        richChange!('<p>Typed</p>');
+        expect(host.setRich).toHaveBeenLastCalledWith('content', '<p>Typed</p>');
+        editing.cancel();
+        expect(host.setRich).toHaveBeenLastCalledWith('content', '<p>Body</p>');
+        expect(body.innerHTML).toBe('<p>Body</p>');
+    });
+
+    it('an empty value keeps the page\'s layout while typed in; only one inside a line gets room for the cursor', () => {
+        const css = doc.getElementById('arc-in-place-style')!.textContent!;
+        expect(css).toContain('[data-arc-editing][data-arc-inline]:empty { display: inline-block; min-width: 1ch; }');
+        expect(css).not.toMatch(/\[data-arc-editing\]:empty \{ display/);
+        const title = q('[data-arc-field="title"]');
+        title.style.display = 'inline';
+        click(title);
+        expect(title.hasAttribute('data-arc-inline')).toBe(true);
+        key('Escape');
+        const heading = q('h1');
+        heading.style.display = 'block';
+        heading.setAttribute('data-arc-field', 'summary');
+        editing.mark();
+        click(heading);
+        expect(heading.hasAttribute('data-arc-inline')).toBe(false);
+        key('Escape');
+        expect(title.hasAttribute('data-arc-inline')).toBe(false);
+    });
+
     it('opens the one spot of an element clicked beside it', () => {
         click(q('h1'));
         expect(editing.current()?.field).toBe('title');

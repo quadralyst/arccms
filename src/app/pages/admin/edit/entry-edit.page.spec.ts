@@ -367,6 +367,28 @@ describe('EntryEditPage', () => {
             expect(page.emptyList('events-faq')).toEqual({ text: expect.any(String), add: false });
         });
 
+        it('Cancel on a row just added and still blank takes the row away; on a row with words it does not (VE-D37)', () => {
+            page.inPlace = { leave: vi.fn(), openWhenDrawn: vi.fn() } as never;
+            page.rowAddAfter();
+            const added = rows[1]['id'] as string;
+            const spot = { key: 'faq', field: 'events-faq', builtin: false, attr: '', row: null, kind: 'text' as const, rowId: added, sub: 'question', el: document.createElement('span'), label: null };
+            page.spotCancelled(spot);
+            expect(rows.map((r) => r['id'])).toEqual(['a', 'b']);
+            page.spotCancelled({ ...spot, rowId: 'a' });
+            expect(rows.map((r) => r['id'])).toEqual(['a', 'b']);
+        });
+
+        it('Done leaves the value and Cancel cancels it', () => {
+            const inPlace = { leave: vi.fn(), cancel: vi.fn(), current: vi.fn(() => null) };
+            page.inPlace = inPlace as never;
+            page.spotDone();
+            page.spotCancel();
+            expect(inPlace.leave).toHaveBeenCalled();
+            expect(inPlace.cancel).toHaveBeenCalled();
+            page.syncSpotActions();
+            expect(page.spotActions()).toBeNull();
+        });
+
         it('a language switch ends Undo, so a row is never put back into a translation', async () => {
             page.rowRemove();
             expect(page.undo()).not.toBeNull();

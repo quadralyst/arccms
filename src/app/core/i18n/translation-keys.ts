@@ -1204,7 +1204,10 @@ export type TranslationKey =
     | 'admin.edit_page.alt_placeholder'
     | 'admin.edit_page.bold'
     | 'admin.edit_page.bullets'
+    | 'admin.edit_page.cancel_title'
     | 'admin.edit_page.done'
+    | 'admin.edit_page.done_title'
+    | 'admin.edit_page.editing'
     | 'admin.edit_page.form'
     | 'admin.edit_page.form_title'
     | 'admin.edit_page.formatting'
@@ -5540,7 +5543,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.alt_placeholder',
     'admin.edit_page.bold',
     'admin.edit_page.bullets',
+    'admin.edit_page.cancel_title',
     'admin.edit_page.done',
+    'admin.edit_page.done_title',
+    'admin.edit_page.editing',
     'admin.edit_page.form',
     'admin.edit_page.form_title',
     'admin.edit_page.formatting',

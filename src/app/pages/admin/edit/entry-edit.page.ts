@@ -200,6 +200,16 @@ export function editFrameUrl(type: string, id: string): string {
         }
     </div>
     }
+    @if (spotActions(); as at) {
+    <!-- The value being typed in: Done keeps it (as clicking elsewhere does), Cancel puts back what was there (VE-D37). -->
+    <div class="arc-ed-spot" role="group" [attr.aria-label]="'admin.edit_page.editing' | transloco" [style.top.px]="at.top" [style.left.px]="at.left"
+        (mousedown)="$event.preventDefault()" data-testid="edit-spot-actions">
+        <button type="button" class="arc-ed-spot-done" (click)="spotDone()" [title]="'admin.edit_page.done_title' | transloco" data-testid="edit-spot-done">
+            <i class="bi bi-check-lg" aria-hidden="true"></i> {{ 'admin.edit_page.done' | transloco }}</button>
+        <button type="button" (click)="spotCancel()" [title]="'admin.edit_page.cancel_title' | transloco" data-testid="edit-spot-cancel">
+            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> {{ 'common.actions.cancel' | transloco }}</button>
+    </div>
+    }
     @if (undo(); as u) {
     <!-- A row just removed: Undo for a few seconds instead of a question first (VE-D32). -->
     <div class="arc-ed-undo" role="status" data-testid="edit-row-undo">
@@ -321,6 +331,18 @@ export function editFrameUrl(type: string, id: string): string {
         .arc-ed-bar-btn:disabled { opacity: .35; cursor: default; }
         .arc-ed-bar-btn:focus-visible { outline: 2px solid #f9fafb; outline-offset: -2px; }
         .arc-ed-bar-note { padding: 3px 8px; white-space: nowrap; }
+        .arc-ed-spot {
+            position: fixed; z-index: 998; display: flex; gap: 4px; transform: translateX(-100%);
+            font: 500 12px/1.4 system-ui, sans-serif;
+        }
+        .arc-ed-spot button {
+            display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; cursor: pointer;
+            font: inherit; color: #1f2937; background: #fff; border: 1px solid #d1d5db; box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+        }
+        .arc-ed-spot button:hover { background: #f3f4f6; }
+        .arc-ed-spot .arc-ed-spot-done { color: #fff; background: var(--arc-admin-accent); border-color: var(--arc-admin-accent); }
+        .arc-ed-spot .arc-ed-spot-done:hover { filter: brightness(1.1); background: var(--arc-admin-accent); }
+        .arc-ed-spot button:focus-visible { outline: 2px solid var(--arc-admin-accent); outline-offset: 1px; }
         .arc-ed-undo {
             position: fixed; z-index: 1001; left: 50%; bottom: 24px; transform: translateX(-50%);
             display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; border-radius: 8px;
@@ -402,6 +424,10 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     } | null>(null);
     /** The pasted link in a gallery item's box is not a YouTube link. */
     readonly videoError = signal(false);
+    /** Done and Cancel beside the value being typed in (VE-D37), and where they go. */
+    readonly spotActions = signal<{ top: number; left: number } | null>(null);
+    /** The row added last, still to be typed in: Cancel takes it away again while it is blank. */
+    private justAdded: { field: string; id: string } | null = null;
     /** The row bar (VE-D32): the row it is for and where it goes. */
     readonly bar = signal<RowBar | null>(null);
     /** A row just removed, for Undo (VE-D32). */
@@ -446,8 +472,9 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (!this.typesStore.items().some((t: ContentType) => t.slug === this.type)) this.typesStore.getAll();
         const timer = setInterval(() => {
             this.readStatus();
-            // The page may have been drawn again: the bar follows its row.
+            // The page may have been drawn again: the bar follows its row, the buttons their value.
             this.syncBar();
+            this.syncSpotActions();
         }, STATUS_EVERY_MS);
         const onKey = (event: KeyboardEvent) => this.onKey(event);
         this.document.addEventListener('keydown', onKey);
@@ -549,7 +576,10 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             if (event.key === 'Escape') this.onKey(event);
             else this.panel.touch();
         };
-        const onScroll = () => this.syncBar();
+        const onScroll = () => {
+            this.syncBar();
+            this.syncSpotActions();
+        };
         doc.addEventListener('pointerdown', onTouch, true);
         doc.addEventListener('keydown', onKey);
         win.addEventListener('scroll', onScroll, { passive: true });
@@ -656,7 +686,9 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             this.closePopover();
             this.richOn.set(!!rich);
             if (!rich) this.richEditor = null;
+            this.syncSpotActions();
         },
+        cancelled: (spot) => this.spotCancelled(spot),
     };
 
     fieldValue(field: string): unknown {
@@ -1182,6 +1214,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         }
         const row = newRepeaterRow(ref.schema, 0);
         this.writeRows(field, insertRowsAfter(this.rows(field), afterId, [row]));
+        this.justAdded = { field, id: row.id };
         this.inPlace?.openWhenDrawn(row.id);
     }
 
@@ -1339,6 +1372,56 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (!spot?.rowId || !sub || this.editor?.session.isTranslating()) return;
         this.writeRows(spot.field, setRowLocation(this.rows(spot.field), spot.rowId, sub, null));
         this.pop.update((p) => (p ? { ...p, location: { address: '', lat: null, lng: null, zoom: null } } : p));
+    }
+
+    // ── Done and Cancel (VE-D37) ─────────────────────────────────────────────
+    /** Done: the value is left, its change kept, as a click elsewhere does. */
+    spotDone(): void {
+        this.inPlace?.leave();
+    }
+
+    /** Cancel: the value goes back to what it held when it was opened. */
+    spotCancel(): void {
+        this.inPlace?.cancel();
+    }
+
+    /** A row just added and still blank goes when its first value is cancelled. */
+    spotCancelled(spot: Spot): void {
+        const added = this.justAdded;
+        if (!added || spot.field !== added.field || spot.rowId !== added.id) return;
+        this.justAdded = null;
+        const ref = this.repeater(spot.field);
+        const row = this.rows(spot.field).find((r) => r.id === added.id);
+        if (!ref || !row || !isRepeaterRowEmpty(row, ref.schema)) return;
+        this.writeRows(spot.field, removeRow(this.rows(spot.field), added.id).rows);
+    }
+
+    /**
+     * Done and Cancel just outside the value's bottom right; for a value taller than the
+     * window (the body), at the window's bottom until its end shows. Hidden while it is
+     * out of sight.
+     */
+    syncSpotActions(): void {
+        const spot = this.inPlace?.current();
+        const frame = this.frame?.nativeElement;
+        const typed = spot && (spot.kind === 'text' || spot.kind === 'rich');
+        if (!typed || !frame || !spot.el.isConnected) {
+            if (this.spotActions()) this.spotActions.set(null);
+            return;
+        }
+        const area = frame.getBoundingClientRect();
+        const box = spot.el.getBoundingClientRect();
+        if (box.bottom < 0 || box.top > area.height) {
+            if (this.spotActions()) this.spotActions.set(null);
+            return;
+        }
+        const top = Math.round(area.top + Math.min(box.bottom + 6, area.height - SPOT_ACTIONS_HEIGHT - 8));
+        // Page settings open over the page: the buttons stay on the page's side of it.
+        const panelLeft = this.panel.shown() ? this.panelBox?.nativeElement.getBoundingClientRect().left ?? Infinity : Infinity;
+        const left = Math.round(Math.min(area.left + Math.min(box.right, spot.el.ownerDocument.documentElement.clientWidth - 4), panelLeft - 8));
+        const now = this.spotActions();
+        if (now && now.top === top && now.left === left) return;
+        this.spotActions.set({ top, left });
     }
 
     // ── Images, boxes and the panel ──────────────────────────────────────────
@@ -1529,6 +1612,9 @@ export interface RowBar {
     first: boolean;
     last: boolean;
 }
+
+/** How tall the Done and Cancel buttons are, to keep them inside the window. */
+const SPOT_ACTIONS_HEIGHT = 28;
 
 /** About how tall the map box is: search, map, address and point boxes. */
 const MAP_BOX_HEIGHT = 470;

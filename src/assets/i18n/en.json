@@ -4189,7 +4189,10 @@
       "row_move_left": "Move left",
       "row_move_right": "Move right",
       "row_removed": "{{row}} removed",
-      "use_video": "Or a YouTube video"
+      "use_video": "Or a YouTube video",
+      "editing": "Editing",
+      "done_title": "Keep this change. Clicking elsewhere keeps it too.",
+      "cancel_title": "Put back what was here"
     }
   },
   "user": {
