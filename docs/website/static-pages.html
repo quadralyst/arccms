@@ -52,7 +52,7 @@
     <div class="note"><p>The standard pages live at <code>/info/about</code>, not <code>/about</code>. If a type of your own already uses the slug <code>info</code>, <strong>Add standard pages</strong> adds nothing and says so.</p></div>
 
     <h2>Hand-written pages</h2>
-    <p>A hand-written page is an HTML file in <code class="new">src/custom/site/pages/</code>, served at <code>/p/{name}</code>. Arc CMS ships two examples, a privacy policy and a cookie policy, in <code>public/_site/pages/</code>. Use one for text that rarely changes and needs no editor; anything editors update belongs in the standard pages or another content type.</p>
+    <p>A hand-written page is an HTML file in <code class="new">src/custom/site/pages/</code>, served at <code>/p/{name}</code>. Arc CMS ships two examples, a privacy policy and a cookie policy, in <code>public/_site/pages/</code>. Use one for text that rarely changes and needs no editor; anything editors update belongs in the standard pages or another content type. A hand-written page with a fixed design and a few words editors change is the exception: mark those with <code>data-arc-edit</code> (see <a href="home-page.html#page-text">Areas editors can change</a>), and the page shows under <strong>Content</strong>, <strong>More Pages</strong>.</p>
     <ol class="steps">
       <li><p>Copy <code>public/_site/pages/privacy-policy.html</code> to <code class="new">src/custom/site/pages/</code>, or start a new file there. A file with the same name as an example replaces it at the same address.</p></li>
       <li><p>Replace the <code>&lt;title&gt;</code>, the <code>&lt;meta name="description"&gt;</code> and the body text with yours. Keep the page a whole HTML document.</p></li>

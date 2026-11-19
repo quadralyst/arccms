@@ -34,6 +34,7 @@ import { letIntoSearch } from '../core/site/search-engines';
 import { pageLanguageHold, siteLanguageDir } from '../core/site/page-language';
 import { DetailSource } from './page.parts/detail-source';
 import { PageTextService } from '../core/site/page-text.service';
+import { PAGE_TEXT_PREVIEW } from '../core/site/page-text-preview';
 import { hasPageTextMarks, pageTextId } from '../core/utils/page-text-model';
 
 export const routeMeta: RouteMeta = {
@@ -89,6 +90,11 @@ export default class HomeComponent implements OnInit, OnDestroy {
     private siteIdentity = inject(SiteIdentityService);
     private sitePages = inject(SitePagesService);
     private pageText = inject(PageTextService);
+    /** Live Preview of the page's text (VE-D50): the draft's values, and a preview like the live preview's. */
+    private textPreview = inject(PAGE_TEXT_PREVIEW, { optional: true });
+    private get isPreview(): boolean {
+        return !!this.source || !!this.textPreview;
+    }
     /** On the live preview, the page's language comes from the editor, not the route (VE-D10). */
     private source = inject(DetailSource, { optional: true });
     /** `<html lang>` and `dir`: the page's own while it shows (core/site/page-language.ts). */
@@ -115,7 +121,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
         const lang = this.source ? this.source.route().lang : this.route.snapshot.paramMap.get('lang') || '';
 
         // First run, or a setup started and never finished: the wizard first. Not inside the preview.
-        if (!this.source && !new URLSearchParams(window.location.search).has('debug')) {
+        if (!this.isPreview && !new URLSearchParams(window.location.search).has('debug')) {
             this.onboarding.shouldShowOnboarding().pipe(take(1)).subscribe((show) => {
                 if (show) this.router.navigate(['/onboarding']);
             });
@@ -144,8 +150,8 @@ export default class HomeComponent implements OnInit, OnDestroy {
         const ownFile = !!lang && !!siteManifest().home[lang];
         const [file, edited] = await Promise.all([
             firstValueFrom(this.http.get(ownFile ? `/_site/home.${lang}.html` : '/_site/home.html', { responseType: 'text' })),
-            // What editors published on the page (specs/visual-editing-spec.md, VE-D40).
-            this.pageText.published(pageTextId.home()),
+            // What editors published on the page (specs/visual-editing-spec.md, VE-D40), or the draft on Live Preview.
+            this.textPreview ? Promise.resolve(this.textPreview.values()) : this.pageText.published(pageTextId.home()),
         ]);
         if (this.destroyed) return;
         const defaultLang = settings.defaultLanguage || '';
@@ -177,11 +183,11 @@ export default class HomeComponent implements OnInit, OnDestroy {
         if (description) this.meta.updateTag({ name: 'description', content: description });
         // The home page is public content: listed, unless its own file says otherwise (RF6 6.3).
         // Not inside the live preview, a draft under /admin.
-        if (!this.source) letIntoSearch(this.meta);
+        if (!this.isPreview) letIntoSearch(this.meta);
         const robots = page.querySelector('meta[name="robots"]')?.getAttribute('content');
         if (robots) this.meta.updateTag({ name: 'robots', content: robots });
         // What the page is, for the admin strip (VE-D11); not inside the live preview.
-        setArcEntry(this.meta, this.source ? null : arcEntry.home());
+        setArcEntry(this.meta, this.isPreview ? null : arcEntry.home());
         this.holdLanguage();
         for (const node of Array.from(page.head.querySelectorAll('link[rel="stylesheet"], style'))) {
             this.add(this.document.head, this.document.importNode(node, true) as Element);

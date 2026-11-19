@@ -1905,6 +1905,83 @@ export type TranslationKey =
     | 'admin.messages.tab_new'
     | 'admin.messages.tab_spam'
     | 'admin.messages.title'
+    | 'admin.more_pages.edit'
+    | 'admin.more_pages.editor.add_link'
+    | 'admin.more_pages.editor.address'
+    | 'admin.more_pages.editor.address_placeholder'
+    | 'admin.more_pages.editor.alt_text'
+    | 'admin.more_pages.editor.bad_address'
+    | 'admin.more_pages.editor.bold'
+    | 'admin.more_pages.editor.cards_newest'
+    | 'admin.more_pages.editor.cards_note'
+    | 'admin.more_pages.editor.cards_own_order'
+    | 'admin.more_pages.editor.check_translation'
+    | 'admin.more_pages.editor.choose_picture'
+    | 'admin.more_pages.editor.default_text'
+    | 'admin.more_pages.editor.description_count'
+    | 'admin.more_pages.editor.edit_cards'
+    | 'admin.more_pages.editor.edited'
+    | 'admin.more_pages.editor.file_changed'
+    | 'admin.more_pages.editor.from_file'
+    | 'admin.more_pages.editor.gone_note'
+    | 'admin.more_pages.editor.gone_title'
+    | 'admin.more_pages.editor.history_failed'
+    | 'admin.more_pages.editor.italic'
+    | 'admin.more_pages.editor.keep_mine'
+    | 'admin.more_pages.editor.language'
+    | 'admin.more_pages.editor.link'
+    | 'admin.more_pages.editor.link_text'
+    | 'admin.more_pages.editor.live'
+    | 'admin.more_pages.editor.live_preview'
+    | 'admin.more_pages.editor.no_file'
+    | 'admin.more_pages.editor.no_history'
+    | 'admin.more_pages.editor.not_read'
+    | 'admin.more_pages.editor.not_saved'
+    | 'admin.more_pages.editor.not_saved_detail'
+    | 'admin.more_pages.editor.nothing_marked'
+    | 'admin.more_pages.editor.other_language_note'
+    | 'admin.more_pages.editor.publish'
+    | 'admin.more_pages.editor.publish_note'
+    | 'admin.more_pages.editor.publish_slow'
+    | 'admin.more_pages.editor.publishing'
+    | 'admin.more_pages.editor.remove'
+    | 'admin.more_pages.editor.remove_confirm'
+    | 'admin.more_pages.editor.remove_title'
+    | 'admin.more_pages.editor.rest_of_page'
+    | 'admin.more_pages.editor.restore'
+    | 'admin.more_pages.editor.restore_confirm'
+    | 'admin.more_pages.editor.restore_title'
+    | 'admin.more_pages.editor.saved'
+    | 'admin.more_pages.editor.saving'
+    | 'admin.more_pages.editor.section'
+    | 'admin.more_pages.editor.seo_description'
+    | 'admin.more_pages.editor.seo_language_note'
+    | 'admin.more_pages.editor.seo_title'
+    | 'admin.more_pages.editor.share_image'
+    | 'admin.more_pages.editor.share_image_default'
+    | 'admin.more_pages.editor.status'
+    | 'admin.more_pages.editor.still_right'
+    | 'admin.more_pages.editor.tab_basic'
+    | 'admin.more_pages.editor.tab_history'
+    | 'admin.more_pages.editor.tab_seo'
+    | 'admin.more_pages.editor.title_count'
+    | 'admin.more_pages.editor.use_file_address'
+    | 'admin.more_pages.editor.use_file_picture'
+    | 'admin.more_pages.editor.use_file_text'
+    | 'admin.more_pages.editor.use_it'
+    | 'admin.more_pages.editor.version_count'
+    | 'admin.more_pages.home_page'
+    | 'admin.more_pages.last_published'
+    | 'admin.more_pages.load_failed'
+    | 'admin.more_pages.loading'
+    | 'admin.more_pages.never'
+    | 'admin.more_pages.no_static_pages'
+    | 'admin.more_pages.retry'
+    | 'admin.more_pages.status.changes'
+    | 'admin.more_pages.status.file'
+    | 'admin.more_pages.status.published'
+    | 'admin.more_pages.subtitle'
+    | 'admin.more_pages.title'
     | 'admin.nav.about'
     | 'admin.nav.announcements'
     | 'admin.nav.app_users'
@@ -1939,6 +2016,7 @@ export type TranslationKey =
     | 'admin.nav.logout_success'
     | 'admin.nav.media_manager'
     | 'admin.nav.messages'
+    | 'admin.nav.more_pages'
     | 'admin.nav.open_menu'
     | 'admin.nav.products'
     | 'admin.nav.profile'
@@ -3335,7 +3413,9 @@ export type TranslationKey =
     | 'admin.titles.contact_tags'
     | 'admin.titles.edit_content_type'
     | 'admin.titles.edit_entry'
+    | 'admin.titles.edit_home_page'
     | 'admin.titles.edit_on_page'
+    | 'admin.titles.edit_static_page'
     | 'admin.titles.edit_user'
     | 'admin.titles.entries'
     | 'admin.titles.list'
@@ -6252,6 +6332,83 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.messages.tab_new',
     'admin.messages.tab_spam',
     'admin.messages.title',
+    'admin.more_pages.edit',
+    'admin.more_pages.editor.add_link',
+    'admin.more_pages.editor.address',
+    'admin.more_pages.editor.address_placeholder',
+    'admin.more_pages.editor.alt_text',
+    'admin.more_pages.editor.bad_address',
+    'admin.more_pages.editor.bold',
+    'admin.more_pages.editor.cards_newest',
+    'admin.more_pages.editor.cards_note',
+    'admin.more_pages.editor.cards_own_order',
+    'admin.more_pages.editor.check_translation',
+    'admin.more_pages.editor.choose_picture',
+    'admin.more_pages.editor.default_text',
+    'admin.more_pages.editor.description_count',
+    'admin.more_pages.editor.edit_cards',
+    'admin.more_pages.editor.edited',
+    'admin.more_pages.editor.file_changed',
+    'admin.more_pages.editor.from_file',
+    'admin.more_pages.editor.gone_note',
+    'admin.more_pages.editor.gone_title',
+    'admin.more_pages.editor.history_failed',
+    'admin.more_pages.editor.italic',
+    'admin.more_pages.editor.keep_mine',
+    'admin.more_pages.editor.language',
+    'admin.more_pages.editor.link',
+    'admin.more_pages.editor.link_text',
+    'admin.more_pages.editor.live',
+    'admin.more_pages.editor.live_preview',
+    'admin.more_pages.editor.no_file',
+    'admin.more_pages.editor.no_history',
+    'admin.more_pages.editor.not_read',
+    'admin.more_pages.editor.not_saved',
+    'admin.more_pages.editor.not_saved_detail',
+    'admin.more_pages.editor.nothing_marked',
+    'admin.more_pages.editor.other_language_note',
+    'admin.more_pages.editor.publish',
+    'admin.more_pages.editor.publish_note',
+    'admin.more_pages.editor.publish_slow',
+    'admin.more_pages.editor.publishing',
+    'admin.more_pages.editor.remove',
+    'admin.more_pages.editor.remove_confirm',
+    'admin.more_pages.editor.remove_title',
+    'admin.more_pages.editor.rest_of_page',
+    'admin.more_pages.editor.restore',
+    'admin.more_pages.editor.restore_confirm',
+    'admin.more_pages.editor.restore_title',
+    'admin.more_pages.editor.saved',
+    'admin.more_pages.editor.saving',
+    'admin.more_pages.editor.section',
+    'admin.more_pages.editor.seo_description',
+    'admin.more_pages.editor.seo_language_note',
+    'admin.more_pages.editor.seo_title',
+    'admin.more_pages.editor.share_image',
+    'admin.more_pages.editor.share_image_default',
+    'admin.more_pages.editor.status',
+    'admin.more_pages.editor.still_right',
+    'admin.more_pages.editor.tab_basic',
+    'admin.more_pages.editor.tab_history',
+    'admin.more_pages.editor.tab_seo',
+    'admin.more_pages.editor.title_count',
+    'admin.more_pages.editor.use_file_address',
+    'admin.more_pages.editor.use_file_picture',
+    'admin.more_pages.editor.use_file_text',
+    'admin.more_pages.editor.use_it',
+    'admin.more_pages.editor.version_count',
+    'admin.more_pages.home_page',
+    'admin.more_pages.last_published',
+    'admin.more_pages.load_failed',
+    'admin.more_pages.loading',
+    'admin.more_pages.never',
+    'admin.more_pages.no_static_pages',
+    'admin.more_pages.retry',
+    'admin.more_pages.status.changes',
+    'admin.more_pages.status.file',
+    'admin.more_pages.status.published',
+    'admin.more_pages.subtitle',
+    'admin.more_pages.title',
     'admin.nav.about',
     'admin.nav.announcements',
     'admin.nav.app_users',
@@ -6286,6 +6443,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.logout_success',
     'admin.nav.media_manager',
     'admin.nav.messages',
+    'admin.nav.more_pages',
     'admin.nav.open_menu',
     'admin.nav.products',
     'admin.nav.profile',
@@ -7682,7 +7840,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.titles.contact_tags',
     'admin.titles.edit_content_type',
     'admin.titles.edit_entry',
+    'admin.titles.edit_home_page',
     'admin.titles.edit_on_page',
+    'admin.titles.edit_static_page',
     'admin.titles.edit_user',
     'admin.titles.entries',
     'admin.titles.list',

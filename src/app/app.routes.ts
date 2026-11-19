@@ -34,6 +34,16 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/admin/preview/content-preview.component').then((m) => m.default),
   },
+  // Live Preview of the home page or a static page (specs/visual-editing-spec.md, VE-D50):
+  // the page drawn with its draft, outside the admin shell like the preview above.
+  ...['admin/preview-page/home', 'admin/preview-page/home/:lang', 'admin/preview-page/p/:fileName'].map((path) => ({
+    path,
+    title: 'Live Preview',
+    canActivate: [roleGuard],
+    data: { titleKey: 'admin.titles.preview', allowedRoles: ['admin'] },
+    loadComponent: () =>
+      import('./pages/admin/more-pages/page-preview.page').then((m) => m.default),
+  })),
   // The edit-on-page screen (specs/visual-editing-spec.md, VE-D14): the page as on the site in
   // a frame, a strip on top and the Page settings panel, with nothing of the admin around it.
   // Outside the admin shell for the same reason as the preview; the entry editor's people.
@@ -393,6 +403,34 @@ export const routes: Routes = [
         data: { titleKey: 'admin.titles.edit_entry', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/contents/[slug]/edit.[contentId].page').then((m) => m.default),
+      },
+      // Content, More Pages (specs/visual-editing-spec.md, VE-D48, VE-D49): the home page
+      // and the static pages editors can change, and the classic editor of each. Its own
+      // prefix, so a static page's address can clash neither with contents/:slug nor with
+      // a static page named home.
+      {
+        path: 'more-pages',
+        title: 'More Pages',
+        canActivate: [roleGuard],
+        data: { titleKey: 'admin.nav.more_pages', allowedRoles: ['admin'] },
+        loadComponent: () =>
+          import('./pages/admin/more-pages/more-pages.page').then((m) => m.default),
+      },
+      {
+        path: 'more-pages/home',
+        title: 'Home page',
+        canActivate: [roleGuard],
+        data: { titleKey: 'admin.titles.edit_home_page', allowedRoles: ['admin'] },
+        loadComponent: () =>
+          import('./pages/admin/more-pages/page-text-editor.page').then((m) => m.default),
+      },
+      {
+        path: 'more-pages/p/:name',
+        title: 'Edit page',
+        canActivate: [roleGuard],
+        data: { titleKey: 'admin.titles.edit_static_page', allowedRoles: ['admin'] },
+        loadComponent: () =>
+          import('./pages/admin/more-pages/page-text-editor.page').then((m) => m.default),
       },
       // Admin Authors route (specs/discoverability-spec.md, D2). Explicit like
       // every other admin feature route.

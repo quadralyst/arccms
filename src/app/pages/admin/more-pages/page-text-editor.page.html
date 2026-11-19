@@ -1,0 +1,288 @@
+<div class="page-editor">
+    <nav class="editor-bar">
+        <div class="bar-left">
+            <a class="btn btn-link btn-sm px-0" routerLink="/admin/more-pages">
+                <i class="fa-solid fa-arrow-left me-1" aria-hidden="true"></i>{{ 'admin.nav.more_pages' | transloco }}
+            </a>
+            <h1 class="page-title">{{ pageTitle() }}</h1>
+            <span class="save-state" role="status" aria-live="polite">
+                @if (saving() > 0) {
+                    <i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.saving' | transloco }}
+                } @else if (saveError()) {
+                    <span class="text-danger"><i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.not_saved' | transloco }}</span>
+                } @else if (draft()) {
+                    <i class="fa-solid fa-check me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.saved' | transloco }}
+                }
+            </span>
+        </div>
+        <div class="bar-right">
+            @if (languages().length > 1) {
+                <div class="btn-group btn-group-sm" role="group" [attr.aria-label]="'admin.more_pages.editor.language' | transloco" data-testid="languages">
+                    @for (language of languages(); track language.code) {
+                        <button type="button" class="btn" [class.btn-primary]="language.code === lang()" [class.btn-outline-secondary]="language.code !== lang()"
+                            [attr.aria-pressed]="language.code === lang()" (click)="chooseLanguage(language.code)">{{ language.label }}</button>
+                    }
+                </div>
+            }
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openPreview()" [disabled]="loading() || !!loadError()">
+                <i class="fa-regular fa-eye me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.live_preview' | transloco }}
+            </button>
+        </div>
+    </nav>
+
+    @if (session?.error(); as readError) {
+        <div class="alert alert-danger py-2" role="alert" data-testid="read-error">{{ 'admin.more_pages.editor.not_read' | transloco: { error: readError } }}</div>
+    }
+    @if (saveError()) {
+        <div class="alert alert-danger py-2" role="alert" data-testid="save-error">{{ 'admin.more_pages.editor.not_saved_detail' | transloco: { error: saveError() } }}</div>
+    }
+
+    @if (loading()) {
+        <p class="text-muted p-3" role="status"><i class="fa-solid fa-spinner fa-spin me-2" aria-hidden="true"></i>{{ 'admin.more_pages.loading' | transloco }}</p>
+    } @else if (loadError()) {
+        <div class="alert alert-danger m-3" role="alert">{{ loadError() }}</div>
+    } @else {
+        <div class="editor-body">
+            <main class="areas">
+                @if (!isDefaultLang()) {
+                    <p class="lang-note">{{ 'admin.more_pages.editor.other_language_note' | transloco }}</p>
+                }
+                @for (section of sections(); track section.index; let position = $index) {
+                    <section class="area-section">
+                        <h2 class="section-name">{{ sectionName(section, position) }}</h2>
+
+                        @for (view of section.areas; track view.area.key) {
+                            <div class="area" [attr.data-area]="view.area.key">
+                                <div class="area-head">
+                                    <label class="area-name" [attr.for]="'w-' + view.area.key">{{ areaName(view) }}</label>
+                                    @if (view.words || view.url) {
+                                        <span class="area-state edited">{{ 'admin.more_pages.editor.edited' | transloco }}</span>
+                                    } @else {
+                                        <span class="area-state">{{ 'admin.more_pages.editor.from_file' | transloco }}</span>
+                                    }
+                                </div>
+
+                                @if (!isDefaultLang() && view.hasWords && view.defaultWords) {
+                                    <div class="default-words">
+                                        <span class="label">{{ 'admin.more_pages.editor.default_text' | transloco }}</span>
+                                        @if (view.area.kind === 'rich') { <span [innerHTML]="view.defaultWords"></span> } @else { <span>{{ view.defaultWords }}</span> }
+                                    </div>
+                                }
+
+                                @if (view.hasUrl && view.area.kind !== 'link') {
+                                    <div class="picture-row">
+                                        @if (view.url || view.fileUrl) {
+                                            <img class="picture" [src]="view.url || view.fileUrl" alt="" loading="lazy">
+                                        }
+                                        <div class="picture-actions">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" (click)="choosePicture(view)">
+                                                <i class="fa-regular fa-image me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.choose_picture' | transloco }}
+                                            </button>
+                                            @if (view.url) {
+                                                <button type="button" class="btn btn-link btn-sm" (click)="useFileUrl(view)">{{ 'admin.more_pages.editor.use_file_picture' | transloco }}</button>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (view.hasWords) {
+                                    @if (view.area.kind === 'rich') {
+                                        <div class="rich-tools" role="toolbar" [attr.aria-label]="areaName(view)">
+                                            <button type="button" class="btn btn-light btn-sm" (mousedown)="$event.preventDefault()" (click)="format('bold', rich)" [attr.aria-label]="'admin.more_pages.editor.bold' | transloco"><i class="fa-solid fa-bold" aria-hidden="true"></i></button>
+                                            <button type="button" class="btn btn-light btn-sm" (mousedown)="$event.preventDefault()" (click)="format('italic', rich)" [attr.aria-label]="'admin.more_pages.editor.italic' | transloco"><i class="fa-solid fa-italic" aria-hidden="true"></i></button>
+                                            <button type="button" class="btn btn-light btn-sm" (mousedown)="$event.preventDefault()" (click)="openLink(view, rich)" [attr.aria-label]="'admin.more_pages.editor.link' | transloco"><i class="fa-solid fa-link" aria-hidden="true"></i></button>
+                                        </div>
+                                        @if (linkFor() === view.area.key) {
+                                            <div class="link-box">
+                                                <input class="form-control form-control-sm" type="text" [placeholder]="'admin.more_pages.editor.address_placeholder' | transloco"
+                                                    [value]="linkUrl" (input)="linkUrl = $any($event.target).value" (keydown.enter)="applyLink(view, rich)">
+                                                <button type="button" class="btn btn-primary btn-sm" (click)="applyLink(view, rich)">{{ 'admin.more_pages.editor.add_link' | transloco }}</button>
+                                                <button type="button" class="btn btn-link btn-sm" (click)="linkFor.set('')">{{ 'common.actions.cancel' | transloco }}</button>
+                                            </div>
+                                        }
+                                        <div #rich class="rich-field form-control" contenteditable="true" role="textbox" aria-multiline="true"
+                                            [id]="'w-' + view.area.key" [attr.data-key]="view.area.key" [attr.aria-label]="areaName(view)"
+                                            (keydown.enter)="lineBreak($event)"
+                                            [attr.data-placeholder]="plain(view.wordsFallback)"
+                                            (input)="richInput(view, rich)" (blur)="wordsLeft(view)"></div>
+                                    } @else {
+                                        @if (view.area.kind === 'link') {
+                                            <span class="sub-label">{{ 'admin.more_pages.editor.link_text' | transloco }}</span>
+                                        } @else if (view.area.kind === 'picture') {
+                                            <span class="sub-label">{{ 'admin.more_pages.editor.alt_text' | transloco }}</span>
+                                        }
+                                        @if (view.wordsFallback.length > 80) {
+                                            <textarea class="form-control" rows="3" [id]="'w-' + view.area.key"
+                                                [value]="shown(fieldId('w', view.area.key), view.words)" [placeholder]="view.area.placeholder || view.wordsFallback"
+                                                (input)="wordsInput(view, $any($event.target).value)" (blur)="wordsLeft(view)"></textarea>
+                                        } @else {
+                                            <input class="form-control" type="text" [id]="'w-' + view.area.key"
+                                                [value]="shown(fieldId('w', view.area.key), view.words)" [placeholder]="view.area.placeholder || view.wordsFallback"
+                                                (input)="wordsInput(view, $any($event.target).value)" (blur)="wordsLeft(view)">
+                                        }
+                                    }
+                                    @if (view.words) {
+                                        <button type="button" class="btn btn-link btn-sm px-0" (click)="useFileWords(view)">{{ 'admin.more_pages.editor.use_file_text' | transloco }}</button>
+                                    }
+                                    @if (view.wordsFileChanged) {
+                                        <div class="note warn" role="note">
+                                            <span>{{ 'admin.more_pages.editor.file_changed' | transloco }} <q>{{ view.fileWords }}</q></span>
+                                            <span class="note-actions">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="useFileWords(view)">{{ 'admin.more_pages.editor.use_it' | transloco }}</button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="keepWords(view)">{{ 'admin.more_pages.editor.keep_mine' | transloco }}</button>
+                                            </span>
+                                        </div>
+                                    }
+                                    @if (view.checkTranslation) {
+                                        <div class="note info" role="note">
+                                            <span>{{ 'admin.more_pages.editor.check_translation' | transloco }}</span>
+                                            <span class="note-actions">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="translationChecked(view)">{{ 'admin.more_pages.editor.still_right' | transloco }}</button>
+                                            </span>
+                                        </div>
+                                    }
+                                }
+
+                                @if (view.area.kind === 'link') {
+                                    <label class="sub-label" [attr.for]="'u-' + view.area.key">{{ 'admin.more_pages.editor.address' | transloco }}</label>
+                                    <input class="form-control" type="text" [id]="'u-' + view.area.key" [class.is-invalid]="badUrl()[fieldId('u', view.area.key)]"
+                                        [value]="shown(fieldId('u', view.area.key), view.url)" [placeholder]="view.fileUrl"
+                                        (input)="urlInput(view, $any($event.target).value)" (blur)="urlLeft(view)">
+                                    @if (badUrl()[fieldId('u', view.area.key)]) {
+                                        <div class="invalid-feedback d-block">{{ 'admin.more_pages.editor.bad_address' | transloco }}</div>
+                                    }
+                                    @if (view.url) {
+                                        <button type="button" class="btn btn-link btn-sm px-0" (click)="useFileUrl(view)">{{ 'admin.more_pages.editor.use_file_address' | transloco }}</button>
+                                    }
+                                }
+                                @if (view.urlFileChanged) {
+                                    <div class="note warn" role="note">
+                                        <span>{{ 'admin.more_pages.editor.file_changed' | transloco }} <q>{{ view.fileUrl }}</q></span>
+                                        <span class="note-actions">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="useFileUrl(view)">{{ 'admin.more_pages.editor.use_it' | transloco }}</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="keepUrl(view)">{{ 'admin.more_pages.editor.keep_mine' | transloco }}</button>
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @for (block of section.blocks; track $index) {
+                            <div class="card-block" data-testid="card-block">
+                                <i class="fa-solid fa-table-cells-large me-2" aria-hidden="true"></i>
+                                <span class="card-block-text">
+                                    {{ (cardOwnOrder(block.type) ? 'admin.more_pages.editor.cards_own_order' : 'admin.more_pages.editor.cards_newest') | transloco: { type: cardTypeName(block.type), count: block.count } }}
+                                </span>
+                                <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/admin/contents', block.type]">{{ 'admin.more_pages.editor.edit_cards' | transloco: { type: cardTypeName(block.type) } }}</a>
+                            </div>
+                        }
+                    </section>
+                } @empty {
+                    <p class="text-muted">{{ 'admin.more_pages.editor.nothing_marked' | transloco }}</p>
+                }
+
+                @if (gone().length) {
+                    <section class="area-section gone" data-testid="gone">
+                        <h2 class="section-name">{{ 'admin.more_pages.editor.gone_title' | transloco }}</h2>
+                        <p class="text-muted small">{{ 'admin.more_pages.editor.gone_note' | transloco }}</p>
+                        @for (item of gone(); track item.key) {
+                            <div class="gone-key">
+                                <code>{{ item.key }}</code>
+                                <span class="gone-text">{{ item.text || item.url }}</span>
+                                <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeGone(item.key)">{{ 'admin.more_pages.editor.remove' | transloco }}</button>
+                            </div>
+                        }
+                    </section>
+                }
+            </main>
+
+            <aside class="panel">
+                <div class="panel-tabs" role="tablist">
+                    @for (tab of ['basic', 'seo', 'history']; track tab) {
+                        <button type="button" role="tab" class="panel-tab" [class.active]="panel() === tab" [attr.aria-selected]="panel() === tab"
+                            (click)="showPanel($any(tab))">{{ ('admin.more_pages.editor.tab_' + tab) | transloco }}</button>
+                    }
+                </div>
+
+                @if (panel() === 'basic') {
+                    <div class="panel-body" role="tabpanel">
+                        <div class="panel-row">
+                            <span class="panel-label">{{ 'admin.more_pages.editor.status' | transloco }}</span>
+                            <span class="page-status" [class]="'page-status status-' + status()">{{ ('admin.more_pages.status.' + status()) | transloco }}</span>
+                        </div>
+                        <div class="panel-row">
+                            <span class="panel-label">{{ 'admin.more_pages.last_published' | transloco }}</span>
+                            <span>@if (lastPublished()) { {{ lastPublished() | arcTime }} } @else { {{ 'admin.more_pages.never' | transloco }} }</span>
+                        </div>
+                        <button type="button" class="btn btn-primary w-100 mt-2" data-testid="publish" (click)="publish()"
+                            [disabled]="publishing() || status() !== 'changes' || saving() > 0">
+                            @if (publishing()) {
+                                <i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.publishing' | transloco }}
+                            } @else {
+                                <i class="fa-solid fa-upload me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.publish' | transloco }}
+                            }
+                        </button>
+                        @if (publishError()) {
+                            <p class="text-danger small mt-2" role="alert">{{ publishError() }}</p>
+                        } @else if (status() === 'changes' && !publishing()) {
+                            <p class="text-muted small mt-2">{{ 'admin.more_pages.editor.publish_note' | transloco }}</p>
+                        }
+                        <p class="text-muted small mt-3 mb-0">{{ 'admin.more_pages.editor.cards_note' | transloco }}</p>
+                    </div>
+                }
+
+                @if (panel() === 'seo' && seo(); as seo) {
+                    <div class="panel-body" role="tabpanel">
+                        <label class="panel-label" for="seo-title">{{ 'admin.more_pages.editor.seo_title' | transloco }}</label>
+                        <input id="seo-title" class="form-control" type="text" [value]="shown('s:' + lang() + ':title', seo.title)" [placeholder]="seo.titleFallback"
+                            (input)="seoInput('title', $any($event.target).value)" (blur)="seoLeft('title')">
+                        <div class="counter" [class.over]="titleLength() > 60">{{ 'admin.more_pages.editor.title_count' | transloco: { count: titleLength() } }}</div>
+
+                        <label class="panel-label mt-3" for="seo-description">{{ 'admin.more_pages.editor.seo_description' | transloco }}</label>
+                        <textarea id="seo-description" class="form-control" rows="4" [value]="shown('s:' + lang() + ':description', seo.description)" [placeholder]="seo.descriptionFallback"
+                            (input)="seoInput('description', $any($event.target).value)" (blur)="seoLeft('description')"></textarea>
+                        <div class="counter" [class.over]="descriptionLength() > 160">{{ 'admin.more_pages.editor.description_count' | transloco: { count: descriptionLength() } }}</div>
+
+                        <span class="panel-label mt-3 d-block">{{ 'admin.more_pages.editor.share_image' | transloco }}</span>
+                        @if (seo.shareImage) {
+                            <img class="share-image" [src]="seo.shareImage" alt="">
+                        } @else {
+                            <p class="text-muted small mb-1">{{ 'admin.more_pages.editor.share_image_default' | transloco }}</p>
+                        }
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-outline-primary btn-sm" (click)="chooseShareImage()">{{ 'admin.more_pages.editor.choose_picture' | transloco }}</button>
+                            @if (seo.shareImage) {
+                                <button type="button" class="btn btn-link btn-sm" (click)="useFileShareImage()">{{ 'admin.more_pages.editor.use_file_picture' | transloco }}</button>
+                            }
+                        </div>
+                        @if (!isDefaultLang()) {
+                            <p class="text-muted small mt-3 mb-0">{{ 'admin.more_pages.editor.seo_language_note' | transloco }}</p>
+                        }
+                    </div>
+                }
+
+                @if (panel() === 'history') {
+                    <div class="panel-body" role="tabpanel" data-testid="history">
+                        @if (historyError()) {
+                            <p class="text-danger small" role="alert">{{ 'admin.more_pages.editor.history_failed' | transloco }}</p>
+                        } @else if (history() === null) {
+                            <p class="text-muted small" role="status">{{ 'admin.more_pages.loading' | transloco }}</p>
+                        } @else {
+                            @for (version of history(); track version.id; let first = $first) {
+                                <div class="version">
+                                    <div>
+                                        <div>{{ millis(version.publishedAt) | arcTime }} @if (first) { <span class="badge text-bg-success ms-1">{{ 'admin.more_pages.editor.live' | transloco }}</span> }</div>
+                                        <div class="text-muted small">{{ 'admin.more_pages.editor.version_count' | transloco: { count: entryCount(version) } }}</div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restore(version)">{{ 'admin.more_pages.editor.restore' | transloco }}</button>
+                                </div>
+                            } @empty {
+                                <p class="text-muted small">{{ 'admin.more_pages.editor.no_history' | transloco }}</p>
+                            }
+                        }
+                    </div>
+                }
+            </aside>
+        </div>
+    }
+</div>

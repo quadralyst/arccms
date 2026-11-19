@@ -75,7 +75,7 @@ export function coreAdminItems(): MenuItem[] {
     ];
 }
 
-/** The Content group: Content types and Authors, then a link per content type (`typeLinks`). */
+/** The Content group: Content types, More Pages and Authors, then a link per content type (`typeLinks`). */
 export function adminContentGroup(typeLinks: MenuItem[] = []): MenuItem {
     return {
         id: 'content',
@@ -86,6 +86,8 @@ export function adminContentGroup(typeLinks: MenuItem[] = []): MenuItem {
         feature: 'content',
         subItems: [
             { id: 'content-types', label: 'Content types', labelKey: 'admin.nav.content_types', route: '/admin/contents/content-types', icon: 'fa-solid fa-newspaper' },
+            // The home page and the static pages editors can change (VE-D48).
+            { id: 'more-pages', label: 'More Pages', labelKey: 'admin.nav.more_pages', route: '/admin/more-pages', icon: 'fa-solid fa-file-pen' },
             { id: 'authors', label: 'Authors', labelKey: 'admin.nav.authors', route: '/admin/authors', icon: 'fa-solid fa-user-pen' },
             ...typeLinks,
         ],

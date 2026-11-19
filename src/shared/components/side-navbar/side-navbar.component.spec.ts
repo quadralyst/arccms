@@ -289,11 +289,13 @@ describe('NavbarComponent', () => {
             label: 'Content types',
             route: '/admin/contents/content-types',
         });
-        // Authors (D2) sits after Content types, before the per-type links.
-        expect(contentGroup?.subItems?.[1]).toMatchObject({ label: 'Authors', route: '/admin/authors' });
-        expect(contentGroup?.subItems?.slice(2).map(s => s.label)).toEqual(['Articles', 'Impact']);
+        // More Pages (VE-D48) and Authors (D2) sit after Content types, before the per-type links.
+        expect(contentGroup?.subItems?.[1]).toMatchObject({ label: 'More Pages', route: '/admin/more-pages' });
+        expect(contentGroup?.subItems?.[2]).toMatchObject({ label: 'Authors', route: '/admin/authors' });
+        expect(contentGroup?.subItems?.slice(3).map(s => s.label)).toEqual(['Articles', 'Impact']);
         expect(contentGroup?.subItems?.map(s => s.route)).toEqual([
             '/admin/contents/content-types',
+            '/admin/more-pages',
             '/admin/authors',
             '/admin/contents/articles',
             '/admin/contents/impact',

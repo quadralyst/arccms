@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import {
-    PAGE_TEXT_KEY, PAGE_TEXT_MARKS, hasPageTextMarks,
+    PAGE_TEXT_KEY, PAGE_TEXT_MARKS, hasPageTextMarks, safePageTextUrl, sanitizeRichText,
     type PageTextEntry, type PageTextKind, type PageTextOptions, type PageTextValues,
 } from './page-text-model';
 
@@ -51,69 +51,14 @@ export function pageTextKind(tag: string, kindAttr?: string | null, nameAttr?: s
     return 'text';
 }
 
-/**
- * An address an editor may put on the page (VE-D42): `http(s)://`, a root-relative
- * path, `mailto:`, `tel:`, or a place on the page (`#…`). Anything else, a
- * `javascript:` address included, comes back as ''.
- */
-export function safePageTextUrl(raw: unknown): string {
-    if (typeof raw !== 'string') return '';
-    const url = raw.trim();
-    if (!url || /[\s\u0000-\u001f\u007f\\]/.test(url)) return '';
-    if (/^https?:\/\/[^/]/i.test(url)) return url;
-    if (url.startsWith('/') && !url.startsWith('//')) return url;
-    if (/^(mailto|tel):./i.test(url)) return url;
-    if (/^#[^#]*$/.test(url)) return url;
-    return '';
-}
-
-const RICH_TAGS = new Set(['b', 'strong', 'i', 'em', 'br', 'a']);
-
 const escapeHtmlText = (text: string): string =>
     text
-        // An `&` that does not start an entity, so a value typed with entities keeps them.
         .replace(/&(?![a-zA-Z][a-zA-Z0-9]{1,31};|#\d{1,7};|#x[0-9a-fA-F]{1,6};)/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 
 const escapeAttr = (text: string): string =>
     text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-const decodeAttr = (text: string): string =>
-    text
-        .replace(/&quot;/g, '"').replace(/&#0*39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&');
-
-/**
- * Rich text through its own allow-list (VE-D42): `b`, `strong`, `i`, `em`, `br`
- * and `a` with a safe `href`, no other attribute. Any other tag is dropped and its
- * words kept; every `<` and `>` that is not one of those tags becomes text. Works
- * on the string, so the output holds no tag it did not write itself.
- */
-export function sanitizeRichText(html: string): string {
-    if (!html) return '';
-    const tag = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)([^<>]*)>/g;
-    let out = '';
-    let last = 0;
-    for (let match = tag.exec(html); match; match = tag.exec(html)) {
-        out += escapeHtmlText(html.slice(last, match.index));
-        last = match.index + match[0].length;
-        const name = match[2].toLowerCase();
-        if (!RICH_TAGS.has(name)) continue;
-        if (match[1]) {
-            if (name !== 'br') out += `</${name}>`;
-            continue;
-        }
-        if (name !== 'a') {
-            out += `<${name}>`;
-            continue;
-        }
-        const href = /(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i.exec(match[3]);
-        const url = href ? safePageTextUrl(decodeAttr(href[1] ?? href[2] ?? href[3] ?? '')) : '';
-        out += url ? `<a href="${escapeAttr(url)}">` : '<a>';
-    }
-    return out + escapeHtmlText(html.slice(last));
-}
 
 const usable = (value: unknown): value is string => typeof value === 'string' && value.trim() !== '';
 

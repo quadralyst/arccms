@@ -1,5 +1,5 @@
 import { Injectable, Injector, inject, runInInjectionContext, signal } from '@angular/core';
-import { Firestore, deleteField, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from '@angular/fire/firestore';
+import { Firestore, collection, deleteField, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { PublishQueueService } from '../../pages/admin/contents/publish-queue/publish-queue.service';
 import { PAGE_TEXT_ID, PAGE_TEXT_KEY, type PageTextValues } from '../utils/page-text-model';
@@ -23,6 +23,13 @@ export const PAGE_TEXT_PUBLISHED = 'SitePageText';
 export interface PublishedPageText extends PageTextValues {
     publishedAt?: { toMillis?: () => number } | null;
     draftUpdatedAt?: { toMillis?: () => number } | null;
+}
+
+/** One publish of a page, as History keeps it: the whole draft, and who published it. */
+export interface PageTextVersion extends PageTextValues {
+    id: string;
+    publishedAt?: { toMillis?: () => number } | null;
+    publishedBy?: string;
 }
 
 /** A draft: the values, and who changed it last. */
@@ -66,6 +73,24 @@ export class PageTextService {
             console.error(`[PageText] Could not read the published text of ${pageId}:`, error);
             return null;
         }
+    }
+
+    /** A page's draft as it is now, or null when there is none (the More Pages list, VE-D48). */
+    async draft(pageId: string): Promise<PageTextDraft | null> {
+        if (!PAGE_TEXT_ID.test(pageId)) return null;
+        const firestore = this.injector.get(Firestore);
+        const snap = await runInInjectionContext(this.injector, () => getDoc(doc(firestore, PAGE_TEXT_DRAFTS, pageId)));
+        return snap.exists() ? (snap.data() as PageTextDraft) : null;
+    }
+
+    /** Every publish of a page, newest first (VE-D51), for Restore. */
+    async history(pageId: string, count = 30): Promise<PageTextVersion[]> {
+        if (!PAGE_TEXT_ID.test(pageId)) return [];
+        const firestore = this.injector.get(Firestore);
+        const snap = await runInInjectionContext(this.injector, () => getDocs(query(
+            collection(firestore, PAGE_TEXT_PUBLISHED, pageId, 'History'), orderBy('publishedAt', 'desc'), limit(count),
+        )));
+        return snap.docs.map((version) => ({ id: version.id, ...(version.data() as Omit<PageTextVersion, 'id'>) }));
     }
 
     /** An editing session on a page's draft. Close it when the editor closes. */
@@ -194,6 +219,11 @@ export class PageTextSession {
     /** The file's own title or description again. */
     async useFileSeo(lang: string, field: 'title' | 'description'): Promise<void> {
         return this.write(['seo', lang, field], deleteField(), true);
+    }
+
+    /** The file's own share picture again. */
+    async useFileShareImage(): Promise<void> {
+        return this.write(['shareImage'], deleteField(), true);
     }
 
     /**

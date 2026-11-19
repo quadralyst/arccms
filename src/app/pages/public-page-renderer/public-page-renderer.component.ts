@@ -20,6 +20,7 @@ import { UiStringsService } from '../../core/services/ui-strings.service';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { LocalizationService } from '../../core/services/localization.service';
 import { PageTextService } from '../../core/site/page-text.service';
+import { PAGE_TEXT_PREVIEW } from '../../core/site/page-text-preview';
 import { applyPageText, hasPageTextMarks, pageTextId } from '../../core/utils/page-text';
 
 @Component({
@@ -64,6 +65,8 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
     private uiStrings = inject(UiStringsService);
     private localization = inject(LocalizationService);
     private pageText = inject(PageTextService);
+    /** Live Preview of the page's text (VE-D50): the draft's values, and no admin strip. */
+    private textPreview = inject(PAGE_TEXT_PREVIEW, { optional: true });
     /** Whether the page has areas editors can change, for its arc-entry meta (VE-D56). */
     private editable = false;
     private cdr = inject(ChangeDetectorRef);
@@ -112,7 +115,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                 const cleanFileName = fileName.endsWith('.html') ? fileName.substring(0, fileName.length - 5) : fileName;
 
                 // Track public page view
-                this.gaTracking.trackPublicPageView(cleanFileName);
+                if (!this.textPreview) this.gaTracking.trackPublicPageView(cleanFileName);
                 this.pageName = cleanFileName;
 
                 // A page the site does not have would answer with the app shell
@@ -139,7 +142,8 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                 this.editable = hasPageTextMarks(htmlContent);
                 if (this.editable) {
                     const [edited, settings] = await Promise.all([
-                        this.pageText.published(pageTextId.staticPage(this.pageName)), this.localization.load(),
+                        this.textPreview ? Promise.resolve(this.textPreview.values()) : this.pageText.published(pageTextId.staticPage(this.pageName)),
+                        this.localization.load(),
                     ]);
                     if (left()) return;
                     const lang = settings.defaultLanguage || '';
@@ -233,7 +237,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
         }
 
         // What the page is, for the admin strip (VE-D11): its own name, over any the file had.
-        setArcEntry(this.metaService, this.pageName ? arcEntry.staticPage(this.pageName) : null, this.editable);
+        setArcEntry(this.metaService, this.pageName && !this.textPreview ? arcEntry.staticPage(this.pageName) : null, this.editable);
 
         // 3. The page's own <head>, for its stylesheets and scripts (drawPageHead).
         this.pageHead = processedHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? '';
