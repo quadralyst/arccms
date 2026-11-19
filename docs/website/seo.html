@@ -33,7 +33,7 @@
         <tr><td><code>/robots.txt</code>, with your crawler choices and the sitemap address</td><td>Every publish, and <strong>Save and apply to site</strong></td></tr>
         <tr><td><code>/llms.txt</code> and <code>/llms-full.txt</code></td><td>The same, unless switched off</td></tr>
         <tr><td>A Markdown copy of each item at its URL plus <code>.md</code></td><td>When the item is published</td></tr>
-        <tr><td>Structured data (organization, page type, author, breadcrumbs, FAQ and other blocks, and the rows of an FAQ field)</td><td>In every published content page. Static pages (<code>/p/…</code>) carry none: only the head tags you write in them.</td></tr>
+        <tr><td>Structured data (organization, page type, author, breadcrumbs, How-to and Definition blocks, and the rows of an FAQ field)</td><td>In every published content page. Static pages (<code>/p/…</code>) carry none: only the head tags you write in them.</td></tr>
         <tr><td>Your home page's head tags: canonical address, language links, Open Graph and Twitter tags, the site's structured data (see <a href="home-page.html">Build your home page</a>)</td><td>Every website deploy, <strong>Republish website</strong>, when content it shows changes, and when you save a setting it uses</td></tr>
         <tr><td>On each image in the content of a published page (its <code>&lt;main&gt;</code>, or, without one, outside the header, nav and footer): <code>width</code> and <code>height</code>, a <code>srcset</code> with every stored size and <code>sizes</code>, for an image from the media library. <code>loading="lazy"</code> on every image in <code>&lt;main&gt;</code> after the first; a page without <code>&lt;main&gt;</code> gets none. Header, nav and footer images, and what an image already says, stay as they are</td><td>When the page is published</td></tr>
       </tbody>
@@ -48,7 +48,7 @@
       <tbody>
         <tr><td>Opening paragraph is a direct answer (15 to 70 words)</td><td>High</td></tr>
         <tr><td>At least one heading is a question</td><td>High</td></tr>
-        <tr><td>Has an FAQ or Key takeaways block</td><td>High</td></tr>
+        <tr><td>Has an FAQ or a Key takeaways block</td><td>High</td></tr>
         <tr><td>Title of 70 characters or fewer</td><td>Medium</td></tr>
         <tr><td>Meta description 50 to 160 characters</td><td>Medium</td></tr>
         <tr><td>Has a list or a table</td><td>Medium</td></tr>
@@ -69,7 +69,7 @@
       <li><strong>Answer first.</strong> Open the page, and each section, with a complete answer in a few sentences; detail comes after.</li>
       <li><strong>Headings are questions people ask</strong>, in their words: "How much does it cost?" rather than "Pricing".</li>
       <li><strong>Facts, not adjectives.</strong> Numbers, dates, names and comparisons are quotable; praise is not.</li>
-      <li><strong>Give it structure.</strong> Lists, tables, and the FAQ, Key takeaways, How-to steps and Definition blocks from the editor's grid icon, which also become structured data.</li>
+      <li><strong>Give it structure.</strong> Lists, tables, the Key takeaways, How-to steps and Definition blocks from the editor's grid icon, and an FAQ field placed in the text with <code>/faq</code>; the How-to, Definition and FAQ also become structured data.</li>
       <li><strong>Say who and when.</strong> Name the author, and press <strong>Mark as updated today</strong> only after a real revision, never for a typo.</li>
       <li><strong>Cite and link.</strong> Add your sources, and link to at least three of your own pages.</li>
     </ul>

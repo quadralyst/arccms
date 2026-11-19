@@ -19,7 +19,7 @@
       <thead><tr><th>Part</th><th>What it gives</th></tr></thead>
       <tbody>
         <tr><td>Head tags</td><td>Title, meta description, canonical URL, Open Graph and Twitter card tags, and <code>hreflang</code> links when the page exists in more than one language.</td></tr>
-        <tr><td>Structured data</td><td>schema.org JSON-LD: the site owner (Organization or Person), the WebSite with a search action, a breadcrumb trail, and the page itself as an Article or the type its content type is mapped to. FAQ, How-to and Definition blocks in the body become their own nodes, and so do the rows of an FAQ custom field.</td></tr>
+        <tr><td>Structured data</td><td>schema.org JSON-LD: the site owner (Organization or Person), the WebSite with a search action, a breadcrumb trail, and the page itself as an Article or the type its content type is mapped to. How-to and Definition blocks in the body become their own nodes, and so do the rows of an FAQ custom field, the page's one FAQ list.</td></tr>
         <tr><td>Authors and sources</td><td>A byline with the author's box, a Sources list at the end, both sent to search engines as the author and citations.</td></tr>
         <tr><td>Markdown twins</td><td>The same page as Markdown, at the same address with <code>.md</code> (<code>/articles/my-post.md</code>), linked from the HTML head. AI tools read it at a fraction of the tokens.</td></tr>
         <tr><td>Related items</td><td>Up to four related pages at the end of each page, chosen from the search index by title and tags. Needs <a href="search.html">Search</a>.</td></tr>
@@ -81,7 +81,7 @@
       <tbody>
         <tr><td>Basic tab</td><td><strong>Author</strong>: the byline and the schema.org author. Cover image: the social and search thumbnail.</td></tr>
         <tr><td>SEO tab</td><td>SEO title, meta description, <strong>Sources</strong> (the pages this piece draws on), <strong>Mark as updated today</strong>, which sets the "Last updated" date shown on the page and sent as the modified date, and <strong>Canonical URL</strong>, empty unless the original is on another page. An empty canonical, and one on a local address such as <code>localhost</code>, is published as the page's own address on the Production URL.</td></tr>
-        <tr><td>Body toolbar</td><td>The block menu inserts an FAQ, Key takeaways, How-to steps or Definition block; typing <code>/</code> offers them too. Each becomes structured data. Key takeaways become the page's abstract.</td></tr>
+        <tr><td>Body toolbar</td><td>The block menu inserts a Key takeaways, How-to steps or Definition block; typing <code>/</code> offers them too. How-to and Definition become structured data; Key takeaways become the page's abstract. An FAQ is the FAQ custom field (below), which <code>/faq</code> places in the text. A body that still holds an FAQ block from before reads as plain headings and paragraphs and sends no FAQ list.</td></tr>
         <tr><td>Checks tab</td><td>The score, each check, and pages on this site the body does not link to yet, each with <strong>Insert link</strong>.</td></tr>
       </tbody>
     </table>
@@ -94,7 +94,7 @@
       <tbody>
         <tr><td>Answer first</td><td>The first paragraph has 15 to 70 words.</td><td>High</td></tr>
         <tr><td>Question heading</td><td>At least one h2, h3 or h4 ends with a question mark.</td><td>High</td></tr>
-        <tr><td>Blocks</td><td>The body has an FAQ or Key takeaways block.</td><td>High</td></tr>
+        <tr><td>Blocks</td><td>The FAQ field has questions, or the body has a Key takeaways block.</td><td>High</td></tr>
         <tr><td>Title length</td><td>The title has 1 to 70 characters.</td><td>Medium</td></tr>
         <tr><td>Meta description</td><td>50 to 160 characters.</td><td>Medium</td></tr>
         <tr><td>List or table</td><td>The body has one.</td><td>Medium</td></tr>
@@ -114,7 +114,7 @@
       <li><strong>Answer first.</strong> The first paragraph under the title, and under each heading, answers in 15 to 70 words. Detail comes after.</li>
       <li><strong>Write headings as questions.</strong> "How much does it cost in India?" beats "Pricing".</li>
       <li><strong>Use facts, not adjectives.</strong> "Supports 12 languages including Hindi and Tamil" can be quoted; "world-class support" cannot.</li>
-      <li><strong>Give it structure.</strong> A list for steps, a table for comparisons, an FAQ block for the questions you keep getting.</li>
+      <li><strong>Give it structure.</strong> A list for steps, a table for comparisons, the FAQ field for the questions you keep getting.</li>
       <li><strong>Say who wrote it and when.</strong> Pick an author. Press <strong>Mark as updated today</strong> only after a real revision, never for a typo fix.</li>
       <li><strong>Cite sources.</strong> Add the pages you drew on under Sources.</li>
       <li><strong>Link to your own pages.</strong> Three or more; use the suggestions in the Checks tab.</li>

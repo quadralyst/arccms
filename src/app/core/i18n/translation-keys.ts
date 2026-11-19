@@ -3548,7 +3548,6 @@ export type TranslationKey =
     | 'common.dialog.unpublish'
     | 'common.editor_toolbar.alignment'
     | 'common.editor_toolbar.block_definition_hint'
-    | 'common.editor_toolbar.block_faq_hint'
     | 'common.editor_toolbar.block_howto_hint'
     | 'common.editor_toolbar.block_takeaways_hint'
     | 'common.editor_toolbar.bold'
@@ -3634,6 +3633,10 @@ export type TranslationKey =
     | 'common.feedback.thanks'
     | 'common.feedback.title'
     | 'common.feedback.version'
+    | 'common.field_place.edit'
+    | 'common.field_place.empty'
+    | 'common.field_place.gone'
+    | 'common.field_place.tag'
     | 'common.filters.all'
     | 'common.filters.clear'
     | 'common.filters.filtered'
@@ -3707,12 +3710,14 @@ export type TranslationKey =
     | 'common.send_broadcast.title'
     | 'common.send_broadcast.warning'
     | 'common.slash_commands.block_definition'
-    | 'common.slash_commands.block_faq'
     | 'common.slash_commands.block_howto'
     | 'common.slash_commands.block_takeaways'
     | 'common.slash_commands.bullet_list'
     | 'common.slash_commands.code_block'
     | 'common.slash_commands.divider'
+    | 'common.slash_commands.faq'
+    | 'common.slash_commands.faq_no_field'
+    | 'common.slash_commands.field'
     | 'common.slash_commands.files'
     | 'common.slash_commands.gif'
     | 'common.slash_commands.heading_1'
@@ -7869,7 +7874,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.dialog.unpublish',
     'common.editor_toolbar.alignment',
     'common.editor_toolbar.block_definition_hint',
-    'common.editor_toolbar.block_faq_hint',
     'common.editor_toolbar.block_howto_hint',
     'common.editor_toolbar.block_takeaways_hint',
     'common.editor_toolbar.bold',
@@ -7955,6 +7959,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.feedback.thanks',
     'common.feedback.title',
     'common.feedback.version',
+    'common.field_place.edit',
+    'common.field_place.empty',
+    'common.field_place.gone',
+    'common.field_place.tag',
     'common.filters.all',
     'common.filters.clear',
     'common.filters.filtered',
@@ -8028,12 +8036,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.send_broadcast.title',
     'common.send_broadcast.warning',
     'common.slash_commands.block_definition',
-    'common.slash_commands.block_faq',
     'common.slash_commands.block_howto',
     'common.slash_commands.block_takeaways',
     'common.slash_commands.bullet_list',
     'common.slash_commands.code_block',
     'common.slash_commands.divider',
+    'common.slash_commands.faq',
+    'common.slash_commands.faq_no_field',
+    'common.slash_commands.field',
     'common.slash_commands.files',
     'common.slash_commands.gif',
     'common.slash_commands.heading_1',
