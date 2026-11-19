@@ -116,6 +116,9 @@ export function editFrameUrl(type: string, id: string): string {
             <button type="button" class="arc-ed-btn" [class.arc-ed-on]="phone()" [attr.aria-pressed]="phone()" (click)="phone.set(true)" data-testid="edit-phone"
                 [title]="'admin.preview.phone' | transloco" [attr.aria-label]="'admin.preview.phone' | transloco"><i class="bi bi-phone" aria-hidden="true"></i></button>
         </span>
+        <!-- The live preview window, as the classic editor opens it: the same draft, updating as you type. -->
+        <button type="button" class="arc-ed-btn" (click)="openPreview()" [title]="'admin.contents.editor.preview_title' | transloco" data-testid="edit-preview">
+            <i class="fa-regular fa-eye" aria-hidden="true"></i> {{ 'admin.contents.editor.preview' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="toForm()" [disabled]="busy()" [title]="'admin.edit_page.form_title' | transloco" data-testid="edit-form">{{ 'admin.edit_page.form' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="panel.toggle()" [class.arc-ed-on]="panel.open()"
             [attr.aria-expanded]="panel.open()" aria-controls="arc-ed-panel" data-testid="edit-settings">{{ 'admin.edit_page.page_settings' | transloco }}</button>
@@ -1596,6 +1599,11 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     async toForm(): Promise<void> {
         if (!(await this.saveFirst())) return;
         void this.router.navigate(['/admin/contents', this.type, 'edit', this.id]);
+    }
+
+    /** Live Preview: the entry's own preview window, opened or brought forward, as from the classic editor. */
+    openPreview(): void {
+        this.editor?.openPreview();
     }
 
     publish(): void {

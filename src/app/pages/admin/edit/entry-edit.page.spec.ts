@@ -156,6 +156,13 @@ describe('EntryEditPage', () => {
         expect(page.panel.open()).toBe(true);
     });
 
+    it('Live Preview opens the entry\'s preview window, as the classic editor does', () => {
+        const open = vi.fn();
+        Object.assign(editor, { openPreview: open });
+        page.openPreview();
+        expect(open).toHaveBeenCalled();
+    });
+
     it('publishes through the editor\'s own checks, and closes to the type\'s entries', () => {
         page.publish();
         expect(editor.directPublishContent).toHaveBeenCalled();

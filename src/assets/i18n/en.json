@@ -1790,7 +1790,7 @@
         }
       },
       "editor": {
-        "preview": "Preview",
+        "preview": "Live Preview",
         "clear_translation": "Clear translation",
         "save_draft": "Save as draft",
         "publish": "Publish",
@@ -1949,7 +1949,7 @@
         "entry_gone": "This entry was deleted. Copy anything you want to keep: it cannot be saved any more.",
         "reload_theirs_title": "Shows their version. Your changes on this page are dropped.",
         "preview_title": "Open the live preview in its own window",
-        "preview_blocked": "The preview window was blocked. Allow pop-ups for this site, then press Preview again.",
+        "preview_blocked": "The preview window was blocked. Allow pop-ups for this site, then press Live Preview again.",
         "edit_on_page": "Visual Editor",
         "edit_on_page_title": "Edit this entry on its page, as the site shows it, in the Visual Editor. Saves first."
       },
@@ -4117,7 +4117,7 @@
       "connected": "Connected",
       "editor_closed": "Editor closed",
       "saved_copy": "Editor closed, showing the saved draft",
-      "missing": "This draft was not found. Open it in the editor and press Preview.",
+      "missing": "This draft was not found. Open it in the editor and press Live Preview.",
       "field_ready": "{{ field }} is ready in the editor",
       "on_home": "Shown on the home page",
       "on_every_page": "Shown in the header or footer of every page",
