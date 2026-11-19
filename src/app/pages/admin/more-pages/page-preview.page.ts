@@ -5,6 +5,13 @@ import { PAGE_TEXT_PREVIEW, type PageTextPreview } from '../../../core/site/page
 import { pageTextId } from '../../../core/utils/page-text-model';
 import HomeComponent from '../../index.page';
 import { PublicPageRendererComponent } from '../../public-page-renderer/public-page-renderer.component';
+import { PageCardDrafts } from '../../page.parts/card-draft';
+import { PageCardsSource } from './page-cards';
+
+/** The Visual Editor's frame (`?edit=1`) draws each card with unpublished changes from its draft (VE-D53). */
+function pageCardsInEditMode(): PageCardDrafts | null {
+    return inject(ActivatedRoute).snapshot.queryParamMap?.get('edit') === '1' ? inject(PageCardsSource) : null;
+}
 
 /**
  * Live Preview of the home page or a static page (specs/visual-editing-spec.md,
@@ -21,7 +28,11 @@ import { PublicPageRendererComponent } from '../../public-page-renderer/public-p
     standalone: true,
     imports: [HomeComponent, PublicPageRendererComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    providers: [{ provide: PAGE_TEXT_PREVIEW, useExisting: PagePreviewPage }],
+    providers: [
+        { provide: PAGE_TEXT_PREVIEW, useExisting: PagePreviewPage },
+        PageCardsSource,
+        { provide: PageCardDrafts, useFactory: pageCardsInEditMode },
+    ],
     template: `
         @for (drawn of drawing(); track drawn) {
             @if (isHome) { <arc-home></arc-home> } @else { <app-public-page-renderer></app-public-page-renderer> }
@@ -34,15 +45,15 @@ export default class PagePreviewPage implements PageTextPreview, OnDestroy {
     readonly isHome = !this.route.snapshot.paramMap.get('fileName');
     /** The Visual Editor's frame (`?edit=1`): drawn once; the screen then changes the page in place. */
     readonly editing = this.route.snapshot.queryParamMap?.get('edit') === '1';
-    private session: PageTextSession = this.pageText.session(
-        this.isHome ? pageTextId.home() : pageTextId.staticPage(this.route.snapshot.paramMap.get('fileName') || ''),
-    );
+    private readonly pageId = this.isHome ? pageTextId.home() : pageTextId.staticPage(this.route.snapshot.paramMap.get('fileName') || '');
+    private session: PageTextSession = this.pageText.session(this.pageId);
     /** One number per drawing: a new one draws the page again with the draft as it is then. */
     readonly drawing = signal<number[]>([]);
     private drawn = 0;
 
     constructor() {
         this.session.open();
+        if (this.editing) inject(PageCardsSource).start(this.pageId);
         effect(() => {
             if (!this.session.loaded()) return;
             this.session.draft();

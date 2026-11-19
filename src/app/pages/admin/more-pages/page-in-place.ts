@@ -1,6 +1,7 @@
 import { safePageTextUrl, sanitizeRichText } from '../../../core/utils/page-text-model';
 import type { AreaView } from './page-text-editor.model';
 import { adminAccent } from '../edit/in-place';
+import type { CardRef } from './page-card-actions';
 
 /**
  * Editing a page's marked areas where they are, on the Visual Editor
@@ -18,6 +19,11 @@ import { adminAccent } from '../edit/in-place';
  *   area's value on the page, never into the one being typed in, so the page
  *   does not jump under the cursor.
  *
+ * Cards in a card block (VE-D54) are edited like an entry: a card's title or text
+ * field is typed in place, anything else on it opens the card's form in the
+ * panel; hovering a card shows its bar. Cards in the header and footer are not
+ * edited (VE-D20).
+ *
  * Links never navigate inside the editor.
  */
 export interface PageInPlaceHost {
@@ -29,11 +35,37 @@ export interface PageInPlaceHost {
     open(view: AreaView, el: HTMLElement): void;
     /** The area being typed in changed (null when none): the strip shows the formatting buttons, the spot its Done and Cancel. */
     typing(view: AreaView | null, el: HTMLElement | null): void;
+    /** The field a card's marked value is typed into in place, or null when it is changed in the form. */
+    cardText(card: CardRef, sub: string): string | null;
+    /**
+     * Opens a card's form in the panel, on the field a value shows when there is
+     * one; `typing` when its words are typed on the page, so the panel need not
+     * slide over the card.
+     */
+    openCard(card: CardRef, sub: string | null, typing?: boolean): void;
+    /** Saves what was typed into a card's field. */
+    saveCardText(card: CardRef, field: string, value: string): void;
+    /** The pointer is over a card (null when it left every card): the card bar follows it. */
+    cardHover(el: HTMLElement | null): void;
 }
 
-/** What is being typed in. */
+function cssEscape(value: string): string {
+    return typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(value) : value.replace(/["\\]/g, '\\$&');
+}
+
+/** The card a page element is in, outside the header and footer (VE-D20), or null. */
+export function cardOf(target: Element | null): { el: HTMLElement; card: CardRef } | null {
+    const el = target?.closest<HTMLElement>('[data-arc-card-id]') ?? null;
+    if (!el || el.closest('arc-header, arc-footer')) return null;
+    const type = el.getAttribute('data-arc-card-type') || '';
+    const id = el.getAttribute('data-arc-card-id') || '';
+    return type && id ? { el, card: { type, id } } : null;
+}
+
+/** What is being typed in: a marked area, or a card's field. */
 interface Typing {
-    view: AreaView;
+    view: AreaView | null;
+    card?: { card: CardRef; field: string };
     el: HTMLElement;
     /** The element's HTML before typing, put back by Cancel. */
     before: string;
@@ -46,6 +78,15 @@ export const IN_PLACE_CSS = `
 [data-arc-editing], [data-arc-editing]:hover { outline: 2px solid var(--arc-edit-accent); outline-offset: 2px; cursor: text; }
 [data-arc-editing]:empty { min-width: 4ch; min-height: 1em; display: inline-block; }
 a[data-arc-edit], a[data-arc-edit] * { cursor: pointer; }
+[data-arc-card-id] { cursor: pointer; }
+[data-arc-card-id]:hover, [data-arc-card-open] { outline: 2px dashed var(--arc-edit-accent); outline-offset: 4px; }
+[data-arc-card-open] { outline-style: solid; }
+[data-arc-card-id] [data-arc-sub]:hover { outline: 1px dotted var(--arc-edit-accent); outline-offset: 1px; }
+[data-arc-card-id] [data-arc-editing] { outline: 2px solid var(--arc-edit-accent); outline-offset: 2px; cursor: text; }
+[data-arc-leaving] { opacity: .45; }
+[data-arc-leaving][data-arc-note]::after { content: attr(data-arc-note); display: block; margin-top: 4px; padding: 2px 6px; border-radius: 4px;
+  font: 600 12px/1.4 system-ui, sans-serif; color: #fff; background: #333; opacity: 1; }
+arc-header [data-arc-card-id], arc-footer [data-arc-card-id] { cursor: auto; outline: none; }
 `;
 
 /** Words as typed: plain text with its spaces tidied, or rich text through the allow-list. */
@@ -75,6 +116,8 @@ export class PageInPlace {
         this.doc.addEventListener('click', this.onClick, true);
         this.doc.addEventListener('keydown', this.onKey, true);
         this.doc.addEventListener('submit', this.stop, true);
+        this.doc.addEventListener('mouseover', this.onOver, true);
+        this.doc.documentElement.addEventListener('mouseleave', this.onLeave);
     }
 
     detach(): void {
@@ -83,11 +126,18 @@ export class PageInPlace {
         this.doc.removeEventListener('click', this.onClick, true);
         this.doc.removeEventListener('keydown', this.onKey, true);
         this.doc.removeEventListener('submit', this.stop, true);
+        this.doc.removeEventListener('mouseover', this.onOver, true);
+        this.doc.documentElement.removeEventListener('mouseleave', this.onLeave);
     }
 
     /** The area being typed in, if any. */
     get typing(): AreaView | null {
         return this.current?.view ?? null;
+    }
+
+    /** Words are being typed on a card. */
+    get typingCard(): boolean {
+        return !!this.current?.card;
     }
 
     private stop = (event: Event): void => event.preventDefault();
@@ -97,10 +147,16 @@ export class PageInPlace {
         const target = event.target && typeof (event.target as Element).closest === 'function' ? (event.target as Element) : null;
         // Nothing on the page navigates or submits inside the editor.
         if (target?.closest('a, button, [type="submit"]')) event.preventDefault();
-        const el = target?.closest<HTMLElement>('[data-arc-edit]') ?? null;
-        if (this.current && el === this.current.el) return;
+        const marked = target?.closest<HTMLElement>('[data-arc-edit]') ?? null;
+        // A card inside a marked block (its section title marks the whole block) is the card's (VE-D54).
+        const card = cardOf(target);
+        const el = marked && card && marked.contains(card.el) ? null : marked;
+        if (this.current && (el === this.current.el || (target && this.current.card && this.current.el.contains(target)))) return;
         this.done();
-        if (!el) return;
+        if (!el) {
+            this.onCardClick(target, event);
+            return;
+        }
         const view = this.host.areaFor(el.getAttribute('data-arc-edit') || '');
         if (!view) return;
         event.preventDefault();
@@ -114,6 +170,46 @@ export class PageInPlace {
         }
     };
 
+    /** A click on a card (VE-D54): its value typed in place, or its form opened. */
+    private onCardClick(target: Element | null, event: MouseEvent): void {
+        const found = cardOf(target);
+        if (!found) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const subEl = target?.closest<HTMLElement>('[data-arc-sub]') ?? null;
+        const sub = subEl && found.el.contains(subEl) ? subEl.getAttribute('data-arc-sub') || '' : '';
+        const field = sub && !subEl!.hasAttribute('data-arc-field-attr') && !found.el.hasAttribute('data-arc-leaving')
+            ? this.host.cardText(found.card, sub) : null;
+        if (field && subEl) this.startCardTyping(found.card, field, subEl, event);
+        else this.host.openCard(found.card, sub || null);
+    }
+
+    private startCardTyping(card: CardRef, field: string, el: HTMLElement, event: MouseEvent): void {
+        el.setAttribute('contenteditable', 'plaintext-only');
+        el.setAttribute('data-arc-editing', '');
+        this.current = { view: null, card: { card, field }, el, before: el.innerHTML };
+        el.focus();
+        this.caretAt(el, event);
+        this.host.openCard(card, null, true);
+        this.host.typing(null, el);
+    }
+
+    private onOver = (event: MouseEvent): void => {
+        const target = event.target && typeof (event.target as Element).closest === 'function' ? (event.target as Element) : null;
+        const el = cardOf(target)?.el ?? null;
+        if (el === this.hovered) return;
+        this.hovered = el;
+        this.host.cardHover(el);
+    };
+
+    private onLeave = (): void => {
+        if (!this.hovered) return;
+        this.hovered = null;
+        this.host.cardHover(null);
+    };
+
+    private hovered: HTMLElement | null = null;
+
     private onKey = (event: KeyboardEvent): void => {
         const current = this.current;
         if (!current) return;
@@ -122,7 +218,7 @@ export class PageInPlace {
             this.cancel();
         } else if (event.key === 'Enter') {
             event.preventDefault();
-            if (current.view.area.kind === 'rich') this.doc.execCommand('insertLineBreak');
+            if (current.view?.area.kind === 'rich') this.doc.execCommand('insertLineBreak');
             else this.done();
         }
     };
@@ -132,14 +228,18 @@ export class PageInPlace {
         el.setAttribute('data-arc-editing', '');
         this.current = { view, el, before: el.innerHTML };
         el.focus();
-        // The caret where the click was, as in any text box.
+        this.caretAt(el, event);
+        this.host.typing(view, el);
+    }
+
+    /** The caret where the click was, as in any text box. */
+    private caretAt(el: HTMLElement, event?: MouseEvent): void {
         const at = event && (this.doc as Document & { caretRangeFromPoint?(x: number, y: number): Range | null }).caretRangeFromPoint?.(event.clientX, event.clientY);
         if (at && el.contains(at.startContainer)) {
             const selection = this.doc.getSelection();
             selection?.removeAllRanges();
             selection?.addRange(at);
         }
-        this.host.typing(view, el);
     }
 
     private stopTyping(): Typing | null {
@@ -156,11 +256,19 @@ export class PageInPlace {
     done(): void {
         const current = this.stopTyping();
         if (!current) return;
-        const value = typedValue(current.view, current.el);
-        const before = current.view.words || '';
+        if (current.card) {
+            const typed = (current.el.textContent || '').replace(/\s+/g, ' ').trim();
+            const holder = this.doc.createElement('div');
+            holder.innerHTML = current.before;
+            if (typed !== (holder.textContent || '').replace(/\s+/g, ' ').trim()) this.host.saveCardText(current.card.card, current.card.field, typed);
+            return;
+        }
+        const view = current.view!;
+        const value = typedValue(view, current.el);
+        const before = view.words || '';
         // Unchanged: as saved, or still the words shown from the file (or a translation).
-        if (value === before || (!before && value === typedValue(current.view, this.fallbackElement(current)))) return;
-        this.host.saveWords(current.view, value);
+        if (value === before || (!before && value === typedValue(view, this.fallbackElement(view)))) return;
+        this.host.saveWords(view, value);
     }
 
     /** Cancel (VE-D37): what was there before typing comes back, nothing is saved. */
@@ -170,17 +278,17 @@ export class PageInPlace {
     }
 
     /** An element holding the words shown when nothing is saved, to compare what was typed with. */
-    private fallbackElement(current: Typing): HTMLElement {
+    private fallbackElement(view: AreaView): HTMLElement {
         const el = this.doc.createElement('div');
-        if (current.view.area.kind === 'rich') el.innerHTML = current.view.wordsFallback;
-        else el.textContent = current.view.wordsFallback;
+        if (view.area.kind === 'rich') el.innerHTML = view.wordsFallback;
+        else el.textContent = view.wordsFallback;
         return el;
     }
 
     /** Puts each area's value on the page; the one being typed in is left alone (VE-D52). */
     patch(views: AreaView[]): void {
         for (const view of views) {
-            for (const el of Array.from(this.doc.querySelectorAll<HTMLElement>(`[data-arc-edit="${view.area.key}"]`))) {
+            for (const el of Array.from(this.doc.querySelectorAll<HTMLElement>(`[data-arc-edit="${cssEscape(view.area.key)}"]`))) {
                 if (el === this.current?.el) continue;
                 this.patchOne(view, el);
             }

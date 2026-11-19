@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readPageFile } from '../../../core/utils/page-text-areas';
 import { areaView, type AreaView, type EditorContext } from './page-text-editor.model';
-import { PageInPlace, typedValue, type PageInPlaceHost } from './page-in-place';
+import { PageInPlace, cardOf, typedValue, type PageInPlaceHost } from './page-in-place';
 import { pageEditFrameUrl } from './page-edit.page';
 import type { PageTextDraft } from '../../../core/site/page-text.service';
 
@@ -39,6 +39,7 @@ describe('PageInPlace', () => {
         host = {
             areaFor: (k: string) => views.find((v) => v.area.key === k) ?? null,
             saveWords: vi.fn(), open: vi.fn(), typing: vi.fn(),
+            cardText: () => null, openCard: vi.fn(), saveCardText: vi.fn(), cardHover: vi.fn(),
         };
         inPlace = new PageInPlace(doc, host);
         inPlace.attach();
@@ -133,5 +134,96 @@ describe('PageInPlace', () => {
         expect(pageEditFrameUrl('', 'en', 'en')).toBe('/admin/preview-page/home?edit=1');
         expect(pageEditFrameUrl('', 'hi', 'en')).toBe('/admin/preview-page/home/hi?edit=1');
         expect(pageEditFrameUrl('about-us', 'en', 'en')).toBe('/admin/preview-page/p/about-us?edit=1');
+    });
+});
+
+/** Cards in a card block, edited like an entry (VE-D54); not in the header or footer (VE-D20). */
+describe('PageInPlace on cards', () => {
+    const CARDS = `<html><head></head><body>
+<arc-content-partials content-type="quotes" data-arc-edit="quotes_title"><h2>Quotes</h2><div>
+<article data-arc-field="items" data-arc-row="0" data-arc-card-id="q1" data-arc-card-type="quotes">
+  <h3 data-arc-field="items" data-arc-sub="title">Kind words</h3>
+  <p data-arc-field="items" data-arc-sub="excerpt">An excerpt</p>
+  <img data-arc-field="items" data-arc-sub="coverImage" data-arc-field-attr="src" src="/q.jpg">
+</article>
+<article data-arc-field="items" data-arc-row="1" data-arc-card-id="q2" data-arc-card-type="quotes" data-arc-leaving><h3 data-arc-sub="title">Old</h3></article>
+</div></arc-content-partials>
+<arc-footer><article data-arc-card-id="f1" data-arc-card-type="quotes"><h3 data-arc-sub="title">Footer</h3></article></arc-footer>
+</body></html>`;
+    let doc: Document;
+    let host: PageInPlaceHost & Record<string, ReturnType<typeof vi.fn>>;
+    const click = (target: Element) => target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    const q = (selector: string) => doc.querySelector<HTMLElement>(selector)!;
+
+    beforeEach(() => {
+        doc = new DOMParser().parseFromString(CARDS, 'text/html');
+        host = {
+            areaFor: vi.fn(() => null), saveWords: vi.fn(), open: vi.fn(), typing: vi.fn(),
+            cardText: vi.fn((_card, sub: string) => (sub === 'title' ? 'title' : null)),
+            openCard: vi.fn(), saveCardText: vi.fn(), cardHover: vi.fn(),
+        } as any;
+        new PageInPlace(doc, host).attach();
+    });
+
+    it('a click on the block outside its cards opens its section title, one on a card is the card\'s', () => {
+        click(q('arc-content-partials h2'));
+        expect(host['open']).not.toHaveBeenCalled();
+        expect(host['areaFor']).toHaveBeenCalledWith('quotes_title');
+        click(q('[data-arc-card-id="q1"] p'));
+        expect(host['openCard']).toHaveBeenCalled();
+        expect(host['areaFor']).toHaveBeenCalledTimes(1);
+    });
+
+    it('finds a card outside the header and footer only', () => {
+        expect(cardOf(q('[data-arc-card-id="q1"] h3'))?.card).toEqual({ type: 'quotes', id: 'q1' });
+        expect(cardOf(q('[data-arc-card-id="f1"] h3'))).toBeNull();
+    });
+
+    it('types a card\'s title in place, opens its form, and saves on Done', () => {
+        const title = q('[data-arc-card-id="q1"] h3');
+        click(title);
+        expect(title.getAttribute('contenteditable')).toBe('plaintext-only');
+        expect(host['openCard']).toHaveBeenCalledWith({ type: 'quotes', id: 'q1' }, null, true);
+        expect(host['typing']).toHaveBeenLastCalledWith(null, title);
+        title.textContent = '  Very   kind words ';
+        doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        expect(host['saveCardText']).toHaveBeenCalledWith({ type: 'quotes', id: 'q1' }, 'title', 'Very kind words');
+        expect(title.hasAttribute('contenteditable')).toBe(false);
+    });
+
+    it('saves nothing when the words did not change, and Escape puts them back', () => {
+        const title = q('[data-arc-card-id="q1"] h3');
+        click(title);
+        doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        expect(host['saveCardText']).not.toHaveBeenCalled();
+        click(title);
+        title.textContent = 'Gone';
+        doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        expect(title.textContent).toBe('Kind words');
+        expect(host['saveCardText']).not.toHaveBeenCalled();
+    });
+
+    it('opens the form on the field for a value not typed in place, and for a picture', () => {
+        click(q('[data-arc-card-id="q1"] p'));
+        expect(host['openCard']).toHaveBeenLastCalledWith({ type: 'quotes', id: 'q1' }, 'excerpt');
+        click(q('[data-arc-card-id="q1"] img'));
+        expect(host['openCard']).toHaveBeenLastCalledWith({ type: 'quotes', id: 'q1' }, 'coverImage');
+        expect(host['cardText']).not.toHaveBeenCalledWith(expect.anything(), 'coverImage');
+    });
+
+    it('a card Publish would push out is not typed in, and the footer\'s cards are left alone', () => {
+        click(q('[data-arc-card-id="q2"] h3'));
+        expect(q('[data-arc-card-id="q2"] h3').hasAttribute('contenteditable')).toBe(false);
+        expect(host['openCard']).toHaveBeenLastCalledWith({ type: 'quotes', id: 'q2' }, 'title');
+        host['openCard'].mockClear();
+        click(q('[data-arc-card-id="f1"] h3'));
+        expect(host['openCard']).not.toHaveBeenCalled();
+    });
+
+    it('tells the screen which card the pointer is over, for its bar', () => {
+        q('[data-arc-card-id="q1"] h3').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+        expect(host['cardHover']).toHaveBeenLastCalledWith(q('[data-arc-card-id="q1"]'));
+        q('[data-arc-card-id="f1"] h3').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+        expect(host['cardHover']).toHaveBeenLastCalledWith(null);
     });
 });

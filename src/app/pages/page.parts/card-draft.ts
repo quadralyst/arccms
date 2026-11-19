@@ -50,3 +50,74 @@ export function cardsWithDraft<T extends Record<string, any>>(
     const cards = [...sorted.filter((entry) => entry !== draft).slice(0, count - 1), draft];
     return { cards, draftIndex: cards.length - 1, tookLastPlace: true };
 }
+
+/**
+ * The cards of one type on the page's Visual Editor (specs/visual-editing-spec.md,
+ * VE-D53, VE-D54): every card with unpublished changes is drawn from its draft,
+ * every other card as published, so what is seen is what Publish makes.
+ */
+export interface PageCardsOfType<T> {
+    /** Drafts with unpublished changes the page shows (published-looking, see draftAsCard). */
+    changed: readonly T[];
+    /** Entries taken off the page (Remove, or unpublished elsewhere): never drawn. */
+    hidden: ReadonlySet<string>;
+    /** Each entry's place in the type's own order as the drafts have it now (a Move saved). */
+    sortOrder: Readonly<Record<string, number>>;
+    /** The card being edited, as typed in its form, or null. */
+    focus: T | null;
+}
+
+/** The page's cards: provided in the Visual Editor's frame only. */
+export abstract class PageCardDrafts {
+    /** Starts following a type's drafts; card blocks call it for their type. */
+    abstract watch(type: string): void;
+    /**
+     * A type's drafts on the page, once read; null before. With `lang` (a page in
+     * another language) the changed drafts carry their own translation into it.
+     */
+    abstract cardsOf(type: string, lang?: string): PageCardsOfType<Record<string, any>> | null;
+}
+
+export interface CardsWithDrafts<T> {
+    /** The block's cards after Publish, in the type's order, cut to its count. */
+    cards: T[];
+    /** Ids among `cards` drawn from a draft with unpublished changes. */
+    changedIds: Set<string>;
+    /** Cards on the live block now that Publish would push out, drawn faintly after the others. */
+    leaving: T[];
+    /** The card being edited would be cut: it took the last card's place, as in VE2. */
+    tookLastPlace: boolean;
+}
+
+/**
+ * The block's cards with every changed draft in (VE-D53), cut to `count`; the
+ * card being edited takes the last place when the cut would leave it out, and
+ * live cards a full block pushes out are returned as `leaving` (VE-D54).
+ */
+export function cardsWithDrafts<T extends Record<string, any>>(
+    published: readonly T[], page: PageCardsOfType<T>, order: EntryOrder, count: number,
+): CardsWithDrafts<T> {
+    const reordered = (entry: T): T => {
+        const place = page.sortOrder[entry['id']];
+        return typeof place === 'number' && place !== entry['sortOrder'] ? { ...entry, sortOrder: place } : entry;
+    };
+    const live = published.filter((entry) => !page.hidden.has(entry['id'])).map(reordered);
+    const changedIds = new Set(page.changed.map((entry) => entry['id'] as string));
+    const replacements = new Map<string, T>(page.changed.map((entry) => [entry['id'] as string, reordered(entry)]));
+    if (page.focus) replacements.set(page.focus['id'], reordered(page.focus));
+    const merged = [...live.filter((entry) => !replacements.has(entry['id'])), ...replacements.values()];
+    const sorted = sortForDisplay(merged, order);
+    const afterPublish = sorted.slice(0, count);
+    let cards = afterPublish;
+    let tookLastPlace = false;
+    const focus = page.focus ? replacements.get(page.focus['id'])! : null;
+    if (focus && !cards.includes(focus)) {
+        cards = [...cards.slice(0, count - 1), focus];
+        tookLastPlace = true;
+    }
+    // What Publish pushes out, not what the card being edited covers for now.
+    const staying = new Set(afterPublish.map((entry) => entry['id']));
+    const shownIds = new Set(cards.map((entry) => entry['id']));
+    const leaving = sortForDisplay(live, order).slice(0, count).filter((entry) => !staying.has(entry['id']) && !shownIds.has(entry['id']));
+    return { cards, changedIds: new Set([...changedIds].filter((id) => shownIds.has(id))), leaving, tookLastPlace };
+}

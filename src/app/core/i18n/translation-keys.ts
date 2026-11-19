@@ -1202,9 +1202,28 @@ export type TranslationKey =
     | 'admin.edit_page.add_picture'
     | 'admin.edit_page.alt'
     | 'admin.edit_page.alt_placeholder'
+    | 'admin.edit_page.back_to_page'
     | 'admin.edit_page.bold'
     | 'admin.edit_page.bullets'
     | 'admin.edit_page.cancel_title'
+    | 'admin.edit_page.card_add'
+    | 'admin.edit_page.card_add_failed'
+    | 'admin.edit_page.card_address'
+    | 'admin.edit_page.card_leaving'
+    | 'admin.edit_page.card_move_failed'
+    | 'admin.edit_page.card_new_title'
+    | 'admin.edit_page.card_newest'
+    | 'admin.edit_page.card_not_saved'
+    | 'admin.edit_page.card_open'
+    | 'admin.edit_page.card_open_title'
+    | 'admin.edit_page.card_problem'
+    | 'admin.edit_page.card_remove_confirm'
+    | 'admin.edit_page.card_remove_failed'
+    | 'admin.edit_page.card_remove_title'
+    | 'admin.edit_page.card_removed'
+    | 'admin.edit_page.cards_not_read'
+    | 'admin.edit_page.cards_publish_failed'
+    | 'admin.edit_page.cards_published'
     | 'admin.edit_page.done'
     | 'admin.edit_page.done_title'
     | 'admin.edit_page.editing'
@@ -1230,6 +1249,8 @@ export type TranslationKey =
     | 'admin.edit_page.numbers'
     | 'admin.edit_page.page_settings'
     | 'admin.edit_page.picture'
+    | 'admin.edit_page.publish_many'
+    | 'admin.edit_page.publish_one'
     | 'admin.edit_page.published'
     | 'admin.edit_page.publishing'
     | 'admin.edit_page.quote'
@@ -1915,6 +1936,7 @@ export type TranslationKey =
     | 'admin.more_pages.editor.bold'
     | 'admin.more_pages.editor.cards_newest'
     | 'admin.more_pages.editor.cards_note'
+    | 'admin.more_pages.editor.cards_note_visual'
     | 'admin.more_pages.editor.cards_own_order'
     | 'admin.more_pages.editor.check_translation'
     | 'admin.more_pages.editor.choose_picture'
@@ -5631,9 +5653,28 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.add_picture',
     'admin.edit_page.alt',
     'admin.edit_page.alt_placeholder',
+    'admin.edit_page.back_to_page',
     'admin.edit_page.bold',
     'admin.edit_page.bullets',
     'admin.edit_page.cancel_title',
+    'admin.edit_page.card_add',
+    'admin.edit_page.card_add_failed',
+    'admin.edit_page.card_address',
+    'admin.edit_page.card_leaving',
+    'admin.edit_page.card_move_failed',
+    'admin.edit_page.card_new_title',
+    'admin.edit_page.card_newest',
+    'admin.edit_page.card_not_saved',
+    'admin.edit_page.card_open',
+    'admin.edit_page.card_open_title',
+    'admin.edit_page.card_problem',
+    'admin.edit_page.card_remove_confirm',
+    'admin.edit_page.card_remove_failed',
+    'admin.edit_page.card_remove_title',
+    'admin.edit_page.card_removed',
+    'admin.edit_page.cards_not_read',
+    'admin.edit_page.cards_publish_failed',
+    'admin.edit_page.cards_published',
     'admin.edit_page.done',
     'admin.edit_page.done_title',
     'admin.edit_page.editing',
@@ -5659,6 +5700,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.numbers',
     'admin.edit_page.page_settings',
     'admin.edit_page.picture',
+    'admin.edit_page.publish_many',
+    'admin.edit_page.publish_one',
     'admin.edit_page.published',
     'admin.edit_page.publishing',
     'admin.edit_page.quote',
@@ -6344,6 +6387,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.more_pages.editor.bold',
     'admin.more_pages.editor.cards_newest',
     'admin.more_pages.editor.cards_note',
+    'admin.more_pages.editor.cards_note_visual',
     'admin.more_pages.editor.cards_own_order',
     'admin.more_pages.editor.check_translation',
     'admin.more_pages.editor.choose_picture',

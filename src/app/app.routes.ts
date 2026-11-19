@@ -50,6 +50,8 @@ export const routes: Routes = [
     path,
     title: 'Visual Editor',
     canActivate: [roleGuard],
+    // A card's form with typing not saved yet asks before leaving (VE-D54).
+    canDeactivate: [unsavedChangesGuard],
     data: { titleKey: 'admin.titles.edit_on_page', allowedRoles: ['admin'], fullScreen: true },
     loadComponent: () =>
       import('./pages/admin/more-pages/page-edit.page').then((m) => m.default),

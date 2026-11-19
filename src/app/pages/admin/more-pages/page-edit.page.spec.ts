@@ -1,0 +1,142 @@
+/**
+ * The page's Visual Editor with cards (page-edit.page.ts, specs/visual-editing-spec.md
+ * VE-D53, VE-D54): the cards read from the frame's marks, the count on Publish, and
+ * the one Publish checking every changed card first.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
+import PageEditPage, { pageCardsIn, pageValuesHaveReplace, publishCount } from './page-edit.page';
+import { PageCardActions } from './page-card-actions';
+import { NotifyService } from '../../../../shared/services/notify.service';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
+import { ContentTypesStore } from '../contents/content-types/content-types.store';
+
+describe('pageCardsIn and publishCount', () => {
+    const doc = new DOMParser().parseFromString(`<body>
+        <div data-arc-card-id="a" data-arc-card-type="quotes" data-arc-changed></div>
+        <div data-arc-card-id="b" data-arc-card-type="quotes"></div>
+        <div data-arc-card-id="c" data-arc-card-type="quotes" data-arc-leaving></div>
+        <div data-arc-card-id="b" data-arc-card-type="quotes" data-arc-changed></div>
+        <arc-footer><div data-arc-card-id="f" data-arc-card-type="quotes" data-arc-changed></div></arc-footer>
+    </body>`, 'text/html');
+
+    it('reads each card once, outside the footer, changed if any copy of it is', () => {
+        expect(pageCardsIn(doc)).toEqual([
+            { type: 'quotes', id: 'a', changed: true, leaving: false },
+            { type: 'quotes', id: 'b', changed: true, leaving: false },
+            { type: 'quotes', id: 'c', changed: false, leaving: true },
+        ]);
+    });
+
+    it('counts the page as one change, then each changed card', () => {
+        const cards = pageCardsIn(doc);
+        expect(publishCount(true, cards)).toBe(3);
+        expect(publishCount(false, cards)).toBe(2);
+        expect(publishCount(false, [])).toBe(0);
+    });
+});
+
+describe('pageValuesHaveReplace', () => {
+    it('looks at saved values only, not the file\'s words kept beside them', () => {
+        expect(pageValuesHaveReplace({ text: { en: { hero: { value: '[Replace: a heading]' } } } })).toBe(true);
+        expect(pageValuesHaveReplace({ seo: { en: { title: { value: '[Replace: title]' } } } })).toBe(true);
+        expect(pageValuesHaveReplace({ text: { en: { hero: { value: 'Done', fileText: '[Replace: a heading]' } } } })).toBe(false);
+        expect(pageValuesHaveReplace(null)).toBe(false);
+    });
+});
+
+describe('PageEditPage, the one Publish (VE-D53)', () => {
+    let page: PageEditPage;
+    let actions: { read: ReturnType<typeof vi.fn>; publish: ReturnType<typeof vi.fn> };
+    let notify: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
+    let confirm: { ask: ReturnType<typeof vi.fn> };
+    const quotes = { slug: 'quotes', name: 'Quotes', hasPublicUrl: false, fields: [{ key: 'person', label: 'Person', type: 'text', required: true }] };
+    const drafts: Record<string, Record<string, any>> = {};
+
+    beforeEach(() => {
+        for (const key of Object.keys(drafts)) delete drafts[key];
+        actions = { read: vi.fn(async (card: { id: string }) => drafts[card.id] ?? null), publish: vi.fn(async () => undefined) };
+        notify = { error: vi.fn(), success: vi.fn() };
+        confirm = { ask: vi.fn(async () => true) };
+        TestBed.configureTestingModule({
+            imports: [PageEditPage],
+            providers: [
+                { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } } } },
+                { provide: Router, useValue: { navigate: vi.fn() } },
+                { provide: MatDialog, useValue: {} },
+                { provide: PageCardActions, useValue: actions },
+                { provide: NotifyService, useValue: notify },
+                { provide: ConfirmService, useValue: confirm },
+                { provide: ContentTypesStore, useValue: { items: signal([quotes]), getAll: vi.fn() } },
+            ],
+        });
+        TestBed.overrideComponent(PageEditPage, { set: { template: '', imports: [] } });
+        page = TestBed.createComponent(PageEditPage).componentInstance;
+    });
+
+    const changed = (...ids: string[]) => page.cards.set(ids.map((id) => ({ type: 'quotes', id, changed: true, leaving: false })));
+
+    it('checks every changed card, then publishes each', async () => {
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, title: 'A', customFields: { person: 'Asha' } };
+        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: false, addedOnPage: 'home', title: 'B', customFields: { person: 'Ravi' } };
+        changed('a', 'b');
+        expect(await page.beforePublish()).toBe(true);
+        await page.publishWith();
+        expect(actions.publish).toHaveBeenCalledTimes(2);
+        expect(actions.publish).toHaveBeenCalledWith({ type: 'quotes', id: 'a' }, drafts['a']);
+        expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published', { count: 2 });
+    });
+
+    it('publishes nothing when a card fails, and opens that card', async () => {
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, title: 'A', customFields: { person: 'Asha' } };
+        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, title: 'B', customFields: {} };
+        changed('a', 'b');
+        expect(await page.beforePublish()).toBe(false);
+        expect(notify.error).toHaveBeenCalledWith('admin.edit_page.card_problem', { type: 'Quotes', field: 'Person' });
+        expect(page.card()).toEqual({ type: 'quotes', id: 'b' });
+        await page.publishWith();
+        expect(actions.publish).not.toHaveBeenCalled();
+    });
+
+    it('asks before text still to replace goes out, and opens that card when the answer is no', async () => {
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: false, addedOnPage: 'home', title: '[Replace: new quotes]', customFields: { person: 'Asha' } };
+        changed('a');
+        confirm.ask.mockResolvedValueOnce(false);
+        expect(await page.beforePublish()).toBe(false);
+        expect(confirm.ask).toHaveBeenCalled();
+        expect(page.card()).toEqual({ type: 'quotes', id: 'a' });
+    });
+
+    it('leaves out a card whose draft was published meanwhile, or added on another page', async () => {
+        drafts['a'] = { id: 'a', status: 'publish', publishedStatus: true, title: 'A' };
+        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: false, addedOnPage: 'p-about', title: 'B' };
+        changed('a', 'b');
+        expect(await page.beforePublish()).toBe(true);
+        await page.publishWith();
+        expect(actions.publish).not.toHaveBeenCalled();
+    });
+
+    it('leaves out a card added here once but published and unpublished since', async () => {
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: false, addedOnPage: 'home', lastPublishedAt: '2026-01-02', title: 'A' };
+        changed('a');
+        expect(await page.beforePublish()).toBe(true);
+        await page.publishWith();
+        expect(actions.publish).not.toHaveBeenCalled();
+    });
+
+    it('publishes the other cards when one fails, and says which did not go out', async () => {
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, title: 'First', customFields: { person: 'Asha' } };
+        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, title: 'Second', customFields: { person: 'Ravi' } };
+        changed('a', 'b');
+        actions.publish.mockImplementation(async (card: { id: string }) => {
+            if (card.id === 'a') throw new Error('offline');
+        });
+        expect(await page.beforePublish()).toBe(true);
+        await expect(page.publishWith()).rejects.toThrow(/First/);
+        expect(actions.publish).toHaveBeenCalledTimes(2);
+        expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published', { count: 1 });
+    });
+});

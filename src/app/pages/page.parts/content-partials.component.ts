@@ -24,7 +24,7 @@ import { IContentTranslation, mergeTranslation } from '../admin/contents/draft-c
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { siteTemplateUrl } from '../../core/site/site';
 import { ArcZones } from '../../core/time/arc-zones.service';
-import { CardDraft, cardsWithDraft } from './card-draft';
+import { CardDraft, cardsWithDraft, cardsWithDrafts, PageCardDrafts } from './card-draft';
 
 /** The most entries a card block shows, as when published (functions/src/pages/card-blocks.ts). */
 export const MAX_CARD_BLOCK_COUNT = 50;
@@ -120,6 +120,10 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     contentsStore = inject(ContentsStore);
     /** On the live preview: a draft to show among the cards (VE-D10). */
     private cardDraft = inject(CardDraft, { optional: true });
+    /** On a page's Visual Editor: every card with unpublished changes, drawn from its draft (VE-D53). */
+    private pageCards = inject(PageCardDrafts, { optional: true });
+    /** A block in the header or footer is not edited (VE-D20): it draws published cards only. */
+    private inChrome = signal(false);
 
     // Inputs - support both property binding and attribute binding
     contentType = input<string>('articles');
@@ -202,19 +206,40 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         return latest ? interpolate(latest, { contentType: typeName }) : `Latest ${typeName}`;
     });
 
-    filteredContents = computed(() => this.shownCards().cards);
+    /** The cards drawn: on a page's Visual Editor, the ones Publish would push out come last (VE-D54). */
+    filteredContents = computed(() => {
+        const page = this.pageShown();
+        return page ? [...page.cards, ...page.leaving] : this.shownCards().cards;
+    });
+
+    /** The published cards of this block's type, in the page's language. */
+    private publishedCards = computed(() => {
+        const contentTypeSlug = this.contentType();
+        const lang = this.pageLang();
+        const translations = this.translations();
+        return this.contentsStore.items()
+            .filter((content: IContents) => content.type === contentTypeSlug && content.publishedStatus)
+            .map((content: IContents): IContents => (lang ? mergeTranslation(content, translations[content.id] ?? null) : content));
+    });
+
+    /** On a page's Visual Editor: the block after Publish, and the cards it pushes out (VE-D53, VE-D54). */
+    private pageShown = computed(() => {
+        const slug = this.contentType();
+        // A changed card in another language shows its draft's own translation (PageCardDrafts).
+        const page = slug && !this.inChrome() ? this.pageCards?.cardsOf(slug, this.pageLang()) : null;
+        if (!page) return null;
+        const shown = cardsWithDrafts(this.publishedCards() as unknown as Record<string, any>[], page,
+            entryOrderOf(this.currentContentType()), this.shownCount());
+        return { ...shown, cards: shown.cards as unknown as IContents[], leaving: shown.leaving as unknown as IContents[] };
+    });
 
     /** The cards shown, with the preview's draft among them when it is of this type. */
     private shownCards = computed(() => {
         const contentTypeSlug = this.contentType();
         if (!contentTypeSlug) return { cards: [] as IContents[], draftIndex: -1, tookLastPlace: false };
 
-        const lang = this.pageLang();
-        const translations = this.translations();
-        const items = this.contentsStore.items()
-            .filter((content: IContents) => content.type === contentTypeSlug && content.publishedStatus)
-            // A translated entry shows its translation, as on a published home page.
-            .map((content: IContents): IContents => (lang ? mergeTranslation(content, translations[content.id] ?? null) : content));
+        // A translated entry shows its translation, as on a published home page.
+        const items = this.publishedCards();
 
         // In the type's entry order (newest first, or the order an admin
         // arranged), as when published (core/utils/display-order.ts), then cut.
@@ -297,6 +322,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     ngOnInit() {
         const slug = this.contentType();
         if (!slug) return;
+        this.inChrome.set(!!(this.host.nativeElement as HTMLElement).closest?.('arc-header, arc-footer'));
+        if (!this.inChrome()) this.pageCards?.watch(slug);
         // Its own type only, in a store of its own (see providers): one equality
         // query on `slug`, as the list and detail pages read theirs, so a block in
         // the header or footer never replaces or cancels the page's own query.
@@ -386,8 +413,10 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         const localizedTemplate = TemplateHydrationService.applySiteInfo(
             TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
         // On the live preview the cards are marked, so the draft's card can be found (VE2.2).
-        const markFields = !!this.cardDraft;
-        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData }, { markFields });
+        const markFields = !!this.cardDraft || !!this.pageCards;
+        // On a page's Visual Editor each card's values are marked too (`data-arc-sub`), to be typed in place (VE-D54).
+        const editRows = this.pageCards && !this.inChrome() ? (loop: string) => (loop === 'items' ? { keepEmpty: () => false } : null) : undefined;
+        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData }, { markFields, editRows });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData, { markFields });
 
         this.templateHtml.set(hydratedHtml);
@@ -396,7 +425,13 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             setTimeout(() => this.markDraftCard(draftIndex, tookLastPlace), 0);
         }
 
-        if (!this.scriptsRun && isPlatformBrowser(this.platformId)) {
+        if (this.pageCards && !this.inChrome() && isPlatformBrowser(this.platformId)) {
+            const page = untracked(() => this.pageShown());
+            if (page) setTimeout(() => this.markPageCards(page.cards, page.leaving, page.changedIds, page.tookLastPlace), 0);
+        }
+
+        // The page's scripts do not run on the Visual Editor (VE-D55).
+        if (!this.scriptsRun && !this.pageCards && isPlatformBrowser(this.platformId)) {
             this.scriptsRun = true;
             setTimeout(() => this.runTemplateScripts(), 100);
         }
@@ -412,6 +447,28 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         if (draftIndex < 0) return;
         const card = host.querySelector(`[data-arc-field="items"][data-arc-row="${draftIndex}"]`);
         card?.setAttribute('data-arc-draft', tookLastPlace ? 'last' : '');
+    }
+
+    /**
+     * Marks each card on a page's Visual Editor (VE-D54) with its entry
+     * (`data-arc-card-id`, `data-arc-card-type`), a card with unpublished changes
+     * (`data-arc-changed`), the card being edited when it took the last place
+     * (`data-arc-draft="last"`, as VE2) and one Publish
+     * would push out (`data-arc-leaving`), for the screen's card bar.
+     */
+    private markPageCards(cards: IContents[], leaving: IContents[], changed: Set<string>, tookLastPlace: boolean): void {
+        const host = this.host.nativeElement as HTMLElement;
+        const type = this.contentType();
+        [...cards, ...leaving].forEach((entry, index) => {
+            const card = host.querySelector(`[data-arc-field="items"][data-arc-row="${index}"]`);
+            if (!card) return;
+            card.setAttribute('data-arc-card-id', entry.id);
+            card.setAttribute('data-arc-card-type', type);
+            card.toggleAttribute('data-arc-leaving', index >= cards.length);
+            card.toggleAttribute('data-arc-changed', changed.has(entry.id));
+            if (tookLastPlace && index === cards.length - 1) card.setAttribute('data-arc-draft', 'last');
+            else card.removeAttribute('data-arc-draft');
+        });
     }
 
     /** Runs the template's script tags, which [innerHTML] leaves inert. */

@@ -50,7 +50,7 @@ const SAVE_DELAY_MS = 700;
                     <span>@if (lastPublished()) { {{ lastPublished() | arcTime }} } @else { {{ 'admin.more_pages.never' | transloco }} }</span>
                 </div>
                 <button type="button" class="btn btn-primary w-100 mt-2" data-testid="publish" (click)="publish()"
-                    [disabled]="publishing() || status() !== 'changes' || busy()">
+                    [disabled]="publishing() || (status() !== 'changes' && !extraChanges()) || busy()">
                     @if (publishing()) {
                         <i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.publishing' | transloco }}
                     } @else {
@@ -59,10 +59,10 @@ const SAVE_DELAY_MS = 700;
                 </button>
                 @if (publishError()) {
                     <p class="text-danger small mt-2" role="alert">{{ publishError() }}</p>
-                } @else if (status() === 'changes' && !publishing()) {
+                } @else if ((status() === 'changes' || extraChanges()) && !publishing()) {
                     <p class="text-muted small mt-2">{{ 'admin.more_pages.editor.publish_note' | transloco }}</p>
                 }
-                <p class="text-muted small mt-3 mb-0">{{ 'admin.more_pages.editor.cards_note' | transloco }}</p>
+                <p class="text-muted small mt-3 mb-0">{{ (publishWith() ? 'admin.more_pages.editor.cards_note_visual' : 'admin.more_pages.editor.cards_note') | transloco }}</p>
             </div>
         }
 
@@ -138,6 +138,8 @@ export class PageTextPanelComponent implements OnDestroy {
     readonly beforePublish = input<() => Promise<boolean>>(async () => true);
     /** Run instead of publishing the page's text alone (the Visual Editor's one Publish, VE-D53). */
     readonly publishWith = input<(() => Promise<void>) | null>(null);
+    /** Cards with unpublished changes the Visual Editor's one Publish also takes (VE-D53). */
+    readonly extraChanges = input(0);
 
     readonly tabs = ['basic', 'seo', 'history'] as const;
     readonly tabShown = signal<'basic' | 'seo' | 'history'>('basic');
