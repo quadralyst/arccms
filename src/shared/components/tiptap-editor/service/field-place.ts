@@ -225,12 +225,12 @@ export function fieldSummary(type: string, value: unknown, max = 5): string[] {
  */
 export const FIELD_PLACE_CSS = `
 .arc-field-place { margin: 1em 0; outline: 1px dashed #94a3b8; outline-offset: 4px; border-radius: 6px; cursor: default; }
-.arc-field-place.ProseMirror-selectednode { outline: 2px solid #2563eb; }
+.arc-field-place.ProseMirror-selectednode { outline: 2px solid #334155; }
 .arc-field-place-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font: 500 13px/1.4 system-ui, sans-serif; color: #334155; }
-.arc-field-place-tag { padding: 1px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-size: 12px; font-weight: 600; }
+.arc-field-place-tag { padding: 1px 8px; border-radius: 999px; background: #e2e8f0; color: #334155; font-size: 12px; font-weight: 600; }
 .arc-field-place-name { flex: 1 1 auto; font-weight: 600; }
-.arc-field-place-edit { font: 500 13px/1.4 system-ui, sans-serif; color: #1d4ed8; background: #fff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 2px 10px; cursor: pointer; }
-.arc-field-place-edit:hover { background: #eef2ff; }
+.arc-field-place-edit { font: 500 13px/1.4 system-ui, sans-serif; color: #1e293b; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+.arc-field-place-edit:hover { background: #f1f5f9; }
 .arc-field-place-body { font: 14px/1.5 system-ui, sans-serif; color: #475569; }
 .arc-field-place-body ul { margin: 0; padding-left: 1.2em; }
 .arc-field-place-empty { font-style: italic; color: #94a3b8; }
