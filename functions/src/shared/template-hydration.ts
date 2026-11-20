@@ -24,6 +24,13 @@ type TemplateContext = Record<string, any>;
 /** Template hints the Visual Editor reads (data-arc-label, data-arc-placeholder, data-arc-locked): removed on publish. */
 export const TEMPLATE_HINT_ATTRS = ['data-arc-label', 'data-arc-placeholder', 'data-arc-locked'] as const;
 
+/**
+ * Values that are words only, never HTML: a card block's section title is typed
+ * by editors on the home page and static pages (VE-D41), so it is set as text even
+ * where a binding would take HTML.
+ */
+const PLAIN_TEXT_KEYS: ReadonlySet<string> = new Set(['sectionTitle']);
+
 export class TemplateHydrationService {
   /**
    * The longest side of the largest image size (Settings, Misc), which the
@@ -503,7 +510,8 @@ export class TemplateHydrationService {
         if (attrName === '[innerHTML]' || attrName === '[innerhtml]') {
             const key = attrValue;
             if (data[key] !== undefined && data[key] !== null) {
-                $(element).html(String(data[key]));
+                if (PLAIN_TEXT_KEYS.has(key)) $(element).text(String(data[key]));
+                else $(element).html(String(data[key]));
                 $(element).removeClass('arc-skeleton');
                 if (!$(element).attr('class')) {
                     $(element).removeAttr('class');
@@ -582,7 +590,7 @@ export class TemplateHydrationService {
         } else {
           // For other elements, replace inner HTML/text
           // Check if value contains HTML tags
-          if (/<[a-z][\s\S]*>/i.test(value)) {
+          if (!PLAIN_TEXT_KEYS.has(bindKey) && /<[a-z][\s\S]*>/i.test(value)) {
             $el.html(value);
           } else {
             $el.text(value);

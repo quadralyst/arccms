@@ -26,7 +26,7 @@ import { runReindex } from '../search/reindexSearch.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
 import { claimCoalesced, coalescedIdFor, finishCoalesced, requestCoalesced } from './coalesced-items.js';
-import { pageOfPageTextId, publishPageTextDraft } from '../pages/page-text-store.js';
+import { markPageTextUnreleased, pageOfPageTextId, publishPageTextDraft } from '../pages/page-text-store.js';
 import type { RebuildCursor } from '../pages/items-from-type-pages.js';
 import type { ItemsFromTypeCache } from '../pages/published-entries.js';
 
@@ -518,17 +518,23 @@ export const processPublishQueue = onDocumentCreated({
     // with it; a static page goes out in this item's own release.
     if (action === 'page-text') {
         const page = pageOfPageTextId(docId);
+        let published = false;
         try {
             if (!page) throw new Error(`not a page: ${docId}`);
-            await publishPageTextDraft(docId);
+            await publishPageTextDraft(docId, queueId || undefined);
+            published = true;
             if (page.kind === 'home') {
                 await queueHomePage('its page text was published');
             } else {
                 await generateAndDeployStaticPage(page.name, batch);
-                if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, 'static_pages', page.name, itemRelease(runStart));
+                const released = !batch.isEmpty
+                    && await deployBatchToHosting(arcHostingSite(), batch, 'static_pages', page.name, itemRelease(runStart));
+                if (!released) throw new Error(`the page ${page.name} did not go live`);
             }
         } catch (error) {
             console.error(`Publishing the page text of ${docId} failed:`, error);
+            // Copied but not live: the admin shows the page as not published, so Publish can run again.
+            if (published) await markPageTextUnreleased(docId).catch((e) => console.error(`Could not mark ${docId} as not live:`, e));
         }
         if (queueDocRef) await queueDocRef.delete();
         return;

@@ -72,7 +72,8 @@ export const pageTextId = {
 
 /** Whether a file has any marked area. */
 export function hasPageTextMarks(html: string | null | undefined): boolean {
-    return !!html && html.includes('data-arc-edit');
+    // The attribute itself, not the words "data-arc-edit" in the page's text or a comment.
+    return !!html && /\sdata-arc-edit\s*=/i.test(html);
 }
 
 /**

@@ -1,6 +1,6 @@
 /** The checks and moves of the page's cards (page-card-actions.ts, specs/visual-editing-spec.md VE-D53, VE-D54). */
 import { describe, it, expect } from 'vitest';
-import { cardHasReplace, cardProblem, movedBeside } from './page-card-actions';
+import { cardHasReplace, cardProblem, movedBeside, placeAfter, sameTime } from './page-card-actions';
 import type { ContentType } from '../contents/content-types/content-types.model';
 
 const quotes = { slug: 'quotes', name: 'Quotes', hasPublicUrl: false, fields: [{ key: 'person', label: 'Person', type: 'text', required: true }] } as unknown as ContentType;
@@ -42,5 +42,21 @@ describe('movedBeside', () => {
         expect(movedBeside(ids, 'x', 'b', false)).toEqual(ids);
         expect(movedBeside(ids, 'a', 'x', true)).toEqual(ids);
         expect(movedBeside(ids, 'a', 'a', true)).toEqual(ids);
+    });
+});
+
+describe('placeAfter and sameTime', () => {
+    const entries = [{ id: 'a', sortOrder: 1 }, { id: 'b', sortOrder: 2 }, { id: 'c', sortOrder: 4 }];
+    it('places a new card right after the one whose Add was pressed, else last', () => {
+        expect(placeAfter(entries, 'a')).toBe(1.5);
+        expect(placeAfter(entries, 'b')).toBe(3);
+        expect(placeAfter(entries, 'c')).toBe(5);
+        expect(placeAfter(entries, 'gone')).toBe(5);
+        expect(placeAfter(entries)).toBe(5);
+    });
+    it('compares stored times of any kind', () => {
+        expect(sameTime({ toMillis: () => 5 }, new Date(5))).toBe(true);
+        expect(sameTime(5, { toMillis: () => 6 })).toBe(false);
+        expect(sameTime(undefined, null)).toBe(true);
     });
 });

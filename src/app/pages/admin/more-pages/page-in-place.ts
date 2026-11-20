@@ -77,6 +77,10 @@ export const IN_PLACE_CSS = `
 [data-arc-edit]:hover { outline: 2px dashed var(--arc-edit-accent); outline-offset: 2px; }
 [data-arc-editing], [data-arc-editing]:hover { outline: 2px solid var(--arc-edit-accent); outline-offset: 2px; cursor: text; }
 [data-arc-editing]:empty { min-width: 4ch; min-height: 1em; display: inline-block; }
+/* An empty area: a faint box with its placeholder, so it can be found and clicked. */
+[data-arc-edit]:not(img):not([data-arc-edit-kind="background"]):not([data-arc-editing]):empty { display: inline-block; min-width: 8ch; min-height: 1.2em; opacity: .65;
+  outline: 1px dashed var(--arc-edit-accent); outline-offset: 2px; }
+[data-arc-edit]:not(img):not([data-arc-edit-kind="background"]):not([data-arc-editing]):empty::before { content: attr(data-arc-placeholder); font-style: italic; opacity: .7; }
 a[data-arc-edit], a[data-arc-edit] * { cursor: pointer; }
 [data-arc-card-id] { cursor: pointer; }
 [data-arc-card-id]:hover, [data-arc-card-open] { outline: 2px dashed var(--arc-edit-accent); outline-offset: 4px; }
@@ -280,7 +284,8 @@ export class PageInPlace {
     /** An element holding the words shown when nothing is saved, to compare what was typed with. */
     private fallbackElement(view: AreaView): HTMLElement {
         const el = this.doc.createElement('div');
-        if (view.area.kind === 'rich') el.innerHTML = view.wordsFallback;
+        // The file's own words are trusted; saved words go through the allow-list.
+        if (view.area.kind === 'rich') el.innerHTML = view.wordsFallback === view.area.fileText ? view.area.fileText : sanitizeRichText(view.wordsFallback);
         else el.textContent = view.wordsFallback;
         return el;
     }

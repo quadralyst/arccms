@@ -1,6 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { EnvironmentInjector, Injectable, OnDestroy, inject, runInInjectionContext, signal, untracked } from '@angular/core';
-import { Firestore, collection, doc, getDoc, getDocs, onSnapshot, query, where } from '@angular/fire/firestore';
+import { Firestore, collection, doc, getDocs, onSnapshot, query, where } from '@angular/fire/firestore';
 import { PreviewChannel, previewSessionKey } from '../../../core/preview/preview-channel';
 import { PageCardDrafts, type PageCardsOfType } from '../../page.parts/card-draft';
 import { draftAsCard } from '../preview/preview-session';
@@ -92,7 +92,8 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
     private readonly focus = signal<{ type: string; content: Record<string, any> | null } | null>(null);
     private readonly stops: (() => void)[] = [];
     private readonly watched = new Set<string>();
-    private readonly asked = new Set<string>();
+    /** The translations followed, by `{type}/{id}/{lang}`: each stops with the source. */
+    private readonly translationStops = new Map<string, () => void>();
     private channel: PreviewChannel | null = null;
     private pageId = '';
     /** Changes that arrived while words were typed on a card, applied when the typing ends. */
@@ -174,27 +175,29 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
         };
     }
 
-    /** A changed card in the page's language: its draft's own translation, read once per save. */
+    /**
+     * A changed card in the page's language: its draft's own translation, followed,
+     * since the editor saves it after the draft itself (a read per save could catch
+     * the old words).
+     */
     private translated(type: string, entry: Record<string, any>, lang: string): Record<string, any> {
-        const key = `${type}/${entry['id']}/${lang}/${timeOf(entry['modifiedAt'])}`;
+        const key = `${type}/${entry['id']}/${lang}`;
         const all = this.translations();
-        if (key in all) return all[key] ? mergeTranslation(entry as any, all[key]) as Record<string, any> : entry;
-        if (!this.asked.has(key)) {
-            this.asked.add(key);
-            untracked(() => void this.readTranslation(type, entry['id'], lang, key));
-        }
-        return entry;
+        if (!this.translationStops.has(key)) untracked(() => this.followTranslation(type, entry['id'], lang, key));
+        return all[key] ? mergeTranslation(entry as any, all[key]!) as Record<string, any> : entry;
     }
 
-    private async readTranslation(type: string, id: string, lang: string, key: string): Promise<void> {
-        try {
-            const snap = await runInInjectionContext(this.injector, () =>
-                getDoc(doc(this.firestore, `arc_${type}_drafts`, id, 'translations', lang)));
-            const translation = snap.exists() ? ({ ...snap.data(), lang } as IContentTranslation) : null;
-            this.apply(() => this.translations.update((all) => ({ ...all, [key]: translation })));
-        } catch (error) {
-            console.error(`[PageCards] Could not read the ${lang} words of ${type}/${id}:`, error);
-        }
+    private followTranslation(type: string, id: string, lang: string, key: string): void {
+        this.translationStops.set(key, () => undefined);
+        const stop = runInInjectionContext(this.injector, () => onSnapshot(
+            doc(this.firestore, `arc_${type}_drafts`, id, 'translations', lang),
+            (snap: any) => {
+                const translation = snap.exists() ? ({ ...snap.data(), lang } as IContentTranslation) : null;
+                this.apply(() => this.translations.update((all) => ({ ...all, [key]: translation })));
+            },
+            (error: unknown) => console.error(`[PageCards] Could not read the ${lang} words of ${type}/${id}:`, error),
+        ));
+        this.translationStops.set(key, stop);
     }
 
     /** The card being edited: its form's state, as typed, draws it. */
@@ -217,5 +220,6 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
     ngOnDestroy(): void {
         this.channel?.close();
         for (const stop of this.stops) stop();
+        for (const stop of this.translationStops.values()) stop();
     }
 }

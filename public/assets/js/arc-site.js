@@ -848,6 +848,12 @@
         return ((meta && meta.getAttribute('content')) || '').trim();
     }
 
+    /** A static page whose file marks areas editors can change (VE-D56). */
+    function pageEditable() {
+        var meta = document.querySelector('meta[name="arc-entry"]');
+        return !!meta && meta.hasAttribute('data-arc-editable');
+    }
+
     /**
      * A strip string in the page's language: on a page the app draws, the strings it
      * hands the strip (drawEditorStrip), English where they have none, since the page's
@@ -878,8 +884,13 @@
      * entries): the page's own address tells them apart (VE3.11). A type's list page
      * is at `/home`, never the home page; an entry of a type `p` is at `/p/{URL slug}`,
      * which is not its id, where a static page's address ends in its name.
+     *
+     * The home page always offers Edit home page; a static page offers Edit this
+     * page only when its file marks something editors can change (`data-arc-editable`
+     * on the meta). Both open the page's Visual Editor, and on both kinds of page
+     * Back to admin goes to More Pages (VE-D56).
      */
-    function stripLinks(entry, path) {
+    function stripLinks(entry, path, editable) {
         var enc = encodeURIComponent;
         var links = [];
         var type = '';
@@ -889,8 +900,18 @@
         var homePage = entry === 'home' && at !== 'home';
         var entryOfP = parts.length === 2 && parts[0] === 'p' && where[where.length - 2] === 'p' && at !== parts[1];
         var staticPage = parts.length === 2 && parts[0] === 'p' && !entryOfP;
-        if (!entry || homePage || staticPage) {
-            // The home page and static pages are edited from VE5.
+        var morePages = false;
+        if (!entry) {
+            // Nothing to edit: only the way back.
+        } else if (homePage) {
+            morePages = true;
+            links.push({ name: 'edit', text: stripT('strip_edit_home', 'Edit home page'), href: '/admin/edit-page/home' });
+        } else if (staticPage) {
+            morePages = true;
+            var marked = editable === undefined ? pageEditable() : editable;
+            if (marked) {
+                links.push({ name: 'edit', text: stripT('strip_edit', 'Edit this page'), href: '/admin/edit-page/p/' + enc(parts[1]) });
+            }
         } else if (parts.length === 2 && parts[0] && parts[1]) {
             type = parts[0];
             links.push({ name: 'edit', text: stripT('strip_edit', 'Edit this page'), href: '/admin/edit/' + enc(type) + '/' + enc(parts[1]) });
@@ -898,7 +919,8 @@
             type = parts[0];
             links.push({ name: 'add', text: stripT('strip_add', 'Add new'), href: '/admin/contents/' + enc(type) + '/add' });
         }
-        links.push({ name: 'admin', text: stripT('strip_admin', 'Back to admin'), href: type ? '/admin/contents/' + enc(type) : '/admin' });
+        var back = morePages ? '/admin/more-pages' : type ? '/admin/contents/' + enc(type) : '/admin';
+        links.push({ name: 'admin', text: stripT('strip_admin', 'Back to admin'), href: back });
         return links;
     }
 
@@ -940,7 +962,7 @@
     function fillStrip(root) {
         var entry = pageEntry();
         // The same page in the same words: the links stay, so a press that drew them again never loses its click.
-        var drawn = entry + '|' + location.pathname + '|' + JSON.stringify(site.stripStrings || {});
+        var drawn = entry + '|' + pageEditable() + '|' + location.pathname + '|' + JSON.stringify(site.stripStrings || {});
         if (root.host && root.host.getAttribute('data-entry') === drawn && root.querySelector('a')) return;
         if (root.host) root.host.setAttribute('data-entry', drawn);
         var bar = root.querySelector('.bar');

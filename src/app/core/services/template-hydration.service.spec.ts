@@ -1446,3 +1446,16 @@ describe('Repeat from a number (data-arc-repeat, docs/features/templates.html)',
         expect(out).toContain('Sam: <span>' + '<i class="full"></i>'.repeat(3) + '<i class="half"></i></span>');
     });
 });
+
+describe('A section title is words only (VE5, both copies)', () => {
+    const title = '<img src=x onerror="alert(1)">News';
+    for (const [name, hydrate] of [['app', TemplateHydrationService], ['publish', PublishHydration]] as const) {
+        it(`sets an editor's section title as text, by data-arc-bind and [innerHTML] (${name})`, () => {
+            const html = hydrate.hydrateTemplate('<h2 data-arc-bind="sectionTitle"></h2><p [innerHTML]="sectionTitle"></p><div data-arc-bind="body"></div>',
+                { sectionTitle: title, body: '<b>kept</b>' } as any);
+            expect(html).not.toContain('<img');
+            expect(html).toContain('&lt;img src=x onerror="alert(1)"&gt;News');
+            expect(html).toContain('<b>kept</b>');
+        });
+    }
+});

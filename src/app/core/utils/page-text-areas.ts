@@ -78,6 +78,8 @@ export function backgroundUrlOf(style: string | null): string {
 const NOT_EDITABLE = new Set([
     'area', 'base', 'br', 'col', 'embed', 'hr', 'input', 'link', 'source', 'track', 'wbr', 'param',
     'script', 'style', 'noscript', 'template', 'iframe', 'object', 'textarea', 'select', 'option', 'head', 'html', 'body',
+    // Raw text: what is written inside is never escaped.
+    'xmp', 'noembed', 'noframes', 'plaintext',
 ]);
 
 /** What an area is, as page-text.ts decides it (kept the same by page-text-areas.spec.ts). */

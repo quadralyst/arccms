@@ -62,13 +62,15 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
 
     /** Saves under way, and the last save that failed. */
     readonly saving = signal(0);
-    readonly saveError = signal('');
+    /** Saves that failed, by field id (`*` for a save of no one field): one field's later save never hides another's. */
+    private readonly saveErrors = signal<Record<string, string>>({});
+    readonly saveError = computed(() => Object.values(this.saveErrors())[0] ?? '');
 
     /** What is being typed in a field, by field id, while it is: shown instead of the saved value. */
     readonly typing = signal<Record<string, string>>({});
     /** An address typed that cannot be used, by field id. */
     readonly badUrl = signal<Record<string, boolean>>({});
-    private timers = new Map<string, { timer: ReturnType<typeof setTimeout>; save: () => Promise<void> }>();
+    private timers = new Map<string, { timer: ReturnType<typeof setTimeout>; save: () => Promise<boolean> }>();
 
     readonly richEditors = viewChildren<ElementRef<HTMLElement>>('rich');
     /** The rich text field whose link box is open, and the selection it applies to. */
@@ -85,7 +87,8 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
                 const key = el.dataset['key'] || '';
                 const view = sections.flatMap((s) => s.areas).find((a) => a.area.key === key);
                 if (!view || el === document.activeElement) continue;
-                const html = view.words || '';
+                // Saved words go through the allow-list: a draft can be written straight to Firestore.
+                const html = sanitizeRichText(view.words || '');
                 if (el.innerHTML !== html) el.innerHTML = html;
             }
         });
@@ -117,14 +120,17 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
         return typed !== undefined ? typed : saved;
     }
 
-    private async run(save: () => Promise<void>): Promise<void> {
+    /** Runs a save; true when it landed. A failure stays shown until that field saves. */
+    private async run(save: () => Promise<void>, id = '*'): Promise<boolean> {
         this.saving.update((n) => n + 1);
         try {
             await save();
-            this.saveError.set('');
+            this.saveErrors.update(({ [id]: _, ...rest }) => rest);
+            return true;
         } catch (error: any) {
             console.error('[PageTextEditor] Could not save:', error);
-            this.saveError.set(error?.message || String(error));
+            this.saveErrors.update((errors) => ({ ...errors, [id]: error?.message || String(error) }));
+            return false;
         } finally {
             this.saving.update((n) => n - 1);
         }
@@ -134,12 +140,12 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
     private schedule(id: string, save: () => Promise<void>, now = false): void {
         const pending = this.timers.get(id);
         if (pending) clearTimeout(pending.timer);
-        const go = async () => {
+        const go = async (): Promise<boolean> => {
             this.timers.delete(id);
-            await this.run(save);
+            return this.run(save, id);
         };
         if (now) {
-            void go().then(() => this.stopTyping(id));
+            void go().then((ok) => ok && this.stopTyping(id));
             return;
         }
         this.timers.set(id, { timer: setTimeout(go, SAVE_DELAY_MS), save: go });
@@ -174,7 +180,7 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
         if (pending) {
             clearTimeout(pending.timer);
             this.timers.delete(id);
-            void this.run(pending.save).then(() => this.stopTyping(id));
+            void pending.save().then((ok) => ok && this.stopTyping(id));
         } else {
             this.stopTyping(id);
         }
@@ -191,7 +197,7 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
         for (const [id, pending] of this.timers) {
             clearTimeout(pending.timer);
             this.timers.delete(id);
-            void this.run(pending.save).then(() => this.stopTyping(id));
+            void pending.save().then((ok) => ok && this.stopTyping(id));
         }
         this.linkFor.set('');
         this.lang.set(code);
@@ -241,7 +247,7 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
         if (pending) {
             clearTimeout(pending.timer);
             this.timers.delete(id);
-            void this.run(pending.save).then(() => this.stopTyping(id));
+            void pending.save().then((ok) => ok && this.stopTyping(id));
         } else {
             this.stopTyping(id);
         }
@@ -319,8 +325,9 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
         await Promise.all([...this.timers.entries()].map(([id, pending]) => {
             clearTimeout(pending.timer);
             this.timers.delete(id);
-            return this.run(pending.save).then(() => this.stopTyping(id));
+            return pending.save().then((ok) => ok && this.stopTyping(id));
         }));
+        // A field whose save failed keeps its words and its error: Publish waits for it.
         return !this.saveError();
     };
 

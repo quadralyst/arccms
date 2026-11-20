@@ -7,6 +7,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 
 const snapshots: ((snap: unknown) => void)[] = [];
+const followed: string[] = [];
+const stopped: string[] = [];
 const getDocMock = vi.fn();
 const getDocsMock = vi.fn();
 vi.mock('@angular/fire/firestore', () => ({
@@ -15,9 +17,10 @@ vi.mock('@angular/fire/firestore', () => ({
     doc: (_db: unknown, ...path: string[]) => ({ path: path.join('/') }),
     query: (ref: unknown) => ref,
     where: () => null,
-    onSnapshot: (_q: unknown, next: (snap: unknown) => void) => {
+    onSnapshot: (q: { path?: string }, next: (snap: unknown) => void) => {
         snapshots.push(next);
-        return () => undefined;
+        followed.push(q?.path ?? '');
+        return () => stopped.push(q?.path ?? '');
     },
     getDoc: (ref: { path: string }) => getDocMock(ref.path),
     getDocs: (ref: { path: string }) => getDocsMock(ref.path),
@@ -35,6 +38,8 @@ describe('PageCardsSource', () => {
 
     beforeEach(() => {
         snapshots.length = 0;
+        followed.length = 0;
+        stopped.length = 0;
         getDocMock.mockReset();
         getDocsMock.mockReset();
         TestBed.configureTestingModule({ providers: [PageCardsSource, { provide: Firestore, useValue: {} }] });
@@ -60,14 +65,21 @@ describe('PageCardsSource', () => {
         expect(source.cardsOf('quotes')!.changed.map((c) => c['id'])).toEqual(['a']);
     });
 
-    it('gives a changed card its draft\'s own translation in the page\'s language', async () => {
-        getDocMock.mockResolvedValue({ exists: () => true, data: () => ({ title: 'हिन्दी' }) });
+    it('gives a changed card its draft\'s own translation in the page\'s language, followed as it is saved', () => {
         snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, title: 'English' }]));
         expect(source.cardsOf('quotes', 'hi')!.changed[0]['title']).toBe('English');
-        await flush();
-        expect(getDocMock).toHaveBeenCalledWith('arc_quotes_drafts/a/translations/hi');
+        const at = followed.indexOf('arc_quotes_drafts/a/translations/hi');
+        expect(at).toBeGreaterThan(0);
+        snapshots[at]({ exists: () => true, data: () => ({ title: 'हिन्दी' }) });
         expect(source.cardsOf('quotes', 'hi')!.changed[0]['title']).toBe('हिन्दी');
         expect(source.cardsOf('quotes')!.changed[0]['title']).toBe('English');
+        // Saved again after the draft: the new words show, with no second read.
+        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, title: 'English', modifiedAt: 9 }]));
+        snapshots[at]({ exists: () => true, data: () => ({ title: 'नया' }) });
+        expect(source.cardsOf('quotes', 'hi')!.changed[0]['title']).toBe('नया');
+        expect(followed.filter((path) => path.endsWith('/translations/hi'))).toHaveLength(1);
+        source.ngOnDestroy();
+        expect(stopped).toContain('arc_quotes_drafts/a/translations/hi');
     });
 
     it('reads the type\'s whole order again after a Move', async () => {

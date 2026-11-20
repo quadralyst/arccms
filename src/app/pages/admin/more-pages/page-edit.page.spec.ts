@@ -58,7 +58,7 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
 
     beforeEach(() => {
         for (const key of Object.keys(drafts)) delete drafts[key];
-        actions = { read: vi.fn(async (card: { id: string }) => drafts[card.id] ?? null), publish: vi.fn(async () => undefined) };
+        actions = { read: vi.fn(async (card: { id: string }) => drafts[card.id] ?? null), publish: vi.fn(async () => true) };
         notify = { error: vi.fn(), success: vi.fn() };
         confirm = { ask: vi.fn(async () => true) };
         TestBed.configureTestingModule({
@@ -86,7 +86,7 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
         expect(await page.beforePublish()).toBe(true);
         await page.publishWith();
         expect(actions.publish).toHaveBeenCalledTimes(2);
-        expect(actions.publish).toHaveBeenCalledWith({ type: 'quotes', id: 'a' }, drafts['a']);
+        expect(actions.publish).toHaveBeenCalledWith({ type: 'quotes', id: 'a' }, drafts['a'], expect.anything());
         expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published', { count: 2 });
     });
 
@@ -133,10 +133,21 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
         changed('a', 'b');
         actions.publish.mockImplementation(async (card: { id: string }) => {
             if (card.id === 'a') throw new Error('offline');
+            return true;
         });
         expect(await page.beforePublish()).toBe(true);
         await expect(page.publishWith()).rejects.toThrow(/First/);
         expect(actions.publish).toHaveBeenCalledTimes(2);
+        expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published', { count: 1 });
+    });
+
+    it('names a card someone saved or unpublished after the check, and publishes the rest', async () => {
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, title: 'Changed since', customFields: { person: 'Asha' } };
+        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, title: 'Second', customFields: { person: 'Ravi' } };
+        changed('a', 'b');
+        actions.publish.mockImplementation(async (card: { id: string }) => card.id !== 'a');
+        expect(await page.beforePublish()).toBe(true);
+        await expect(page.publishWith()).rejects.toThrow(/Changed since/);
         expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published', { count: 1 });
     });
 });

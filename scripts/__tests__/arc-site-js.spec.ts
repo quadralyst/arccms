@@ -605,25 +605,46 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         ]);
     });
 
-    it('offers only Back to admin on the home page and a static page', () => {
-        for (const head of [entry('home'), entry('p/privacy-policy')]) {
-            page('<p>Page</p>', '', head);
-            expect(links()).toEqual([['admin', '/admin', 'Back to admin']]);
-            strip()?.remove();
-        }
+    it('offers Edit home page on the home page, and Back to admin goes to More Pages (VE-D56)', () => {
+        page('<p>Page</p>', '', entry('home'));
+        expect(links()).toEqual([
+            ['admin', '/admin/more-pages', 'Back to admin'],
+            ['edit', '/admin/edit-page/home', 'Edit home page'],
+        ]);
+    });
+
+    it('offers Edit this page on a static page only when it marks areas editors change (VE-D56)', () => {
+        page('<p>Page</p>', '', '<meta name="arc-entry" content="p/about-us" data-arc-editable="">');
+        expect(links()).toEqual([
+            ['admin', '/admin/more-pages', 'Back to admin'],
+            ['edit', '/admin/edit-page/p/about-us', 'Edit this page'],
+        ]);
+        strip()?.remove();
+        freshLoad();
+        page('<p>Page</p>', '', entry('p/privacy-policy'));
+        expect(links()).toEqual([['admin', '/admin/more-pages', 'Back to admin']]);
+    });
+
+    it('follows the page when it gains its marks, as an app-drawn page sets them (VE-D56)', () => {
+        page('<p>Page</p>', '', entry('p/about-us'));
+        expect(links()).toEqual([['admin', '/admin/more-pages', 'Back to admin']]);
+        document.querySelector('meta[name="arc-entry"]')!.setAttribute('data-arc-editable', '');
+        (window as unknown as { arcSite: { drawEditorStrip: () => void } }).arcSite.drawEditorStrip();
+        expect(links().map((l) => l[1])).toEqual(['/admin/more-pages', '/admin/edit-page/p/about-us']);
     });
 
     it('tells a type slugged home or p from the home page and static pages by the address (VE3.11)', () => {
         page('<p>Page</p>', '', entry('articles/doc1'));
-        const stripLinks = (window as unknown as { arcSite: { _internal: { stripLinks: (e: string, path: string) => { name: string; href: string }[] } } })
+        const stripLinks = (window as unknown as { arcSite: { _internal: { stripLinks: (e: string, path: string, editable?: boolean) => { name: string; href: string }[] } } })
             .arcSite._internal.stripLinks;
         const names = (e: string, path: string) => stripLinks(e, path).map((l) => `${l.name} ${l.href}`);
-        expect(names('home', '/')).toEqual(['admin /admin']);
-        expect(names('home', '/hi')).toEqual(['admin /admin']);
+        expect(names('home', '/')).toEqual(['edit /admin/edit-page/home', 'admin /admin/more-pages']);
+        expect(names('home', '/hi')).toEqual(['edit /admin/edit-page/home', 'admin /admin/more-pages']);
         expect(names('home', '/home')).toEqual(['add /admin/contents/home/add', 'admin /admin/contents/home']);
         expect(names('home', '/hi/home.html')).toEqual(['add /admin/contents/home/add', 'admin /admin/contents/home']);
-        expect(names('p/privacy-policy', '/p/privacy-policy')).toEqual(['admin /admin']);
-        expect(names('p/privacy-policy', '/p/privacy-policy.html')).toEqual(['admin /admin']);
+        expect(names('p/privacy-policy', '/p/privacy-policy')).toEqual(['admin /admin/more-pages']);
+        expect(names('p/privacy-policy', '/p/privacy-policy.html')).toEqual(['admin /admin/more-pages']);
+        expect(stripLinks('p/about-us', '/p/about-us', true).map((l) => l.href)).toEqual(['/admin/edit-page/p/about-us', '/admin/more-pages']);
         expect(names('p/doc1', '/p/my-first-entry')).toEqual(['edit /admin/edit/p/doc1', 'admin /admin/contents/p']);
         expect(names('p', '/p')).toEqual(['add /admin/contents/p/add', 'admin /admin/contents/p']);
     });

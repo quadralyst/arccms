@@ -1,5 +1,5 @@
 import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '@angular/core';
-import { Firestore, deleteField, doc, getDoc, updateDoc } from '@angular/fire/firestore';
+import { Firestore, deleteField, doc, getDoc, runTransaction, updateDoc } from '@angular/fire/firestore';
 import { firstValueFrom } from 'rxjs';
 import type { ContentType } from '../contents/content-types/content-types.model';
 import { DraftContentsStore } from '../contents/draft-content-store/draft-contents.store';
@@ -7,6 +7,7 @@ import { isEmptyFieldValue } from '../contents/draft-content-store/entry-draft-s
 import { EntryOrderService } from '../contents/entry-order/entry-order.service';
 import { PublishQueueService } from '../contents/publish-queue/publish-queue.service';
 import { hasReplacePrompt } from '../contents/standard-pages/standard-pages';
+import { isPageChange } from './page-cards';
 
 /** A card on the page: its entry. */
 export interface CardRef {
@@ -39,6 +40,27 @@ export function cardProblem(draft: Record<string, any>, type: ContentType): Card
 export function cardHasReplace(draft: Record<string, any>): boolean {
     const { id: _id, ...values } = draft;
     return hasReplacePrompt(values);
+}
+
+/**
+ * A sortOrder right after `after` in a type's own order (entries in that order):
+ * halfway to the next entry's, or one more when it is last. Last of all when
+ * `after` is not there. Nothing else is renumbered, so no page is republished.
+ */
+export function placeAfter(entries: readonly { id: string; sortOrder?: number }[], after?: string): number {
+    const last = entries.reduce((max, entry) => Math.max(max, entry.sortOrder ?? 0), 0) + 1;
+    const at = after ? entries.findIndex((entry) => entry.id === after) : -1;
+    const own = at >= 0 ? entries[at].sortOrder : undefined;
+    if (own === undefined) return last;
+    const next = entries.slice(at + 1).find((entry) => typeof entry.sortOrder === 'number')?.sortOrder;
+    return next !== undefined && next > own ? (own + next) / 2 : own + 1;
+}
+
+/** Two stored times (Timestamp, Date, millis or nothing) are the same moment. */
+export function sameTime(a: unknown, b: unknown): boolean {
+    const ms = (t: any): number | null => (t == null ? null : typeof t === 'number' ? t
+        : typeof t.toMillis === 'function' ? t.toMillis() : t instanceof Date ? t.getTime() : null);
+    return ms(a) === ms(b);
 }
 
 /**
@@ -83,13 +105,15 @@ export class PageCardActions {
     /**
      * Add: a new draft of the type, on this page until it is published or taken
      * off (`addedOnPage`), last in a type's own order. Its title asks to be
-     * replaced, so Publish asks before it goes out unchanged.
+     * replaced, so Publish asks before it goes out unchanged. In a type's own
+     * order it goes right after `after` (the card whose Add was pressed), so it
+     * stays in view in a full block; else last.
      */
-    async add(type: ContentType, pageId: string, title: string): Promise<string> {
+    async add(type: ContentType, pageId: string, title: string, after?: string): Promise<string> {
         let sortOrder: number | undefined;
         if (type.entryOrder === 'manual') {
             const entries = await this.order.load(type.slug);
-            sortOrder = entries.reduce((max, entry) => Math.max(max, entry.sortOrder ?? 0), 0) + 1;
+            sortOrder = placeAfter(entries, after);
         }
         const stamp = new Date();
         return firstValueFrom(this.drafts.createDraft({
@@ -120,7 +144,14 @@ export class PageCardActions {
         if (!draft) return;
         if (draft['publishedStatus'] === true) {
             await this.update(card, { status: 'draft', publishedStatus: false, addedOnPage: deleteField() });
-            await this.queue.enqueue('unpublish', card.type, card.id);
+            try {
+                await this.queue.enqueue('unpublish', card.type, card.id);
+            } catch (error) {
+                // Not unpublished: the card stays as it was, on the page and on the site.
+                await this.update(card, { status: draft['status'], publishedStatus: true, ...(draft['addedOnPage'] ? { addedOnPage: draft['addedOnPage'] } : {}) })
+                    .catch((undo) => console.error('[PageCardActions] Could not put the card back:', undo));
+                throw error;
+            }
         } else {
             await this.update(card, { addedOnPage: deleteField() });
         }
@@ -132,17 +163,41 @@ export class PageCardActions {
         await this.order.save(card.type, movedBeside(ids, card.id, neighbour, after));
     }
 
-    /** Publishes a card's draft as the entry editor's Publish does (the draft is already checked). */
-    async publish(card: CardRef, draft: Record<string, any>): Promise<void> {
+    /**
+     * Publishes a card's draft as the entry editor's Publish does. `checked` is the
+     * draft as Publish checked it: the card is published only if it is still that
+     * draft and still a change of this page (nobody saved or unpublished it since),
+     * else false and nothing is written. When the publish cannot be queued, the
+     * draft is put back as it was and the error thrown, so Publish can try again.
+     */
+    async publish(card: CardRef, checked: Record<string, any>, pageId: string): Promise<boolean> {
+        const ref = this.ref(card);
         const stamp = new Date();
-        await this.update(card, {
-            status: 'publish',
-            publishedStatus: true,
-            publishedOn: draft['publishedOn'] || stamp,
-            modifiedAt: stamp,
-            updatedAt: stamp,
-            addedOnPage: deleteField(),
-        });
-        await this.queue.enqueue('publish', card.type, card.id);
+        const before = await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (tx) => {
+            const snap = await tx.get(ref);
+            const now = snap.exists() ? (snap.data() as Record<string, any>) : null;
+            if (!now || !isPageChange(now, pageId) || !sameTime(now['modifiedAt'], checked['modifiedAt'])) return null;
+            tx.update(ref, {
+                status: 'publish',
+                publishedStatus: true,
+                publishedOn: now['publishedOn'] || stamp,
+                modifiedAt: stamp,
+                updatedAt: stamp,
+                addedOnPage: deleteField(),
+            });
+            return now;
+        }));
+        if (!before) return false;
+        try {
+            await this.queue.enqueue('publish', card.type, card.id);
+        } catch (error) {
+            const back = (key: string) => (before[key] !== undefined ? before[key] : deleteField());
+            await this.update(card, {
+                status: before['status'], publishedStatus: before['publishedStatus'], publishedOn: back('publishedOn'),
+                modifiedAt: back('modifiedAt'), updatedAt: back('updatedAt'), addedOnPage: back('addedOnPage'),
+            }).catch((undo) => console.error('[PageCardActions] Could not put the card back:', undo));
+            throw error;
+        }
+        return true;
     }
 }

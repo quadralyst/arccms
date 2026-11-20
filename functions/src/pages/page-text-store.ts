@@ -72,7 +72,18 @@ export function pageOfPageTextId(pageId: string): { kind: 'home' } | { kind: 'st
  * whole draft in History. A page with no draft publishes no values, which brings it
  * back to its file. The caller rebuilds the page.
  */
-export async function publishPageTextDraft(pageId: string): Promise<void> {
+/**
+ * The published copy's page did not go live (its rebuild or release failed): it
+ * no longer says which draft it was made from, so the admin shows "Changes not
+ * published" and Publish can be pressed again, instead of a page shown as published
+ * while the site keeps the old words.
+ */
+export async function markPageTextUnreleased(pageId: string): Promise<void> {
+    await db.collection(PAGE_TEXT_PUBLISHED).doc(pageId).update({ draftUpdatedAt: null });
+}
+
+/** `historyId`: the queue item's id, so the same item delivered twice keeps one History entry. */
+export async function publishPageTextDraft(pageId: string, historyId?: string): Promise<void> {
     const draft = await db.collection(PAGE_TEXT_DRAFTS).doc(pageId).get();
     const data = draft.exists ? draft.data() : undefined;
     const values = pageTextValuesOf(data);
@@ -86,7 +97,7 @@ export async function publishPageTextDraft(pageId: string): Promise<void> {
     // Anyone reads the published copy: the values alone, no account ids.
     batch.set(ref, { ...publicPageTextValues(values), ...stamp });
     // History is for Restore (VE-D51): the whole draft, with who saved what and against which text.
-    batch.set(ref.collection(PAGE_TEXT_HISTORY).doc(), {
+    batch.set(historyId ? ref.collection(PAGE_TEXT_HISTORY).doc(historyId) : ref.collection(PAGE_TEXT_HISTORY).doc(), {
         ...values, ...stamp, publishedBy: typeof data?.['updatedBy'] === 'string' ? data['updatedBy'] : '',
     });
     await batch.commit();

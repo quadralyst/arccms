@@ -14,8 +14,8 @@ import { morePageStatus } from './more-pages.service';
 import type { SeoView } from './page-text-editor.model';
 
 /** How often, and how many times, the panel asks whether a publish is out. */
-const PUBLISH_POLL_MS = 3000;
-const PUBLISH_POLLS = 40;
+/** How long Publish waits for the published copy before saying it is slow. */
+const PUBLISH_WAIT_MS = 120_000;
 /** How long after the last key an SEO field saves. */
 const SAVE_DELAY_MS = 700;
 
@@ -156,15 +156,19 @@ export class PageTextPanelComponent implements OnDestroy {
 
     private typing = signal<Record<string, string>>({});
     private timers = new Map<string, { timer: ReturnType<typeof setTimeout>; save: () => Promise<void> }>();
-    private pollTimer: ReturnType<typeof setTimeout> | null = null;
+    private waitTimer: ReturnType<typeof setTimeout> | null = null;
+    /** While a Publish is waiting: when the page was last published before it. */
+    private publishedBefore: number | null = null;
 
     constructor() {
-        // The published copy of the page the panel is for.
-        effect(() => {
+        // The published copy of the page the panel is for, followed: another editor's publish shows too.
+        effect((onCleanup) => {
             const pageId = this.session().pageId;
-            void this.pageText.published(pageId).then((published) => {
-                if (this.session().pageId === pageId) this.published.set(published);
+            const stop = this.pageText.followPublished(pageId, (published) => {
+                this.published.set(published);
+                this.publishLanded();
             });
+            onCleanup(stop);
         });
     }
 
@@ -173,7 +177,8 @@ export class PageTextPanelComponent implements OnDestroy {
             clearTimeout(pending.timer);
             void pending.save();
         }
-        if (this.pollTimer) clearTimeout(this.pollTimer);
+        if (this.waitTimer) clearTimeout(this.waitTimer);
+        this.publishedBefore = null;
     }
 
     showTab(tab: 'basic' | 'seo' | 'history'): void {
@@ -265,7 +270,7 @@ export class PageTextPanelComponent implements OnDestroy {
             const custom = this.publishWith();
             if (custom) await custom();
             else await this.session().publish();
-            this.poll(0);
+            this.awaitPublish();
         } catch (error: any) {
             console.error('[PageTextPanel] Could not publish:', error);
             this.publishing.set(false);
@@ -273,21 +278,40 @@ export class PageTextPanelComponent implements OnDestroy {
         }
     }
 
-    /** Asks until the published copy has caught up with the draft. */
-    poll(round: number): void {
+    /** Waits for the published copy to catch up with the draft (followed in the constructor). */
+    awaitPublish(): void {
         this.publishing.set(true);
-        this.pollTimer = setTimeout(async () => {
-            const published = await this.pageText.published(this.session().pageId);
-            if (published) this.published.set(published);
-            const waiting = morePageStatus(this.draft(), published) === 'changes';
-            if (!waiting || round >= PUBLISH_POLLS) {
-                this.publishing.set(false);
-                if (waiting) this.publishError.set(this.t('admin.more_pages.editor.publish_slow'));
-                if (this.tabShown() === 'history') void this.loadHistory();
-                return;
-            }
-            this.poll(round + 1);
-        }, PUBLISH_POLL_MS);
+        this.publishedBefore = this.lastPublished() ?? 0;
+        if (this.waitTimer) clearTimeout(this.waitTimer);
+        this.waitTimer = setTimeout(() => {
+            if (this.publishedBefore === null) return;
+            this.finishPublish();
+            if (this.status() === 'changes') this.publishError.set(this.t('admin.more_pages.editor.publish_slow'));
+        }, PUBLISH_WAIT_MS);
+        this.publishLanded();
+    }
+
+    /**
+     * A Publish waiting is done when the page shows no changes, or when a new
+     * published copy came that still does: the page did not go live (it says no
+     * draft) or someone saved again meanwhile.
+     */
+    private publishLanded(): void {
+        if (this.publishedBefore === null) return;
+        const published = this.published();
+        const waiting = this.status() === 'changes';
+        const landed = (published?.publishedAt?.toMillis?.() ?? 0) > this.publishedBefore;
+        if (waiting && !landed) return;
+        this.finishPublish();
+        if (waiting && published?.draftUpdatedAt === null) this.publishError.set(this.t('admin.more_pages.editor.publish_not_live'));
+    }
+
+    private finishPublish(): void {
+        this.publishedBefore = null;
+        if (this.waitTimer) clearTimeout(this.waitTimer);
+        this.waitTimer = null;
+        this.publishing.set(false);
+        if (this.tabShown() === 'history') void this.loadHistory();
     }
 
     // ── History (VE-D51) ───────────────────────────────────────────────────

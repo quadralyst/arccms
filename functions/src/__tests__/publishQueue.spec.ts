@@ -149,10 +149,13 @@ vi.mock('../publishQueue/coalesced-items', async (importOriginal) => ({
 const requested = (action: string) => mockRequestCoalesced.mock.calls.filter(([a]) => a === action);
 
 // Page text (VE-D57): the draft's publish, as a spy.
-const { mockPublishPageTextDraft } = vi.hoisted(() => ({ mockPublishPageTextDraft: vi.fn(async (_id: string) => undefined) }));
+const { mockPublishPageTextDraft, mockMarkUnreleased } = vi.hoisted(() => ({
+    mockPublishPageTextDraft: vi.fn(async (_id: string) => undefined), mockMarkUnreleased: vi.fn(async (_id: string) => undefined),
+}));
 vi.mock('../pages/page-text-store', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../pages/page-text-store.js')>()),
     publishPageTextDraft: (id: string) => mockPublishPageTextDraft(id),
+    markPageTextUnreleased: (id: string) => mockMarkUnreleased(id),
 }));
 
 // The search index rebuild after a whole-site republish.
@@ -510,7 +513,18 @@ describe('processPublishQueue', () => {
             expect(mockGenerateStaticPage).toHaveBeenCalledWith('about-us', expect.anything());
             expect(mockDeployBatchToHosting).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'static_pages', 'about-us', expect.anything());
             expect(requested('home')).toHaveLength(0);
+            expect(mockMarkUnreleased).not.toHaveBeenCalled();
             expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('marks the copy as not live when the static page\'s release fails, so Publish can run again', async () => {
+            mockGenerateStaticPage.mockImplementationOnce(async (_slug: string, batch: any) => { batch.add('/pages/about-us/index.html', 'x'); });
+            mockDeployBatchToHosting.mockResolvedValueOnce(false);
+            await handler(createEvent('page-text', '', 'p-about-us'));
+            expect(mockMarkUnreleased).toHaveBeenCalledWith('p-about-us');
+            mockGenerateStaticPage.mockRejectedValueOnce(new Error('no file'));
+            await handler(createEvent('page-text', '', 'p-about-us'));
+            expect(mockMarkUnreleased).toHaveBeenCalledTimes(2);
         });
 
         it('publishes nothing for an id that names no page, and removes the item', async () => {
@@ -526,6 +540,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('page-text', '', 'p-about-us');
             await handler(event);
             expect(mockGenerateStaticPage).not.toHaveBeenCalled();
+            expect(mockMarkUnreleased).not.toHaveBeenCalled();
             expect(event.data.ref.delete).toHaveBeenCalled();
         });
 

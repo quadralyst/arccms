@@ -32,6 +32,7 @@ describe('PageTextEditorPage', () => {
     let session: Record<string, any>;
     let draft: ReturnType<typeof signal<PageTextDraft | null>>;
     let published: ReturnType<typeof vi.fn>;
+    let pushPublished: (value: unknown) => void;
 
     async function open(name = '', languages = [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' }]): Promise<HTMLElement> {
         await TestBed.configureTestingModule({
@@ -41,7 +42,7 @@ describe('PageTextEditorPage', () => {
                 { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => (k === 'name' ? name || null : null) } } } },
                 { provide: LocalizationService, useValue: { load: vi.fn().mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: languages }) } },
                 { provide: UiStringsService, useValue: { load: vi.fn().mockResolvedValue({ hero_t: 'स्वागत' }) } },
-                { provide: PageTextService, useValue: { session: vi.fn(() => session), published, history: vi.fn().mockResolvedValue([]) } },
+                { provide: PageTextService, useValue: { session: vi.fn(() => session), published, followPublished: (_id: string, next: (value: unknown) => void) => { pushPublished = next; next(null); return () => undefined; }, history: vi.fn().mockResolvedValue([]) } },
                 { provide: MorePagesService, useValue: {
                     file: vi.fn(async (path: string) => (path.includes('home') || path.includes('about') ? HOME : '')),
                     cardTypes: vi.fn().mockResolvedValue(new Map([['testimonials', { name: 'Testimonials', ownOrder: false }]])),
@@ -94,6 +95,15 @@ describe('PageTextEditorPage', () => {
         expect(el.querySelector('[data-testid="card-block"]')?.textContent).toContain('Testimonials: 3 shown, newest first');
         expect(el.querySelector('[data-testid="languages"]')).not.toBeNull();
         expect(session['open']).toHaveBeenCalled();
+    });
+
+    it('shows saved rich words through the allow-list, never a draft\'s script', async () => {
+        draft.set({ text: { en: { intro: { value: 'Fresh <b>daily</b><img src=x onerror="alert(1)">', fileText: 'Baked <b>early</b>.' } } } });
+        const el = await open();
+        fixture.detectChanges();
+        const rich = el.querySelector('#w-intro')!;
+        expect(rich.innerHTML).toBe('Fresh <b>daily</b>');
+        expect(rich.querySelector('img')).toBeNull();
     });
 
     it('saves a field on its own once typing stops, with the file\'s text (VE-D52, VE-D45)', async () => {
@@ -190,8 +200,8 @@ describe('PageTextEditorPage', () => {
         publish().click();
         await vi.advanceTimersByTimeAsync(0);
         expect(session['publish']).toHaveBeenCalled();
-        published.mockResolvedValue({ draftUpdatedAt: { toMillis: () => 5 }, publishedAt: { toMillis: () => 6 } });
-        await vi.advanceTimersByTimeAsync(3100);
+        pushPublished({ draftUpdatedAt: { toMillis: () => 5 }, publishedAt: { toMillis: () => 6 } });
+        await vi.advanceTimersByTimeAsync(0);
         fixture.detectChanges();
         expect(el.querySelector('.panel .page-status')?.textContent).toContain('Published');
     });
@@ -216,6 +226,21 @@ describe('PageTextEditorPage', () => {
         el.querySelector<HTMLButtonElement>('[data-testid="history"] button')!.click();
         await vi.advanceTimersByTimeAsync(0);
         expect(session['restore']).toHaveBeenCalledWith(version);
+    });
+
+    it('keeps a failed field\'s words and error when another field saves, and Publish waits', async () => {
+        const el = await open();
+        session['saveText'].mockImplementation(async (_lang: string, key: string) => {
+            if (key === 'hero') throw new Error('refused');
+        });
+        type(input(el, 'w-hero'), 'Hi all');
+        type(input(el, 'w-photo'), 'A fresh loaf');
+        const page = fixture.componentInstance;
+        expect(await page.flushAll()).toBe(false);
+        fixture.detectChanges();
+        expect(page.saveError()).toBe('refused');
+        expect(input(el, 'w-hero').value).toBe('Hi all');
+        expect(el.querySelector('[data-testid="save-error"]')).not.toBeNull();
     });
 
     it('says when the draft cannot be read, as saving would fail too', async () => {

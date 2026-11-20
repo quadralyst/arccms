@@ -729,7 +729,8 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         const failed: string[] = [];
         for (const each of cards) {
             try {
-                await this.actions.publish(each.card, each.draft);
+                // False: saved or unpublished by someone since it was checked; Publish again checks it anew.
+                if (!(await this.actions.publish(each.card, each.draft, this.data.pageId))) failed.push(String(each.draft['title'] || each.card.id));
             } catch (error) {
                 console.error('[PageEdit] Could not publish a card:', error);
                 failed.push(String(each.draft['title'] || each.card.id));
@@ -974,7 +975,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         if (!(await this.saveCard())) return;
         try {
             const title = `[Replace: ${this.t('admin.edit_page.card_new_title', { type: inSentenceName(bar.typeName) })}]`;
-            const id = await this.actions.add(type, this.data.pageId, title);
+            const id = await this.actions.add(type, this.data.pageId, title, bar.card.id);
             this.openCard({ type: type.slug, id }, null);
         } catch (error) {
             console.error('[PageEdit] Could not add a card:', error);

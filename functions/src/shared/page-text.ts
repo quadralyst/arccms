@@ -88,7 +88,8 @@ export const pageTextId = {
 
 /** Whether a file has any marked area. */
 export function hasPageTextMarks(html: string | null | undefined): boolean {
-    return !!html && html.includes('data-arc-edit');
+    // The attribute itself, not the words "data-arc-edit" in the page's text or a comment.
+    return !!html && /\sdata-arc-edit\s*=/i.test(html);
 }
 
 /**
@@ -98,6 +99,8 @@ export function hasPageTextMarks(html: string | null | undefined): boolean {
 const NOT_EDITABLE = new Set([
     'area', 'base', 'br', 'col', 'embed', 'hr', 'input', 'link', 'source', 'track', 'wbr', 'param',
     'script', 'style', 'noscript', 'template', 'iframe', 'object', 'textarea', 'select', 'option', 'head', 'html', 'body',
+    // Raw text: what is written inside is never escaped.
+    'xmp', 'noembed', 'noframes', 'plaintext',
 ]);
 
 /** What an area is, from its tag and `data-arc-edit-kind` (VE-D41). */
@@ -235,9 +238,13 @@ function hasSeo(values: PageTextValues | null | undefined): boolean {
     return Object.values(values.seo || {}).some((seo) => usable(seo?.title?.value) || usable(seo?.description?.value));
 }
 
-/** Sets a meta tag's content when the page has it. */
+/** Sets a meta tag's content when the page has it; the strings no longer translate it over the saved words. */
 function setMetaContent($: cheerio.CheerioAPI, selector: string, content: string): void {
-    $(selector).attr('content', content);
+    $(selector).each((_, el) => {
+        const $el = $(el);
+        $el.attr('content', content);
+        withoutAttrString($el, 'content');
+    });
 }
 
 /** The title, description and share image (VE-D41, VE-D51), whether or not the file marks them. */

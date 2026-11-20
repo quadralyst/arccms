@@ -165,6 +165,12 @@ describe('page text', () => {
             expect(out).toContain('<meta property="og:image" content="https://example.com/share.jpg">');
         });
 
+        it('keep the editor\'s title on a social tag the file translates', () => {
+            const out = both(page('', '<title>Home</title><meta property="og:title" content="Home" data-arc-t-attr="content:home.title, data-x:y">'),
+                { seo: { en: { title: { value: 'Fresh' } } } }, EN);
+            expect(out).toContain('<meta property="og:title" content="Fresh" data-arc-t-attr=" data-x:y">');
+        });
+
         it('work on a file that marks nothing, adding what it lacks', () => {
             const out = both('<!DOCTYPE html><html><head></head><body><p>Hi</p></body></html>',
                 { seo: { en: { title: { value: 'T' }, description: { value: 'D' } } } }, EN);
@@ -255,6 +261,18 @@ describe('page text', () => {
             expect(kinds('style', 'rich')).toBe('none');
             expect(kinds('iframe', 'background')).toBe('none');
             expect(kinds('h2', '')).toBe('text');
+            for (const raw of ['xmp', 'noembed', 'noframes', 'plaintext']) expect(kinds(raw, '')).toBe('none');
+        }
+    });
+
+    it('a file is marked by the attribute, not by the words', async () => {
+        const { hasPageTextMarks } = await import('./page-text-model');
+        for (const has of [hasPageTextMarks, published.hasPageTextMarks]) {
+            expect(has('<h1 data-arc-edit="hero">Hi</h1>')).toBe(true);
+            expect(has('<h1\n  data-arc-edit = "hero">Hi</h1>')).toBe(true);
+            expect(has('<p>Mark areas with data-arc-edit.</p><!-- data-arc-edit -->')).toBe(false);
+            expect(has('<div data-arc-edit-kind="rich"></div>')).toBe(false);
+            expect(has(null)).toBe(false);
         }
     });
 

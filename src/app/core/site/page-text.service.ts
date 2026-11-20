@@ -75,6 +75,26 @@ export class PageTextService {
         }
     }
 
+    /**
+     * Follows what is published for a page: null when nothing is or it cannot be
+     * read. Returns the function that stops following.
+     */
+    followPublished(pageId: string, next: (published: PublishedPageText | null) => void): () => void {
+        if (!PAGE_TEXT_ID.test(pageId)) {
+            next(null);
+            return () => undefined;
+        }
+        const firestore = this.injector.get(Firestore);
+        return runInInjectionContext(this.injector, () => onSnapshot(
+            doc(firestore, PAGE_TEXT_PUBLISHED, pageId),
+            (snap) => next(snap.exists() ? (snap.data() as PublishedPageText) : null),
+            (error) => {
+                console.error(`[PageText] Could not follow the published text of ${pageId}:`, error);
+                next(null);
+            },
+        ));
+    }
+
     /** A page's draft as it is now, or null when there is none (the More Pages list, VE-D48). */
     async draft(pageId: string): Promise<PageTextDraft | null> {
         if (!PAGE_TEXT_ID.test(pageId)) return null;

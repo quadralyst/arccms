@@ -4,7 +4,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { docs, batchSets, mockCommit } = vi.hoisted(() => ({
+const { docs, batchSets, mockCommit, updates } = vi.hoisted(() => ({
+    updates: [] as Array<[string, Record<string, unknown>]>,
     docs: new Map<string, Record<string, unknown> | Error>(),
     batchSets: [] as Array<[string, Record<string, unknown>]>,
     mockCommit: vi.fn(async () => undefined),
@@ -13,6 +14,7 @@ const { docs, batchSets, mockCommit } = vi.hoisted(() => ({
 function docRef(path: string): any {
     return {
         path,
+        update: async (data: Record<string, unknown>) => { updates.push([path, data]); },
         get: async () => {
             const data = docs.get(path);
             if (data instanceof Error) throw data;
@@ -30,13 +32,22 @@ vi.mock('../init', () => ({
 }));
 vi.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => 'SERVER_TIME' } }));
 
-import { loadPublishedPageText, pageOfPageTextId, pageTextValuesOf, publishPageTextDraft } from '../pages/page-text-store.js';
+import { loadPublishedPageText, markPageTextUnreleased, pageOfPageTextId, pageTextValuesOf, publishPageTextDraft } from '../pages/page-text-store.js';
 
 describe('page text store', () => {
     beforeEach(() => {
         docs.clear();
         batchSets.length = 0;
+        updates.length = 0;
         vi.clearAllMocks();
+    });
+
+    it('keeps one History entry per queue item, and a copy that did not go live says no draft', async () => {
+        docs.set('SitePageTextDrafts/home', { text: {}, updatedAt: 'T1' });
+        await publishPageTextDraft('home', 'queue-1');
+        expect(batchSets[1][0]).toBe('SitePageText/home/History/queue-1');
+        await markPageTextUnreleased('p-about');
+        expect(updates).toEqual([['SitePageText/p-about', { draftUpdatedAt: null }]]);
     });
 
     it('publishes the draft\'s values, whole, with its history copy', async () => {

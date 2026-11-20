@@ -13,6 +13,10 @@ vi.mock('@angular/fire/firestore', () => ({
         updates.push({ path: ref.path, data });
     },
     deleteField: () => '<delete>',
+    runTransaction: async (_db: unknown, run: (tx: unknown) => Promise<unknown>) => run({
+        get: async (ref: { path: string }) => ({ exists: () => !!stored[ref.path], data: () => stored[ref.path] }),
+        update: (ref: { path: string }, data: Record<string, unknown>) => updates.push({ path: ref.path, data }),
+    }),
 }));
 
 import { Firestore } from '@angular/fire/firestore';
@@ -49,6 +53,8 @@ describe('PageCardActions writes', () => {
         expect(createDraft).toHaveBeenCalledWith(expect.objectContaining({
             title: '[Replace: new quote]', status: 'draft', publishedStatus: false, addedOnPage: 'home', sortOrder: 5,
         }), 'quotes');
+        await actions.add({ slug: 'quotes', entryOrder: 'manual' } as unknown as ContentType, 'home', 'x', 'a');
+        expect(createDraft).toHaveBeenLastCalledWith(expect.objectContaining({ sortOrder: 2.5 }), 'quotes');
     });
 
     it('Remove: a published card is unpublished as the list does it; a new one only leaves the page', async () => {
@@ -63,9 +69,34 @@ describe('PageCardActions writes', () => {
     });
 
     it('publish: as the entry editor publishes, keeping the first publish date', async () => {
-        await actions.publish({ type: 'quotes', id: 'a' }, { publishedOn: '2026-01-01' });
+        const draft = { status: 'draft', publishedStatus: true, publishedOn: '2026-01-01', modifiedAt: 5 };
+        stored['arc_quotes_drafts/a'] = draft;
+        expect(await actions.publish({ type: 'quotes', id: 'a' }, { ...draft }, 'home')).toBe(true);
         expect(updates[0].data).toEqual(expect.objectContaining({ status: 'publish', publishedStatus: true, publishedOn: '2026-01-01', addedOnPage: '<delete>' }));
         expect(enqueue).toHaveBeenCalledWith('publish', 'quotes', 'a');
+    });
+
+    it('publish: nothing when the card was saved or unpublished after it was checked', async () => {
+        stored['arc_quotes_drafts/a'] = { status: 'draft', publishedStatus: true, modifiedAt: 6 };
+        expect(await actions.publish({ type: 'quotes', id: 'a' }, { status: 'draft', publishedStatus: true, modifiedAt: 5 }, 'home')).toBe(false);
+        stored['arc_quotes_drafts/a'] = { status: 'draft', publishedStatus: false, modifiedAt: 5, lastPublishedAt: 1 };
+        expect(await actions.publish({ type: 'quotes', id: 'a' }, { status: 'draft', publishedStatus: true, modifiedAt: 5 }, 'home')).toBe(false);
+        expect(updates).toEqual([]);
+        expect(enqueue).not.toHaveBeenCalled();
+    });
+
+    it('publish and Remove: the draft is put back when the queue cannot take it', async () => {
+        const draft = { status: 'draft', publishedStatus: false, addedOnPage: 'home', modifiedAt: 5 };
+        stored['arc_quotes_drafts/n'] = draft;
+        enqueue.mockRejectedValueOnce(new Error('offline'));
+        await expect(actions.publish({ type: 'quotes', id: 'n' }, { ...draft }, 'home')).rejects.toThrow('offline');
+        expect(updates[1].data).toEqual({ status: 'draft', publishedStatus: false, publishedOn: '<delete>', modifiedAt: 5, updatedAt: '<delete>', addedOnPage: 'home' });
+
+        updates.length = 0;
+        stored['arc_quotes_drafts/a'] = { status: 'draft', publishedStatus: true };
+        enqueue.mockRejectedValueOnce(new Error('offline'));
+        await expect(actions.remove({ type: 'quotes', id: 'a' })).rejects.toThrow('offline');
+        expect(updates[1].data).toEqual({ status: 'draft', publishedStatus: true });
     });
 
     it('Move: beside its neighbour, saved as Arrange saves', async () => {

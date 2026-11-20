@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readPageFile } from '../../../core/utils/page-text-areas';
 import { areaView, type AreaView, type EditorContext } from './page-text-editor.model';
-import { PageInPlace, cardOf, typedValue, type PageInPlaceHost } from './page-in-place';
+import { IN_PLACE_CSS, PageInPlace, cardOf, typedValue, type PageInPlaceHost } from './page-in-place';
 import { pageEditFrameUrl } from './page-edit.page';
 import type { PageTextDraft } from '../../../core/site/page-text.service';
 
@@ -225,5 +225,20 @@ describe('PageInPlace on cards', () => {
         expect(host['cardHover']).toHaveBeenLastCalledWith(q('[data-arc-card-id="q1"]'));
         q('[data-arc-card-id="f1"] h3').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         expect(host['cardHover']).toHaveBeenLastCalledWith(null);
+    });
+});
+
+describe('IN_PLACE_CSS', () => {
+    it('gives an empty area a box with its placeholder, but not a picture or a background', () => {
+        const doc = new DOMParser().parseFromString(`<html><head><style>${IN_PLACE_CSS}</style></head><body>
+            <p id="empty" data-arc-edit="note" data-arc-placeholder="Say something"></p>
+            <p id="full" data-arc-edit="hero">Hello</p>
+            <img id="pic" data-arc-edit="photo" src="/a.jpg">
+            <div id="band" data-arc-edit="band" data-arc-edit-kind="background"></div>
+        </body></html>`, 'text/html');
+        const rule = '[data-arc-edit]:not(img):not([data-arc-edit-kind="background"]):not([data-arc-editing]):empty';
+        expect(IN_PLACE_CSS).toContain(`${rule}::before { content: attr(data-arc-placeholder)`);
+        expect(doc.getElementById('empty')!.matches(rule)).toBe(true);
+        for (const id of ['full', 'pic', 'band']) expect(doc.getElementById(id)!.matches(rule)).toBe(false);
     });
 });

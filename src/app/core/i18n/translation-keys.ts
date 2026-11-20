@@ -1964,6 +1964,7 @@ export type TranslationKey =
     | 'admin.more_pages.editor.nothing_marked'
     | 'admin.more_pages.editor.other_language_note'
     | 'admin.more_pages.editor.publish'
+    | 'admin.more_pages.editor.publish_not_live'
     | 'admin.more_pages.editor.publish_note'
     | 'admin.more_pages.editor.publish_slow'
     | 'admin.more_pages.editor.publishing'
@@ -6415,6 +6416,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.more_pages.editor.nothing_marked',
     'admin.more_pages.editor.other_language_note',
     'admin.more_pages.editor.publish',
+    'admin.more_pages.editor.publish_not_live',
     'admin.more_pages.editor.publish_note',
     'admin.more_pages.editor.publish_slow',
     'admin.more_pages.editor.publishing',

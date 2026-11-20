@@ -13,13 +13,18 @@ import { PageTextService } from '../../../core/site/page-text.service';
 import { PageTextPanelComponent } from './page-text-panel.component';
 
 describe('PageTextPanelComponent with cards (VE-D53)', () => {
+    let push: (value: unknown) => void = () => undefined;
+    const stop = vi.fn();
     async function make(extra: number) {
-        const session = { pageId: 'home', draft: signal(null), publish: vi.fn() };
+        const session = { pageId: 'home', draft: signal<any>(null), publish: vi.fn() };
         await TestBed.configureTestingModule({
             imports: [PageTextPanelComponent, translocoTestingModule()],
             providers: [
                 { provide: MatDialog, useValue: {} },
-                { provide: PageTextService, useValue: { published: vi.fn().mockResolvedValue(null), history: vi.fn().mockResolvedValue([]) } },
+                { provide: PageTextService, useValue: {
+                    published: vi.fn().mockResolvedValue(null), history: vi.fn().mockResolvedValue([]),
+                    followPublished: (_id: string, next: (value: unknown) => void) => { push = next; next(null); return stop; },
+                } },
             ],
         }).compileComponents();
         const fixture = TestBed.createComponent(PageTextPanelComponent);
@@ -55,5 +60,23 @@ describe('PageTextPanelComponent with cards (VE-D53)', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it('follows the published copy: another editor\'s publish, and a page that did not go live', async () => {
+        const { fixture, session } = await make(0);
+        const panel = fixture.componentInstance;
+        session.draft.set({ updatedAt: { toMillis: () => 5 } });
+        expect(panel.status()).toBe('changes');
+        push({ draftUpdatedAt: { toMillis: () => 5 }, publishedAt: { toMillis: () => 6 } });
+        expect(panel.status()).toBe('published');
+
+        session.draft.set({ updatedAt: { toMillis: () => 7 } });
+        panel.awaitPublish();
+        expect(panel.publishing()).toBe(true);
+        push({ draftUpdatedAt: null, publishedAt: { toMillis: () => 8 } });
+        expect(panel.publishing()).toBe(false);
+        expect(panel.publishError()).toContain('did not go live');
+        fixture.destroy();
+        expect(stop).toHaveBeenCalled();
     });
 });
