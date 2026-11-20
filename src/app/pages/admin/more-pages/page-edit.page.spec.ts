@@ -8,7 +8,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import PageEditPage, { pageCardsIn, pageValuesHaveReplace, publishCount } from './page-edit.page';
+import PageEditPage, { pageCardsIn, pageValuesHaveReplace, publishCount, siteAddressOpenedFrom } from './page-edit.page';
 import { PageCardActions } from './page-card-actions';
 import { NotifyService } from '../../../../shared/services/notify.service';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
@@ -36,6 +36,23 @@ describe('pageCardsIn and publishCount', () => {
         expect(publishCount(true, cards)).toBe(3);
         expect(publishCount(false, cards)).toBe(2);
         expect(publishCount(false, [])).toBe(0);
+    });
+});
+
+describe('siteAddressOpenedFrom, where Close goes back to', () => {
+    const origin = 'https://example.org';
+
+    it('is the site page the editor was opened from', () => {
+        expect(siteAddressOpenedFrom('https://example.org/', origin)).toBe('/');
+        expect(siteAddressOpenedFrom('https://example.org/pages/about?x=1', origin)).toBe('/pages/about?x=1');
+    });
+
+    it('is empty from an admin page, another site, no referrer or nonsense', () => {
+        expect(siteAddressOpenedFrom('https://example.org/admin/more-pages', origin)).toBe('');
+        expect(siteAddressOpenedFrom('https://example.org/admin', origin)).toBe('');
+        expect(siteAddressOpenedFrom('https://other.org/', origin)).toBe('');
+        expect(siteAddressOpenedFrom('', origin)).toBe('');
+        expect(siteAddressOpenedFrom('not a url', origin)).toBe('');
     });
 });
 

@@ -1,4 +1,5 @@
-.page-editor { padding-bottom: 32px; }
+.page-editor { padding: 24px 24px 32px; }
+@media (max-width: 640px) { .page-editor { padding: 12px 12px 32px; } }
 
 .editor-bar {
     display: flex;

@@ -4283,7 +4283,7 @@
         "publish": "Publish",
         "publishing": "Publishing…",
         "publish_note": "Your changes are saved. Publish puts them on the site.",
-        "publish_slow": "Publishing is taking longer than usual. Check again in a few minutes.",
+        "publish_slow": "Publishing is taking longer than usual. Check again in a few minutes. If it stays this way, ask your developer to update the site's functions.",
         "publish_not_live": "The words were saved as published, but the page did not go live. Publish again to try once more.",
         "cards_note": "Cards are published from their own editors.",
         "cards_note_visual": "Publish also puts the changed cards on the site.",

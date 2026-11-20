@@ -55,6 +55,21 @@ function inSentenceName(name: string): string {
 }
 
 /** The frame's address: the page's Live Preview in edit mode (VE-D55). */
+/**
+ * The address of the site page an editor came from, to go back to on Close: the
+ * path of a referrer on this site that is not an admin page, else ''.
+ */
+export function siteAddressOpenedFrom(referrer: string, origin: string): string {
+    if (!referrer || !origin) return '';
+    try {
+        const url = new URL(referrer);
+        if (url.origin !== origin || url.pathname === '/admin' || url.pathname.startsWith('/admin/')) return '';
+        return url.pathname + url.search;
+    } catch {
+        return '';
+    }
+}
+
 export function pageEditFrameUrl(name: string, lang: string, defaultLang: string): string {
     if (name) return `/admin/preview-page/p/${encodeURIComponent(name)}?edit=1`;
     return `/admin/preview-page/home${lang && lang !== defaultLang ? `/${encodeURIComponent(lang)}` : ''}?edit=1`;
@@ -393,6 +408,11 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     }
 
     ngOnInit(): void {
+        // The page the editor was opened from counts only when the admin app itself opened on this screen (a click on the site's admin bar), not after other admin pages.
+        const view = this.document.defaultView;
+        if (isPlatformBrowser(this.platformId) && view?.history?.state?.navigationId === 1) {
+            this.openedFrom = siteAddressOpenedFrom(this.document.referrer, view.location.origin);
+        }
         void this.data.load();
         // The card forms need every type, as the entries list loads them.
         if (isPlatformBrowser(this.platformId) && !this.typesStore.items().length) this.typesStore.getAll();
@@ -652,9 +672,17 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         void this.router.navigate(this.data.isHome ? ['/admin/more-pages/home'] : ['/admin/more-pages/p', this.data.name]);
     }
 
+    /** Where the editor was opened from when that was the site's own page (the admin bar's Edit link), else ''. */
+    private openedFrom = '';
+
+    /** Close goes back to where the editor was opened: the page on the site, else More Pages. */
     async close(): Promise<void> {
         this.leaveSpot();
         if (!(await this.saveCard())) return;
+        if (this.openedFrom) {
+            this.document.defaultView?.location.assign(this.openedFrom);
+            return;
+        }
         void this.router.navigate(['/admin/more-pages']);
     }
 
