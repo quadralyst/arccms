@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import {
-    PAGE_TEXT_KEY, PAGE_TEXT_MARKS, hasPageTextMarks, safePageTextUrl, sanitizeRichText,
+    LAZY_PICTURE_SIZES, LAZY_PICTURE_SRC, PAGE_TEXT_KEY, PAGE_TEXT_MARKS, hasPageTextMarks, safePageTextUrl, sanitizeRichText,
     type PageTextEntry, type PageTextKind, type PageTextOptions, type PageTextValues,
 } from './page-text-model';
 
@@ -212,6 +212,8 @@ function applyArea($: cheerio.CheerioAPI, element: any, values: PageTextValues, 
                 $el.attr('src', url);
                 // The file's other sizes and its shape belong to the old picture.
                 $el.removeAttr('srcset').removeAttr('sizes').removeAttr('width').removeAttr('height');
+                for (const attr of LAZY_PICTURE_SRC) if ($el.attr(attr) !== undefined) $el.attr(attr, url);
+                for (const attr of LAZY_PICTURE_SIZES) $el.removeAttr(attr);
                 const parent = $el.parent();
                 if (parent.length && (parent.get(0) as any)?.tagName?.toLowerCase() === 'picture') parent.children('source').remove();
             }

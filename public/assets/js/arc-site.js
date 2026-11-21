@@ -1118,7 +1118,8 @@
         bar.className = 'bar';
         root.appendChild(style);
         root.appendChild(bar);
-        document.body.appendChild(host);
+        // First in the page, as it is first on the screen: Tab reaches it before the page's own links.
+        document.body.insertBefore(host, document.body.firstChild);
         fillStrip(root);
         pushPage(true);
         // A page the app draws can change without a reload: the links follow it.

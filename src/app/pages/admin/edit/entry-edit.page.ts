@@ -178,7 +178,7 @@ export function editFrameUrl(type: string, id: string, key: string): string {
         @if (pop()?.image) {
         <div class="arc-ed-pop-actions">
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="replaceImage()" data-testid="edit-image-replace">{{ 'admin.edit_page.replace' | transloco }}</button>
-            <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeImage()" data-testid="edit-image-remove">{{ 'common.actions.remove' | transloco }}</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeImage()" data-testid="edit-image-remove">{{ 'admin.edit_page.remove_picture' | transloco }}</button>
         </div>
         @if (pop()?.video !== undefined) {
         <!-- A gallery item: a YouTube video instead of a photo (VE-D31). -->
@@ -215,8 +215,8 @@ export function editFrameUrl(type: string, id: string, key: string): string {
         <button type="button" class="arc-ed-bar-btn" (click)="rowMove(1)" [disabled]="b.last" [title]="(b.across ? 'admin.edit_page.row_move_right' : 'admin.edit_page.row_move_down') | transloco"
             [attr.aria-label]="(b.across ? 'admin.edit_page.row_move_right' : 'admin.edit_page.row_move_down') | transloco" data-testid="edit-row-after">
             <i class="bi" [class.bi-arrow-right]="b.across" [class.bi-arrow-down]="!b.across" aria-hidden="true"></i></button>
-        <button type="button" class="arc-ed-bar-btn" (click)="rowRemove()" [title]="'common.actions.remove' | transloco"
-            [attr.aria-label]="'common.actions.remove' | transloco" data-testid="edit-row-remove"><i class="bi bi-trash" aria-hidden="true"></i></button>
+        <button type="button" class="arc-ed-bar-btn" (click)="rowRemove()" [title]="'admin.edit_page.row_remove' | transloco: { row: rowWord(b.label) }"
+            [attr.aria-label]="'admin.edit_page.row_remove' | transloco: { row: rowWord(b.label) }" data-testid="edit-row-remove"><i class="bi bi-trash" aria-hidden="true"></i></button>
         }
     </div>
     }
@@ -259,7 +259,7 @@ export function editFrameUrl(type: string, id: string, key: string): string {
         </label>
         <div class="arc-ed-pop-actions">
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="pictureReplace()" data-testid="edit-picture-replace">{{ 'admin.edit_page.replace' | transloco }}</button>
-            <button type="button" class="btn btn-outline-danger btn-sm" (click)="pictureRemove()" data-testid="edit-picture-remove">{{ 'common.actions.remove' | transloco }}</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" (click)="pictureRemove()" data-testid="edit-picture-remove">{{ 'admin.edit_page.remove_picture' | transloco }}</button>
         </div>
     </div>
     `,
@@ -363,7 +363,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     /** Just after a move the bar stays with the row it moved, not the one now under the pointer. */
     private barPinnedUntil = 0;
     /** Where a control moved into the box came from, to put it back. */
-    private popReturn: { node: HTMLElement; marker: Comment } | null = null;
+    /** The control moved into the box, where it goes back, and the panel's tab before the box opened. */
+    private popReturn: { node: HTMLElement; marker: Comment; tab: CreateContentComponent['activeTab'] | null } | null = null;
 
     readonly formatButtons = [
         { id: 'bold', text: 'B', label: 'admin.edit_page.bold' },
@@ -673,7 +674,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         panel: (spot) => this.openInPanel(spot),
         placeholder: (field, label, info) => this.placeholderFor(field, label, info),
         hint: (kind) => this.transloco.translate(HINT_KEYS[kind], { language: this.defaultLanguageLabel() }),
-        fieldName: (info, label) => label ?? this.fieldTitle(info.field),
+        fieldName: (info, label) => label ?? this.spotName(info),
         fixedClick: (target, x, y) => this.fixedClick(target, x, y),
         shared: (field, builtin, info) => this.sharedField(field, builtin, info),
         partText: (info) => this.partText(info),
@@ -1150,6 +1151,28 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         }, 400);
     }
 
+    /**
+     * What a screen reader calls a spot: a row's value by its own name and its row
+     * ("Headline of card 2"), a section heading as the field's heading, else the field.
+     */
+    spotName(info: SpotInfo): string {
+        const field = this.fieldTitle(info.field);
+        if (info.heading) return this.transloco.translate('admin.edit_page.heading_name', { field });
+        const ref = info.rowId != null && info.sub != null ? this.repeater(info.field) : null;
+        const part = ref?.schema.subFields.find((s) => s.key === info.sub)?.label;
+        if (!ref || !part) return field;
+        const n = this.rows(info.field).findIndex((r) => r.id === info.rowId) + 1;
+        const row = ref.schema.rowLabel;
+        // The value that is the row (an FAQ's question): "Question 2", not "Question of question 2".
+        if (part.trim().toLowerCase() === row.trim().toLowerCase()) return this.transloco.translate('admin.edit_page.row_number', { row, n: n || '' }).trim();
+        return this.transloco.translate('admin.edit_page.row_part_name', { part, row: inSentence(row), n: n || '' }).trim();
+    }
+
+    /** A row's name inside a sentence ("Remove card"). */
+    rowWord(label: string): string {
+        return inSentence(label);
+    }
+
     barHovered(on: boolean): void {
         this.onBar = on;
         if (!on) this.rowHover(null);
@@ -1258,8 +1281,14 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         this.inPlace?.leave();
         const { rows, removed, index } = removeRow(this.rows(b.field), b.id);
         if (!removed) return;
+        // A box open on a value of this row goes with it: its Replace would change nothing.
+        const open = this.pop()?.spot;
+        if (open && open.field === b.field && open.rowId === b.id) this.closePopover();
         this.bar.set(null);
         this.onBar = false;
+        // The next row is now under the pointer: its bar waits until the pointer moves, so a
+        // second click on the same place does not remove that row too.
+        this.inPlace?.holdRowsUntilMoved();
         this.writeRows(b.field, rows);
         // A row with nothing in it goes with no note; an earlier row's Undo stays.
         if (isRepeaterRowEmpty(removed, ref.schema)) return;
@@ -1499,6 +1528,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             else this.openInPanel(spot);
             return;
         }
+        const tab = this.editor?.activeTab ?? null;
         const node = this.panelControl(spot.field);
         if (!node) {
             this.openInPanel(spot);
@@ -1510,13 +1540,13 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const marker = this.document.createComment('arc-in-place');
         node.parentNode?.insertBefore(marker, node);
         body.appendChild(node);
-        this.popReturn = { node, marker };
+        this.popReturn = { node, marker, tab };
         setTimeout(() => {
             if (!this.destroyed) node.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea, button')?.focus();
         });
     }
 
-    /** The custom field's box in the panel (`#req-{key}`), on the Basic tab. */
+    /** The custom field's box in the panel (`#req-{key}`), on the Basic tab; the box puts the tab back as it closes. */
     private panelControl(field: string): HTMLElement | null {
         const editor = this.editor;
         if (!editor || !editor.currentFields.some((f) => f.key === field)) return null;
@@ -1552,10 +1582,24 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
 
     /** The box stays on its value as the page scrolls, is drawn again or changes width. */
     placePopover(): void {
+        const spot = this.popSpot();
         const p = this.pop();
-        if (!p || !p.spot.el.isConnected) return;
-        const at = this.popPlace(p.spot.el, !!p.location);
+        if (!p || !spot) return;
+        const at = this.popPlace(spot.el, !!p.location);
         if (at.top !== p.top || at.left !== p.left || at.maxHeight !== p.maxHeight) this.pop.set({ ...p, ...at });
+    }
+
+    /**
+     * The box's value now. A change made in the box draws the page again, so its element
+     * is a new one: it is found again by its mark, and the box goes on following it.
+     */
+    private popSpot(): Spot | null {
+        const p = this.pop();
+        if (!p) return null;
+        if (p.spot.el.isConnected) return p.spot;
+        const again = this.inPlace?.find(p.spot) ?? null;
+        if (again) this.pop.set({ ...p, spot: again });
+        return again;
     }
 
     /**
@@ -1564,13 +1608,15 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
      * it later cannot write its older words over what the panel changes.
      */
     panelInUse(): void {
+        // The person works in the panel as it is now: the box does not switch its tab back under the click.
+        if (this.popReturn) this.popReturn.tab = null;
         this.closePopover();
         this.inPlace?.leave();
     }
 
     /** Done or Escape in the box: it closes and the keyboard is back on the spot. */
     donePopover(): void {
-        const spot = this.pop()?.spot;
+        const spot = this.popSpot() ?? this.pop()?.spot;
         this.closePopover();
         spot?.el.focus?.({ preventScroll: true });
     }
@@ -1587,6 +1633,12 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             if (back.marker.isConnected && back.marker.parentNode) back.marker.parentNode.insertBefore(back.node, back.marker);
             else back.node.remove();
             back.marker.remove();
+            // The panel is back on the tab it was on (SEO, Checks): the box does not lose the place.
+            const editor = this.editor;
+            if (editor && back.tab && editor.activeTab !== back.tab) {
+                editor.activeTab = back.tab;
+                editor.cdr.detectChanges();
+            }
         }
         if (this.pop()) this.pop.set(null);
         this.videoError.set(false);

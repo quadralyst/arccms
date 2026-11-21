@@ -243,10 +243,13 @@ describe('PageTextEditorPage', () => {
         expect(el.querySelector('[data-testid="save-error"]')).not.toBeNull();
     });
 
-    it('says when the draft cannot be read, as saving would fail too', async () => {
+    it('says when the draft cannot be read, as saving would fail too, in one plain sentence (review L)', async () => {
         session['error'] = signal('Missing or insufficient permissions.');
         const el = await open();
-        expect(el.querySelector('[data-testid="read-error"]')?.textContent).toContain('Missing or insufficient permissions.');
+        const text = el.querySelector('[data-testid="read-error"]')?.textContent ?? '';
+        expect(text).toContain('could not be read');
+        // The browser's own error stays in the console, not on the screen.
+        expect(text).not.toContain('Missing or insufficient permissions.');
     });
 
     it('has no language switch on a static page, which is in the default language only', async () => {

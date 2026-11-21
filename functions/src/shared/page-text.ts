@@ -74,6 +74,15 @@ export type PageTextKind = 'text' | 'rich' | 'picture' | 'link' | 'background' |
 /** The marks this feature reads, removed from published pages. */
 export const PAGE_TEXT_MARKS = ['data-arc-edit', 'data-arc-edit-kind', 'data-arc-label', 'data-arc-placeholder'] as const;
 
+/**
+ * A lazy-loading script's copy of a picture's address (`data-src` and the like): a new
+ * picture puts its own address there too, or the script brings the old one back.
+ */
+export const LAZY_PICTURE_SRC = ['data-src', 'data-lazy-src', 'data-original'] as const;
+
+/** A lazy-loading script's other sizes of a picture: they belong to the old one and go. */
+export const LAZY_PICTURE_SIZES = ['data-srcset', 'data-lazy-srcset', 'data-sizes'] as const;
+
 /** A usable key: letters, digits, `_` and `-`, so it is a safe Firestore field name. */
 export const PAGE_TEXT_KEY = /^[A-Za-z0-9_-]{1,100}$/;
 
@@ -332,6 +341,8 @@ function applyArea($: cheerio.CheerioAPI, element: any, values: PageTextValues, 
                 $el.attr('src', url);
                 // The file's other sizes and its shape belong to the old picture.
                 $el.removeAttr('srcset').removeAttr('sizes').removeAttr('width').removeAttr('height');
+                for (const attr of LAZY_PICTURE_SRC) if ($el.attr(attr) !== undefined) $el.attr(attr, url);
+                for (const attr of LAZY_PICTURE_SIZES) $el.removeAttr(attr);
                 const parent = $el.parent();
                 if (parent.length && (parent.get(0) as any)?.tagName?.toLowerCase() === 'picture') parent.children('source').remove();
             }

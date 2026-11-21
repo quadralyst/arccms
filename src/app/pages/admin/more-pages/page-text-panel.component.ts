@@ -94,7 +94,7 @@ const SAVE_DELAY_MS = 700;
                     <p class="text-muted small mt-3 mb-0">{{ 'admin.more_pages.editor.seo_language_note' | transloco }}</p>
                 }
                 @if (saveError()) {
-                    <p class="text-danger small mt-2" role="alert">{{ 'admin.more_pages.editor.not_saved_detail' | transloco: { error: saveError() } }}</p>
+                    <p class="text-danger small mt-2" role="alert">{{ 'admin.more_pages.editor.not_saved_detail' | transloco }}</p>
                 }
             </div>
         }

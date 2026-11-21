@@ -1,8 +1,14 @@
 /**
- * A label inside a sentence ("Add download label"): each word written with a capital
- * only because the label is in title case gets a small first letter; an acronym (URL,
- * FAQ) or a name with capitals inside it (YouTube) is left alone.
+ * A label inside a sentence ("Add cover image"): its first word gets a small first
+ * letter when that word is an ordinary one (not an acronym such as URL, not a name
+ * with capitals inside it such as YouTube).
+ *
+ * A label written in title case ("London Office", "Download Label") is left as it is:
+ * there is no telling a name from an ordinary word there, and a name written small
+ * ("london office") reads as a mistake, while capitals read as the label.
  */
 export function inSentence(label: string): string {
-    return label.replace(/(^|\s)(\p{Lu})(\p{Ll}*)(?=\s|$)/gu, (_, space: string, first: string, rest: string) => `${space}${first.toLowerCase()}${rest}`);
+    const words = label.trim().split(/\s+/).filter((w) => /\p{L}/u.test(w));
+    if (words.length > 1 && words.every((w) => /^\P{L}*\p{Lu}/u.test(w))) return label;
+    return label.replace(/^(\s*)(\p{Lu})(\p{Ll}*)(?=\s|$)/u, (_, space: string, first: string, rest: string) => `${space}${first.toLowerCase()}${rest}`);
 }

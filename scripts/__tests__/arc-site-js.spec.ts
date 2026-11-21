@@ -597,6 +597,11 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         expect(document.querySelector('[data-arc-strip]')).toBeNull();
     });
 
+    it('comes first in the page, as on the screen, so Tab reaches it before the page (review L)', () => {
+        page('<a href="/a">First link</a><p>Page</p>', '', entry('articles/doc1'));
+        expect(document.body.firstElementChild).toBe(strip());
+    });
+
     it('offers Add new on a list page', () => {
         page('<p>List</p>', '', entry('articles'));
         expect(links()).toEqual([

@@ -12,7 +12,7 @@ import type { PageTextDraft } from '../../../core/site/page-text.service';
 const HTML = `<html><head></head><body>
 <h1 data-arc-edit="hero">Hello</h1>
 <div data-arc-edit="intro" data-arc-edit-kind="rich">Baked <b>early</b>.</div>
-<img data-arc-edit="photo" src="/a.jpg" srcset="/a2.jpg 2x" alt="A loaf">
+<img data-arc-edit="photo" src="/a.jpg" srcset="/a2.jpg 2x" data-src="/a.jpg" data-srcset="/a2.jpg 2x" alt="A loaf">
 <a data-arc-edit="cta" href="/menu">Menu</a>
 <section data-arc-edit="band" data-arc-edit-kind="background" style="color: red"></section>
 <a href="/elsewhere" id="plain">Elsewhere</a>
@@ -139,6 +139,9 @@ describe('PageInPlace', () => {
         expect(el('intro').innerHTML).toBe('Hi <i>there</i>');
         expect(el('photo').getAttribute('src')).toBe('/b.jpg');
         expect(el('photo').hasAttribute('srcset')).toBe(false);
+        // A lazy-loading script's copy takes the new address too, or it brings the old picture back.
+        expect(el('photo').getAttribute('data-src')).toBe('/b.jpg');
+        expect(el('photo').hasAttribute('data-srcset')).toBe(false);
         expect(el('photo').getAttribute('alt')).toBe('New alt');
         // An address that is not safe never reaches the page: the file's stays.
         expect(el('cta').getAttribute('href')).toBe('/menu');

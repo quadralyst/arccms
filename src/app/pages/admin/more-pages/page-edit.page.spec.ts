@@ -94,6 +94,12 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
         page = TestBed.createComponent(PageEditPage).componentInstance;
     });
 
+    it('says Not saved, never Saved, when what was saved for the page could not be read (review L)', () => {
+        expect(page.status()).toBe('saved');
+        (page.data as any).sessionRef.set({ error: signal('Missing or insufficient permissions.'), draft: signal(null), close: vi.fn() });
+        expect(page.status()).toBe('not_saved');
+    });
+
     const changed = (...ids: string[]) => page.cards.set(ids.map((id) => ({ type: 'quotes', id, changed: true, leaving: false })));
 
     it('checks every changed card, then publishes each', async () => {

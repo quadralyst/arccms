@@ -109,6 +109,13 @@ describe('page text', () => {
             expect(out).toContain('<picture><img src="/media/new.jpg" alt="A &quot;new&quot; photo" class="hero"></picture>');
         });
 
+        it('a lazily loaded picture: its script\'s copy of the address takes the new one, its other sizes go (review L)', () => {
+            const html = page('<img data-arc-edit="photo" src="/blank.gif" data-src="/a.jpg" data-srcset="/a-2x.jpg 2x" data-sizes="auto" class="lazyload" alt="Old">');
+            const out = both(html, { ...text('en', 'photo', 'New'), urls: { photo: { value: '/media/new.jpg' } } }, EN);
+            expect(out).toContain('<img src="/media/new.jpg" data-src="/media/new.jpg" class="lazyload" alt="New">');
+            expect(out).not.toContain('/a.jpg');
+        });
+
         it('a picture keeps its file when only the alt text changed', () => {
             const out = both(page('<img data-arc-edit="photo" src="/a.jpg" srcset="/a-2x.jpg 2x" alt="Old">'), text('en', 'photo', 'New'), EN);
             expect(out).toContain('<img src="/a.jpg" srcset="/a-2x.jpg 2x" alt="New">');

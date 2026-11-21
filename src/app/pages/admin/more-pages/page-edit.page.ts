@@ -193,11 +193,11 @@ interface Box {
     @if (data.loadError()) {
     <div class="alert alert-danger m-3" role="alert">{{ data.loadError() }}</div>
     }
-    @if (data.session?.error(); as readError) {
-    <div class="alert alert-danger m-0 rounded-0 py-2" role="alert">{{ 'admin.more_pages.editor.not_read' | transloco: { error: readError } }}</div>
+    @if (data.session?.error()) {
+    <div class="alert alert-danger m-0 rounded-0 py-2" role="alert">{{ 'admin.more_pages.editor.not_read' | transloco }}</div>
     }
     @if (saveError()) {
-    <div class="alert alert-danger m-0 rounded-0 py-2" role="alert">{{ 'admin.more_pages.editor.not_saved_detail' | transloco: { error: saveError() } }}</div>
+    <div class="alert alert-danger m-0 rounded-0 py-2" role="alert">{{ 'admin.more_pages.editor.not_saved_detail' | transloco }}</div>
     }
     <div class="arc-ed-stage">
         @if (frameUrl(); as url) {
@@ -397,7 +397,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     private drawTimer: ReturnType<typeof setTimeout> | null = null;
 
     readonly pageTitle = computed(() => (this.data.isHome ? this.t('admin.more_pages.home_page') : this.data.fileTitle()));
-    readonly status = computed(() => (this.saveError() ? 'not_saved' : this.saving() > 0 ? 'saving' : 'saved'));
+    readonly status = computed(() => (this.saveError() || this.data.session?.error() ? 'not_saved' : this.saving() > 0 ? 'saving' : 'saved'));
     readonly frameUrl = computed<SafeResourceUrl | null>(() => {
         if (!isPlatformBrowser(this.platformId) || this.data.loading() || this.data.loadError()) return null;
         return this.sanitizer.bypassSecurityTrustResourceUrl(pageEditFrameUrl(this.data.name, this.data.lang(), this.data.defaultLang()));

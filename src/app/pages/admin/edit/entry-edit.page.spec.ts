@@ -304,6 +304,47 @@ describe('EntryEditPage', () => {
             expect(panel.querySelector('#req-events-price')).not.toBeNull();
             expect(body.children).toHaveLength(0);
             expect(page.pop()).toBeNull();
+            // The panel is back on the tab it was on before the box (review L3).
+            expect(editor.activeTab).toBe('seo');
+            panel.remove();
+        });
+
+        it('leaves the panel on its tab when the box closes because work starts in the panel', () => {
+            const panel = document.createElement('div');
+            panel.innerHTML = '<div id="req-events-price"><input type="number"></div>';
+            document.body.appendChild(panel);
+            page.popBody = { nativeElement: document.createElement('div') } as never;
+            page.openPopover(spot('events-price'));
+            expect(editor.activeTab).toBe('basic');
+            page.panelInUse();
+            expect(page.pop()).toBeNull();
+            expect(editor.activeTab).toBe('basic');
+            panel.remove();
+        });
+
+        it('finds its value again after a change in the box draws the page again (review L1)', () => {
+            const panel = document.createElement('div');
+            panel.innerHTML = '<div id="req-events-price"><input type="number"></div>';
+            document.body.appendChild(panel);
+            page.popBody = { nativeElement: document.createElement('div') } as never;
+            const box = (top: number) => () => ({ top, bottom: top + 20, left: 100, right: 200, width: 100, height: 20, x: 100, y: top, toJSON: () => ({}) });
+            const old = document.createElement('span');
+            old.getBoundingClientRect = box(200);
+            document.body.appendChild(old);
+            page.openPopover(spot('events-price', old));
+            // The page is drawn again: the value is a new element now.
+            old.remove();
+            const drawn = document.createElement('span');
+            drawn.getBoundingClientRect = box(300);
+            document.body.appendChild(drawn);
+            const find = vi.fn(() => ({ ...(spot('events-price', drawn) as object), label: null }));
+            page.inPlace = { find } as never;
+            page.placePopover();
+            expect(page.pop()!.spot.el).toBe(drawn);
+            expect(page.pop()!.top).toBe(326);
+            page.inPlace = null;
+            page.closePopover();
+            drawn.remove();
             panel.remove();
         });
 
@@ -427,6 +468,30 @@ describe('EntryEditPage', () => {
             page.undoRemove();
             expect(rows.map((r) => `${r['id']}${r['position']}`)).toEqual(['a1', 'b2']);
             expect(page.undo()).toBeNull();
+        });
+
+        it('Remove closes a box open on that row, and the next row\'s bar waits for the pointer to move (review L)', () => {
+            const holdRowsUntilMoved = vi.fn();
+            page.inPlace = { leave: vi.fn(), holdRowsUntilMoved } as never;
+            page.pop.set({ title: 'Photo', top: 0, left: 0, image: true, spot: { ...(info({ rowId: 'a', sub: 'question' }) as object), el: document.createElement('img'), label: null } as never });
+            page.rowRemove();
+            expect(page.pop()).toBeNull();
+            expect(page.bar()).toBeNull();
+            expect(holdRowsUntilMoved).toHaveBeenCalled();
+            page.inPlace = null;
+        });
+
+        it('names a row value for a screen reader by its own name and its row, a heading as the field\'s (review L)', () => {
+            const translate = vi.spyOn((page as any).transloco, 'translate');
+            page.spotName(info({ rowId: 'b', sub: 'answer' }) as never);
+            expect(translate).toHaveBeenCalledWith('admin.edit_page.row_part_name', expect.objectContaining({ n: 2 }));
+            // The value that is the row itself (an FAQ's question) is named by the row alone.
+            page.spotName(info({ rowId: 'b', sub: 'question' }) as never);
+            expect(translate).toHaveBeenCalledWith('admin.edit_page.row_number', expect.objectContaining({ n: 2 }));
+            page.spotName(info({ heading: true }) as never);
+            expect(translate).toHaveBeenCalledWith('admin.edit_page.heading_name', expect.anything());
+            // A value of its own field is named for the field.
+            expect(page.spotName(info({}) as never)).toBe('FAQ');
         });
 
         it('the Undo note goes by itself; a blank row goes with no note', () => {
@@ -653,8 +718,9 @@ describe('textPos', () => {
 });
 
 describe('inSentence', () => {
-    it('puts a label inside "Add ..." with a small first letter, and leaves an acronym alone', () => {
+    it('puts a label inside "Add ..." with a small first letter, and leaves an acronym and a title-case name alone', () => {
         expect(inSentence('Cover image')).toBe('cover image');
+        expect(inSentence('London Office')).toBe('London Office');
         expect(inSentence('FAQ')).toBe('FAQ');
         expect(inSentence('URL slug')).toBe('URL slug');
         expect(inSentence('टिकट मूल्य')).toBe('टिकट मूल्य');

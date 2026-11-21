@@ -301,11 +301,13 @@ describe('CreateContentComponent', () => {
     });
 
     describe('empty field placeholders', () => {
-        it('word an empty field as the page does, "Add download label", and show an example address for a link', () => {
+        it('word an empty field as the page does, "Add cover image", and show an example address for a link', () => {
             vi.spyOn((component as any).translocoService, 'translate').mockImplementation(((key: string, params?: { field?: string }) =>
                 key === 'admin.contents.editor.enter_field' ? `Add ${params?.field}` : key) as never);
             const field = (key: string, label: string, type = 'text') => ({ key, label, type, required: false, order: 0 }) as any;
-            expect(component.fieldPlaceholder(field('x-download_label', 'Download Label'))).toBe('Add download label');
+            expect(component.fieldPlaceholder(field('x-cover_note', 'Cover note'))).toBe('Add cover note');
+            // A title-case label keeps its capitals: a name in it is never written small.
+            expect(component.fieldPlaceholder(field('x-office', 'London Office'))).toBe('Add London Office');
             expect(component.fieldPlaceholder(field('x-download_url', 'Download URL'))).toBe('https://');
             expect(component.fieldPlaceholder(field('x-cta_link', 'Button link'))).toBe('https://');
             expect(component.fieldPlaceholder(field('x-seats', 'Seats', 'number'))).toBe('Add seats');

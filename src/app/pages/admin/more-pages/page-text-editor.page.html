@@ -33,11 +33,11 @@
         </div>
     </nav>
 
-    @if (session?.error(); as readError) {
-        <div class="alert alert-danger py-2" role="alert" data-testid="read-error">{{ 'admin.more_pages.editor.not_read' | transloco: { error: readError } }}</div>
+    @if (session?.error()) {
+        <div class="alert alert-danger py-2" role="alert" data-testid="read-error">{{ 'admin.more_pages.editor.not_read' | transloco }}</div>
     }
     @if (saveError()) {
-        <div class="alert alert-danger py-2" role="alert" data-testid="save-error">{{ 'admin.more_pages.editor.not_saved_detail' | transloco: { error: saveError() } }}</div>
+        <div class="alert alert-danger py-2" role="alert" data-testid="save-error">{{ 'admin.more_pages.editor.not_saved_detail' | transloco }}</div>
     }
 
     @if (loading()) {

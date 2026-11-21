@@ -251,7 +251,8 @@ export const IN_PLACE_CSS = `
 [data-arc-edit-kind="text"], [data-arc-edit-kind="rich"] { cursor: text; }
 [data-arc-edit-kind]:hover { outline: 2px dashed var(--arc-edit-accent); outline-offset: 2px; }
 [data-arc-editing], [data-arc-editing]:hover { outline: 2px solid var(--arc-edit-accent); outline-offset: 2px; }
-[data-arc-edit-kind]:focus-visible { outline: 3px solid var(--arc-edit-accent); outline-offset: 2px; }
+/* The keyboard on a spot, not typing in it (after Escape): dashed, as a spot that can be changed; solid is for the one typed in. */
+[data-arc-edit-kind]:focus-visible:not([data-arc-editing]) { outline: 3px dashed var(--arc-edit-accent); outline-offset: 2px; }
 [data-arc-pv-highlight] { outline: 3px solid var(--arc-edit-accent) !important; outline-offset: 2px; }
 /* An empty field kept for the editor (VE-D18): faint, outlined, saying what it is for. */
 [data-arc-empty] { opacity: .65; outline: 1px dashed var(--arc-edit-accent); outline-offset: 2px; }
@@ -297,6 +298,9 @@ iframe[data-arc-sub][data-arc-edit-kind] { pointer-events: none; }
 
 const STYLE_ID = 'arc-in-place-style';
 
+/** How far the pointer moves after a row is removed before a row's bar shows again. */
+const ROW_HOLD_MOVE_PX = 8;
+
 export class InPlaceEditing {
     private active: Spot | null = null;
     private rich: RichHandle | null = null;
@@ -316,6 +320,8 @@ export class InPlaceEditing {
     private pendingRow: { id: string; until: number } | null = null;
     /** The row the pointer is on, for its bar. */
     private hoverRow: HTMLElement | null = null;
+    /** Just after a row was removed: no bar until the pointer moves (`holdRowsUntilMoved`); where it was first seen. */
+    private rowsHeld: { at: { x: number; y: number } | null } | null = null;
     private observer: MutationObserver | null = null;
     private markTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly listeners: [string, EventListener, boolean][] = [];
@@ -329,6 +335,10 @@ export class InPlaceEditing {
         this.on('input', (e) => this.onInput(e), true);
         this.on('submit', (e) => e.preventDefault(), true);
         this.on('pointerover', (e) => this.onPointer(e as PointerEvent), true);
+        // Only while rows wait for the pointer to move: a move then shows the bar of the row it is on.
+        this.on('pointermove', (e) => {
+            if (this.rowsHeld) this.onPointer(e as PointerEvent);
+        }, true);
         this.on('pointerout', (e) => {
             // Out of the page altogether: no row.
             if (!(e as PointerEvent).relatedTarget) this.setHoverRow(null);
@@ -522,12 +532,36 @@ export class InPlaceEditing {
     private onPointer(event: PointerEvent): void {
         const target = event.target as Element | null;
         if (!target || typeof target.closest !== 'function') return;
+        if (this.rowsHeld && !this.movedSinceHeld(event)) return;
         // Inside the text being typed in (a placed field's card there): the card stands for the field (VE-D36).
         if (target.closest('[data-arc-editing], .ProseMirror')) {
             this.setHoverRow(null);
             return;
         }
         this.setHoverRow(target.closest<HTMLElement>('[data-arc-row][data-arc-row-id]'));
+    }
+
+    /**
+     * A row was just removed and the next one is now under the pointer: its bar (with its
+     * own Remove in the same place) waits until the pointer moves, so a quick second
+     * click does not remove that row too.
+     */
+    holdRowsUntilMoved(): void {
+        this.rowsHeld = { at: null };
+        this.hoverRow = null;
+    }
+
+    /** The first pointer event after the hold is where the pointer rests; a move away from it ends the hold. */
+    private movedSinceHeld(event: PointerEvent): boolean {
+        const held = this.rowsHeld;
+        if (!held) return true;
+        if (!held.at) {
+            held.at = { x: event.clientX, y: event.clientY };
+            return false;
+        }
+        if (Math.hypot(event.clientX - held.at.x, event.clientY - held.at.y) < ROW_HOLD_MOVE_PX) return false;
+        this.rowsHeld = null;
+        return true;
     }
 
     /** The row whose bar shows; the screen keeps it while the pointer is on the bar. */
@@ -564,6 +598,20 @@ export class InPlaceEditing {
         el.setAttribute('data-arc-named', '');
         if (typing && info.multiline) el.setAttribute('aria-multiline', 'true');
         else el.removeAttribute('aria-multiline');
+    }
+
+    /**
+     * The same spot after the page was drawn again (a change made in a box redraws it):
+     * the element with the same mark, or null when it is gone.
+     */
+    find(info: SpotInfo): Spot | null {
+        for (const el of Array.from(this.doc.querySelectorAll<HTMLElement>('[data-arc-edit-kind]'))) {
+            if (!el.isConnected) continue;
+            const spot = this.spotAt(el);
+            if (spot && spot.key === info.key && spot.attr === info.attr && spot.row === info.row && (spot.rowId ?? null) === (info.rowId ?? null)
+                && (spot.sub ?? null) === (info.sub ?? null) && !!spot.heading === !!info.heading) return spot;
+        }
+        return null;
     }
 
     /** The spots in page order, visible ones only. */

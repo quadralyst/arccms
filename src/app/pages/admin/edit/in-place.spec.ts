@@ -677,6 +677,33 @@ describe('InPlaceEditing', () => {
             q('h3').dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
             expect(rowHost['rowHover']).toHaveBeenLastCalledWith(null);
         });
+
+        it('after a row is removed, shows no row\'s bar until the pointer moves (review L)', () => {
+            const at = (x: number, y: number) => new MouseEvent('pointermove', { bubbles: true, clientX: x, clientY: y });
+            editing.holdRowsUntilMoved();
+            rowHost['rowHover'].mockClear();
+            const next = q('summary[data-arc-row-id="r_b"]');
+            // The page drawn again under a still pointer: the row under it gets no bar.
+            next.dispatchEvent(new MouseEvent('pointerover', { bubbles: true, clientX: 50, clientY: 50 }));
+            next.dispatchEvent(at(52, 51));
+            expect(rowHost['rowHover']).not.toHaveBeenCalled();
+            // The pointer moves on: the bar of the row it is on shows.
+            next.dispatchEvent(at(70, 60));
+            expect(rowHost['rowHover']).toHaveBeenLastCalledWith(q('[data-arc-row-id="r_b"][data-arc-row]'));
+        });
+
+        it('finds a spot again by its mark when the page was drawn again (review L1)', () => {
+            const question = q('summary[data-arc-row-id="r_a"]');
+            const info = (editing as any).spotAt(question);
+            expect(info?.rowId).toBe('r_a');
+            expect(editing.find(info)?.el).toBe(question);
+            doc.body.innerHTML = ROWS;
+            editing.mark();
+            const again = editing.find(info);
+            expect(again?.el).toBe(q('summary[data-arc-row-id="r_a"]'));
+            expect(again?.el).not.toBe(question);
+            expect(editing.find({ ...info, rowId: 'r_gone' })).toBeNull();
+        });
     });
 
     it('waits for the type before marking', async () => {

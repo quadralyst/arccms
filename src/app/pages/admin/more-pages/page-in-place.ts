@@ -1,4 +1,4 @@
-import { safePageTextUrl, sanitizeRichText } from '../../../core/utils/page-text-model';
+import { LAZY_PICTURE_SIZES, LAZY_PICTURE_SRC, safePageTextUrl, sanitizeRichText } from '../../../core/utils/page-text-model';
 import type { AreaView } from './page-text-editor.model';
 import { adminAccent } from '../edit/in-place';
 import type { CardRef } from './page-card-actions';
@@ -337,7 +337,8 @@ export class PageInPlace {
             case 'picture':
                 if (url && el.getAttribute('src') !== url) {
                     el.setAttribute('src', url);
-                    for (const attr of ['srcset', 'sizes', 'width', 'height']) el.removeAttribute(attr);
+                    for (const attr of ['srcset', 'sizes', 'width', 'height', ...LAZY_PICTURE_SIZES]) el.removeAttribute(attr);
+                    for (const attr of LAZY_PICTURE_SRC) if (el.hasAttribute(attr)) el.setAttribute(attr, url);
                     if (el.parentElement?.tagName === 'PICTURE') el.parentElement.querySelectorAll('source').forEach((source) => source.remove());
                 }
                 if (el.getAttribute('alt') !== words) el.setAttribute('alt', words);

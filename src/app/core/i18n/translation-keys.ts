@@ -1236,6 +1236,7 @@ export type TranslationKey =
     | 'admin.edit_page.formatting'
     | 'admin.edit_page.frame'
     | 'admin.edit_page.heading'
+    | 'admin.edit_page.heading_name'
     | 'admin.edit_page.hint_author'
     | 'admin.edit_page.hint_date'
     | 'admin.edit_page.hint_footer'
@@ -1259,6 +1260,7 @@ export type TranslationKey =
     | 'admin.edit_page.publishing'
     | 'admin.edit_page.quote'
     | 'admin.edit_page.redo'
+    | 'admin.edit_page.remove_picture'
     | 'admin.edit_page.replace'
     | 'admin.edit_page.replace_image'
     | 'admin.edit_page.row_add_after'
@@ -1266,6 +1268,9 @@ export type TranslationKey =
     | 'admin.edit_page.row_move_left'
     | 'admin.edit_page.row_move_right'
     | 'admin.edit_page.row_move_up'
+    | 'admin.edit_page.row_number'
+    | 'admin.edit_page.row_part_name'
+    | 'admin.edit_page.row_remove'
     | 'admin.edit_page.row_removed'
     | 'admin.edit_page.rows_locked'
     | 'admin.edit_page.saved'
@@ -5693,6 +5698,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.formatting',
     'admin.edit_page.frame',
     'admin.edit_page.heading',
+    'admin.edit_page.heading_name',
     'admin.edit_page.hint_author',
     'admin.edit_page.hint_date',
     'admin.edit_page.hint_footer',
@@ -5716,6 +5722,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.publishing',
     'admin.edit_page.quote',
     'admin.edit_page.redo',
+    'admin.edit_page.remove_picture',
     'admin.edit_page.replace',
     'admin.edit_page.replace_image',
     'admin.edit_page.row_add_after',
@@ -5723,6 +5730,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.row_move_left',
     'admin.edit_page.row_move_right',
     'admin.edit_page.row_move_up',
+    'admin.edit_page.row_number',
+    'admin.edit_page.row_part_name',
+    'admin.edit_page.row_remove',
     'admin.edit_page.row_removed',
     'admin.edit_page.rows_locked',
     'admin.edit_page.saved',
