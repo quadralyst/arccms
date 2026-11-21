@@ -67,8 +67,16 @@ export interface PageCardsOfType<T> {
     focus: T | null;
 }
 
-/** The page's cards: provided in the Visual Editor's frame only. */
+/** The page's cards: provided in the Visual Editor's frame and in the page's Live Preview from it. */
 export abstract class PageCardDrafts {
+    /**
+     * True in the Visual Editor's frame: the cards a full block would push out show
+     * after the others, cards and their values are marked to be edited, and the page's
+     * scripts stay off. False in Live Preview: the block as Publish leaves it, nothing
+     * more, and the page runs as on the site.
+     */
+    editing = true;
+
     /** Starts following a type's drafts; card blocks call it for their type. */
     abstract watch(type: string): void;
     /**

@@ -8,9 +8,18 @@ import { PublicPageRendererComponent } from '../../public-page-renderer/public-p
 import { PageCardDrafts } from '../../page.parts/card-draft';
 import { PageCardsSource } from './page-cards';
 
-/** The Visual Editor's frame (`?edit=1`) draws each card with unpublished changes from its draft (VE-D53). */
-function pageCardsInEditMode(): PageCardDrafts | null {
-    return inject(ActivatedRoute).snapshot.queryParamMap?.get('edit') === '1' ? inject(PageCardsSource) : null;
+/**
+ * The Visual Editor's frame (`?edit=1`) draws each card with unpublished changes from
+ * its draft (VE-D53); so does Live Preview opened from the Visual Editor (`?cards=1`),
+ * as its one Publish would put them out.
+ */
+function pageCardsWithDrafts(): PageCardDrafts | null {
+    const query = inject(ActivatedRoute).snapshot.queryParamMap;
+    const editing = query?.get('edit') === '1';
+    if (!editing && query?.get('cards') !== '1') return null;
+    const source = inject(PageCardsSource);
+    source.editing = editing;
+    return source;
 }
 
 /**
@@ -31,7 +40,7 @@ function pageCardsInEditMode(): PageCardDrafts | null {
     providers: [
         { provide: PAGE_TEXT_PREVIEW, useExisting: PagePreviewPage },
         PageCardsSource,
-        { provide: PageCardDrafts, useFactory: pageCardsInEditMode },
+        { provide: PageCardDrafts, useFactory: pageCardsWithDrafts },
     ],
     template: `
         @for (drawn of drawing(); track drawn) {
@@ -53,7 +62,8 @@ export default class PagePreviewPage implements PageTextPreview, OnDestroy {
 
     constructor() {
         this.session.open();
-        if (this.editing) inject(PageCardsSource).start(this.pageId);
+        // The frame, or Live Preview from the Visual Editor: the cards' drafts on this page are followed.
+        if (inject(PageCardDrafts, { optional: true })) inject(PageCardsSource).start(this.pageId);
         effect(() => {
             if (!this.session.loaded()) return;
             this.session.draft();

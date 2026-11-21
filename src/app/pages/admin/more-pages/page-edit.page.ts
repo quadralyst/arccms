@@ -71,9 +71,19 @@ export function siteAddressOpenedFrom(referrer: string, origin: string): string 
     }
 }
 
+/** The page's preview address, in the language on screen (a static page has the default language only). */
+function pagePreviewAddress(name: string, lang: string, defaultLang: string): string {
+    if (name) return `/admin/preview-page/p/${encodeURIComponent(name)}`;
+    return `/admin/preview-page/home${lang && lang !== defaultLang ? `/${encodeURIComponent(lang)}` : ''}`;
+}
+
 export function pageEditFrameUrl(name: string, lang: string, defaultLang: string): string {
-    if (name) return `/admin/preview-page/p/${encodeURIComponent(name)}?edit=1`;
-    return `/admin/preview-page/home${lang && lang !== defaultLang ? `/${encodeURIComponent(lang)}` : ''}?edit=1`;
+    return `${pagePreviewAddress(name, lang, defaultLang)}?edit=1`;
+}
+
+/** Live Preview from the Visual Editor: the page with its draft and the changed cards, as the one Publish would put them out. */
+export function pageLivePreviewUrl(name: string, lang: string, defaultLang: string): string {
+    return `${pagePreviewAddress(name, lang, defaultLang)}?cards=1`;
 }
 
 /** A card on the page, as the screen reads it from the frame's marks (VE-D54). */
@@ -183,6 +193,9 @@ interface Box {
             <button type="button" class="arc-ed-btn" [class.arc-ed-on]="phone()" [attr.aria-pressed]="phone()" (click)="phone.set(true)"
                 [title]="'admin.preview.phone' | transloco" [attr.aria-label]="'admin.preview.phone' | transloco"><i class="bi bi-phone" aria-hidden="true"></i></button>
         </span>
+        <!-- The page in its own window, updating with each save, the changed cards included, as on an entry's strip. -->
+        <button type="button" class="arc-ed-btn" (click)="openPreview()" [disabled]="!panelRef()" [title]="'admin.contents.editor.preview_title' | transloco" data-testid="page-edit-preview">
+            <i class="fa-regular fa-eye" aria-hidden="true"></i> {{ 'admin.contents.editor.preview' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="toClassic()" [title]="'admin.edit_page.form_title' | transloco" data-testid="page-edit-classic">{{ 'admin.edit_page.form' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="panel.toggle()" [class.arc-ed-on]="panel.open()"
             [attr.aria-expanded]="panel.open()" aria-controls="arc-ed-panel" data-testid="page-edit-settings">{{ 'admin.edit_page.page_settings' | transloco }}</button>
@@ -688,6 +701,16 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         // The open card's form follows the page's language.
         const editor = this.cardEditor();
         if (this.card() && editor) void editor.switchLanguage(code);
+    }
+
+    /**
+     * Live Preview: the page in a window of its own, drawn with the draft and the changed
+     * cards, following each save. The window is the classic editor's for this page, so
+     * either editor brings the same one forward.
+     */
+    openPreview(): void {
+        const win = this.document.defaultView?.open(pageLivePreviewUrl(this.data.name, this.data.lang(), this.data.defaultLang()), `arc-page-preview-${this.data.pageId}`);
+        win?.focus();
     }
 
     /** The classic editor of the same page: the same draft, the typing saved first. */

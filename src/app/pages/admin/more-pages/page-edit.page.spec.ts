@@ -8,7 +8,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import PageEditPage, { pageCardsIn, pageValuesHaveReplace, publishCount, siteAddressOpenedFrom } from './page-edit.page';
+import PageEditPage, { pageCardsIn, pageEditFrameUrl, pageLivePreviewUrl, pageValuesHaveReplace, publishCount, siteAddressOpenedFrom } from './page-edit.page';
 import { PageCardActions } from './page-card-actions';
 import { NotifyService } from '../../../../shared/services/notify.service';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
@@ -56,6 +56,16 @@ describe('siteAddressOpenedFrom, where Close goes back to', () => {
     });
 });
 
+describe('the frame and Live Preview addresses', () => {
+    it('opens the page in the language on screen; Live Preview with the changed cards, the frame for editing', () => {
+        expect(pageEditFrameUrl('', 'en', 'en')).toBe('/admin/preview-page/home?edit=1');
+        expect(pageLivePreviewUrl('', 'en', 'en')).toBe('/admin/preview-page/home?cards=1');
+        expect(pageLivePreviewUrl('', 'hi', 'en')).toBe('/admin/preview-page/home/hi?cards=1');
+        // A static page is in the default language only.
+        expect(pageLivePreviewUrl('about us', 'hi', 'en')).toBe('/admin/preview-page/p/about%20us?cards=1');
+    });
+});
+
 describe('pageValuesHaveReplace', () => {
     it('looks at saved values only, not the file\'s words kept beside them', () => {
         expect(pageValuesHaveReplace({ text: { en: { hero: { value: '[Replace: a heading]' } } } })).toBe(true);
@@ -92,6 +102,15 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
         });
         TestBed.overrideComponent(PageEditPage, { set: { template: '', imports: [] } });
         page = TestBed.createComponent(PageEditPage).componentInstance;
+    });
+
+    it('Live Preview opens the page\'s own window, the one the classic editor uses', () => {
+        const win = { focus: vi.fn() };
+        const open = vi.spyOn(window, 'open').mockReturnValue(win as never);
+        page.openPreview();
+        expect(open).toHaveBeenCalledWith('/admin/preview-page/home?cards=1', 'arc-page-preview-home');
+        expect(win.focus).toHaveBeenCalled();
+        open.mockRestore();
     });
 
     it('says Not saved, never Saved, when what was saved for the page could not be read (review L)', () => {

@@ -122,6 +122,10 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     private cardDraft = inject(CardDraft, { optional: true });
     /** On a page's Visual Editor: every card with unpublished changes, drawn from its draft (VE-D53). */
     private pageCards = inject(PageCardDrafts, { optional: true });
+    /** On a page's Visual Editor (not its Live Preview, which shows the card drafts as Publish would). */
+    private get pageEditing(): boolean {
+        return !!this.pageCards?.editing;
+    }
     /** A block in the header or footer is not edited (VE-D20): it draws published cards only. */
     private inChrome = signal(false);
 
@@ -209,7 +213,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     /** The cards drawn: on a page's Visual Editor, the ones Publish would push out come last (VE-D54). */
     filteredContents = computed(() => {
         const page = this.pageShown();
-        return page ? [...page.cards, ...page.leaving] : this.shownCards().cards;
+        return page ? [...page.cards, ...(this.pageEditing ? page.leaving : [])] : this.shownCards().cards;
     });
 
     /** The published cards of this block's type, in the page's language. */
@@ -413,9 +417,9 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         const localizedTemplate = TemplateHydrationService.applySiteInfo(
             TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
         // On the live preview the cards are marked, so the draft's card can be found (VE2.2).
-        const markFields = !!this.cardDraft || !!this.pageCards;
+        const markFields = !!this.cardDraft || this.pageEditing;
         // On a page's Visual Editor each card's values are marked too (`data-arc-sub`), to be typed in place (VE-D54).
-        const editRows = this.pageCards && !this.inChrome() ? (loop: string) => (loop === 'items' ? { keepEmpty: () => false } : null) : undefined;
+        const editRows = this.pageEditing && !this.inChrome() ? (loop: string) => (loop === 'items' ? { keepEmpty: () => false } : null) : undefined;
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData }, { markFields, editRows });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData, { markFields });
 
@@ -425,13 +429,13 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             setTimeout(() => this.markDraftCard(draftIndex, tookLastPlace), 0);
         }
 
-        if (this.pageCards && !this.inChrome() && isPlatformBrowser(this.platformId)) {
+        if (this.pageEditing && !this.inChrome() && isPlatformBrowser(this.platformId)) {
             const page = untracked(() => this.pageShown());
             if (page) setTimeout(() => this.markPageCards(page.cards, page.leaving, page.changedIds, page.tookLastPlace), 0);
         }
 
         // The page's scripts do not run on the Visual Editor (VE-D55).
-        if (!this.scriptsRun && !this.pageCards && isPlatformBrowser(this.platformId)) {
+        if (!this.scriptsRun && !this.pageEditing && isPlatformBrowser(this.platformId)) {
             this.scriptsRun = true;
             setTimeout(() => this.runTemplateScripts(), 100);
         }

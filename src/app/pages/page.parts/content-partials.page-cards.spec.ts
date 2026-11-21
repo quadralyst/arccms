@@ -25,6 +25,8 @@ describe('ContentPartialsComponent on a page\'s Visual Editor (VE-D53, VE-D54)',
     let fixture: ComponentFixture<ContentPartialsComponent>;
     let page: ReturnType<typeof signal<PageCardsOfType<Record<string, any>> | null>>;
     const watch = vi.fn();
+    /** The frame (editing) or Live Preview from the Visual Editor (not editing). */
+    const drafts = { editing: true, watch, cardsOf: (type: string) => (type === 'quotes' ? page() : null) };
     const published = (id: string, day: number) => ({ id, type: 'quotes', title: `Quote ${id}`, publishedStatus: true, publishedOn: `2026-01-0${day}T00:00:00Z` });
     const settle = async () => {
         for (let i = 0; i < 4; i++) {
@@ -38,13 +40,14 @@ describe('ContentPartialsComponent on a page\'s Visual Editor (VE-D53, VE-D54)',
     beforeEach(async () => {
         setSiteManifestForTesting(coreSiteManifest());
         page = signal<PageCardsOfType<Record<string, any>> | null>(null);
+        drafts.editing = true;
         const contents = { items: signal([published('a', 3), published('b', 2), published('c', 1)]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() };
         const types = { items: signal([{ slug: 'quotes', name: 'Quotes', hasPublicUrl: false }]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() };
         await TestBed.configureTestingModule({
             imports: [ContentPartialsComponent],
             providers: [
                 { provide: HttpClient, useValue: { get: vi.fn().mockReturnValue(of(PARTIALS)) } },
-                { provide: PageCardDrafts, useValue: { watch, cardsOf: (type: string) => (type === 'quotes' ? page() : null) } },
+                { provide: PageCardDrafts, useValue: drafts },
                 { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } }, paramMap: of({ get: () => null, keys: [] }), queryParams: of({}) } },
             ],
         })
@@ -82,6 +85,14 @@ describe('ContentPartialsComponent on a page\'s Visual Editor (VE-D53, VE-D54)',
         await settle();
         expect(cards()).toEqual(['New one', 'Quote a', 'Quote b']);
         expect(root().querySelector('[data-arc-leaving]')?.getAttribute('data-arc-card-id')).toBe('b');
+    });
+
+    it('in Live Preview draws the block as Publish leaves it: no card pushed out, nothing marked', async () => {
+        drafts.editing = false;
+        page.set({ changed: [{ ...published('n', 9), title: 'New one' }], hidden: new Set(), sortOrder: {}, focus: null });
+        await settle();
+        expect(cards()).toEqual(['New one', 'Quote a']);
+        expect(root().querySelector('[data-arc-leaving], [data-arc-changed], [data-arc-sub]')).toBeNull();
     });
 
     it('never draws a card taken off the page', async () => {

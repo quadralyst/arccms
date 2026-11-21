@@ -6,6 +6,8 @@ import { Component, signal } from '@angular/core';
 import { PageTextService } from '../../../core/site/page-text.service';
 import { PAGE_TEXT_PREVIEW } from '../../../core/site/page-text-preview';
 import PagePreviewPage from './page-preview.page';
+import { PageCardDrafts } from '../../page.parts/card-draft';
+import { PageCardsSource } from './page-cards';
 import HomeComponent from '../../index.page';
 import { PublicPageRendererComponent } from '../../public-page-renderer/public-page-renderer.component';
 
@@ -48,5 +50,36 @@ describe('PagePreviewPage', () => {
 
         fixture.destroy();
         expect(session.close).toHaveBeenCalled();
+    });
+
+    it('follows the changed cards for Live Preview from the Visual Editor, drawn as on the site', () => {
+        const session = { draft: signal<any>(null), loaded: signal(true), open: vi.fn(), close: vi.fn() };
+        const query = (params: Record<string, string>) => ({ get: (key: string) => params[key] ?? null });
+        const make = (params: Record<string, string>) => {
+            TestBed.resetTestingModule();
+            TestBed.configureTestingModule({
+                imports: [PagePreviewPage],
+                providers: [
+                    { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParamMap: query(params) } } },
+                    { provide: PageTextService, useValue: { session: () => session } },
+                ],
+            });
+            TestBed.overrideComponent(PagePreviewPage, { remove: { imports: [HomeComponent, PublicPageRendererComponent] }, add: { imports: [FakeHome] } });
+            TestBed.overrideProvider(PageCardsSource, { useValue: Object.assign(Object.create(PageCardDrafts.prototype), { editing: true, start: vi.fn(), watch: vi.fn(), cardsOf: () => null }) });
+            const fixture = TestBed.createComponent(PagePreviewPage);
+            const drafts = fixture.debugElement.injector.get(PageCardDrafts, null);
+            const source = fixture.debugElement.injector.get(PageCardsSource) as unknown as { start: ReturnType<typeof vi.fn> };
+            fixture.destroy();
+            return { drafts, source };
+        };
+        // Live Preview from the Visual Editor: the cards' drafts, as Publish would put them out.
+        const live = make({ cards: '1' });
+        expect(live.drafts).not.toBeNull();
+        expect(live.drafts!.editing).toBe(false);
+        expect(live.source.start).toHaveBeenCalledWith('home');
+        // The Visual Editor's frame: the cards' drafts, for editing.
+        expect(make({ edit: '1' }).drafts!.editing).toBe(true);
+        // The classic editor's Live Preview: the published cards.
+        expect(make({}).drafts).toBeNull();
     });
 });
