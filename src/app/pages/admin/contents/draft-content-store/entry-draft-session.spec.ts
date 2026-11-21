@@ -504,19 +504,36 @@ describe('EntryDraftSession', () => {
     it('holds the page while a spot on it is typed in, and sends the draft when it is left (VE-D16)', async () => {
       loadStored();
       session.connectPreview();
+      session.connectFrame('article.doc-1.edit.abc');
       await new Promise((resolve) => setTimeout(resolve, EntryDraftSession.PREVIEW_DELAY_MS + 30));
       post.mockClear();
-      const states = () => post.mock.calls.map((call: any[]) => call[0]).filter((m: any) => m.kind === 'state');
+      // Which channel each state went on: the entry's (the preview window) or the screen's frame.
+      const states = (name: string) => post.mock.calls
+        .map((call: any[], i: number) => ({ message: call[0], channel: (post.mock.contexts[i] as any)?.channel?.name }))
+        .filter((c: any) => c.message.kind === 'state' && c.channel === `arc-preview:${name}`)
+        .map((c: any) => c.message);
       session.holdPreview(true);
       view.values.title = 'Typed on the page';
       session.triggerAutoSave();
       session.onPreviewMessage({ kind: 'hello' });
       await new Promise((resolve) => setTimeout(resolve, EntryDraftSession.PREVIEW_DELAY_MS + 30));
-      expect(states()).toHaveLength(0);
+      expect(states('article.doc-1.edit.abc')).toHaveLength(0);
+      // The preview window follows every keystroke (review L2).
+      expect(states('article.doc-1').at(-1)?.draft.title).toBe('Typed on the page');
       session.holdPreview(false);
       await new Promise((resolve) => setTimeout(resolve, EntryDraftSession.PREVIEW_DELAY_MS + 30));
-      expect(states()).toHaveLength(1);
-      expect(states()[0].draft.title).toBe('Typed on the page');
+      expect(states('article.doc-1.edit.abc')).toHaveLength(1);
+      expect(states('article.doc-1.edit.abc')[0].draft.title).toBe('Typed on the page');
+    });
+
+    it('draws the Visual Editor\'s frame on a channel of its own, a new entry too (review H2, H3)', async () => {
+      session.connectFrame('article.new.x.edit.abc');
+      expect(session.previewOpen()).toBe(false);
+      await new Promise((resolve) => setTimeout(resolve, EntryDraftSession.PREVIEW_DELAY_MS + 30));
+      const names = post.mock.calls.map((call: any[], i: number) => [call[0].kind, (post.mock.contexts[i] as any)?.channel?.name]);
+      expect(names).toContainEqual(['state', 'arc-preview:article.new.x.edit.abc']);
+      expect(names.some(([, name]: string[]) => name === 'arc-preview:article.new')).toBe(false);
+      session.close();
     });
 
     it('redraws the page with an entry loaded again, such as the other admin\'s after Reload theirs', async () => {

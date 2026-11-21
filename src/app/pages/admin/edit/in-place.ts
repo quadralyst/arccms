@@ -212,6 +212,10 @@ export interface InPlaceHost {
     placeholder(field: string, label: string | null, info?: SpotInfo): string;
     /** The hover text on a value that is not edited in place (VE-D17). */
     hint(kind: HintKind): string;
+    /** A spot's name for a screen reader: the field's label, else the template's. */
+    fieldName?(info: SpotInfo, label: string | null): string;
+    /** A click on the page that opens nothing (words fixed by the design, a date the site works out). */
+    fixedClick?(target: Element, x: number, y: number): void;
     /** Escape, first: the screen closes a box of its own (a picture's) and says so. */
     escape?(): boolean;
     /**
@@ -413,6 +417,11 @@ export class InPlaceEditing {
             if (!info) {
                 el.removeAttribute('data-arc-edit-kind');
                 el.removeAttribute('data-arc-ph');
+                if (el.hasAttribute('data-arc-named')) {
+                    el.removeAttribute('role');
+                    el.removeAttribute('aria-label');
+                    el.removeAttribute('data-arc-named');
+                }
                 el.toggleAttribute('data-arc-shared', shared);
                 this.setHint(el, locked ? 'locked' : shared ? 'shared' : hintKind(el.getAttribute('data-arc-field') || ''));
                 continue;
@@ -426,6 +435,7 @@ export class InPlaceEditing {
             }
             if (el.getAttribute('data-arc-edit-kind') !== info.kind) el.setAttribute('data-arc-edit-kind', info.kind);
             if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+            this.nameSpot(el, info);
             // An empty value shows what it is for, so there is something to click (VE-D18).
             const empty = !info.attr && !VOID_TAGS.has(el.tagName.toLowerCase()) && !el.textContent?.trim() && !el.querySelector(SHOWN_MEDIA);
             const placeholder = empty ? placeholderText(el) ?? this.host.placeholder(info.field, labelOf(el), info) : null;
@@ -434,7 +444,7 @@ export class InPlaceEditing {
             // Shown when the site hides it only for being empty, never when it hides it on purpose.
             const unhide = placeholder !== null && hiddenRules.some((selector) => matchesSafely(el, selector));
             if (el.hasAttribute('data-arc-unhide') !== unhide) el.toggleAttribute('data-arc-unhide', unhide);
-            el.toggleAttribute('data-arc-untranslated', info.kind === 'text' && isRowPart(info) && !empty && !!this.host.untranslated?.(info));
+            el.toggleAttribute('data-arc-untranslated', info.kind === 'text' && !empty && !!this.host.untranslated?.(info));
         }
         this.openPending();
         for (const [selector, kind] of [['arc-header', 'header'], ['arc-footer', 'footer']] as const) {
@@ -540,6 +550,22 @@ export class InPlaceEditing {
         el.setAttribute('data-arc-hint', kind);
     }
 
+    /**
+     * A spot says what it is to a screen reader (review M6): a button named for its
+     * field and what it holds while it waits, a text box named for its field while typed in.
+     */
+    private nameSpot(el: HTMLElement, info: SpotInfo, typing = false): void {
+        const name = this.host.fieldName?.(info, labelOf(el)) ?? labelOf(el) ?? info.field;
+        const words = typing ? '' : (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+        const label = words ? `${name}: ${words}` : name;
+        const role = typing ? 'textbox' : 'button';
+        if (el.getAttribute('role') !== role) el.setAttribute('role', role);
+        if (el.getAttribute('aria-label') !== label) el.setAttribute('aria-label', label);
+        el.setAttribute('data-arc-named', '');
+        if (typing && info.multiline) el.setAttribute('aria-multiline', 'true');
+        else el.removeAttribute('aria-multiline');
+    }
+
     /** The spots in page order, visible ones only. */
     spots(): HTMLElement[] {
         return Array.from(this.doc.querySelectorAll<HTMLElement>('[data-arc-edit-kind]'))
@@ -580,7 +606,11 @@ export class InPlaceEditing {
         if (target.closest('a[href], summary')) event.preventDefault();
         const el = target.closest<HTMLElement>('[data-arc-edit-kind]') ?? this.frameSpotAt(target, event.clientX, event.clientY) ?? soleSpot(target);
         if (!el) {
+            // A click away from the value being typed in only finishes it; with none open,
+            // the screen says this part cannot be changed and shows the parts that can.
+            const typing = !!this.active;
             this.leave();
+            if (!typing) this.host.fixedClick?.(target, event.clientX, event.clientY);
             return;
         }
         event.preventDefault();
@@ -685,7 +715,7 @@ export class InPlaceEditing {
         if (!spots.length) return false;
         const from = this.active?.el ?? (this.doc.activeElement as HTMLElement | null);
         const index = from ? spots.indexOf(from) : -1;
-        const target = index < 0 ? (direction > 0 ? 0 : spots.length - 1) : index + direction;
+        const target = index >= 0 ? index + direction : nearestSpot(spots, from, direction, this.doc);
         if (target < 0 || target >= spots.length) {
             this.leave();
             return false;
@@ -735,6 +765,18 @@ export class InPlaceEditing {
 
     private startText(spot: Spot, at?: { x: number; y: number }): void {
         const el = spot.el;
+        // The page shows something other than the stored words (a link's label, a formatted
+        // date, words with markup or line breaks): typing there would write what is shown over
+        // what is stored, so the value opens in its own box instead (review H1, M4).
+        if (!isRowPart(spot) && spot.field !== 'title') {
+            const stored = String(this.host.value(spot.field) ?? '');
+            const untranslated = !stored && !!this.host.translating?.();
+            if (!untranslated && !typedAsShown(stored, el.textContent ?? '')) {
+                if (spot.builtin) this.host.panel(spot);
+                else this.host.popover({ ...spot, kind: 'popover' });
+                return;
+            }
+        }
         this.active = spot;
         this.host.hold(true);
         this.opened = {
@@ -749,18 +791,19 @@ export class InPlaceEditing {
         if ((el as HTMLElement).contentEditable !== 'plaintext-only') el.setAttribute('contenteditable', 'true');
         el.setAttribute('spellcheck', 'true');
         // Typed as stored: an FAQ answer's lines rather than its paragraphs, and a value
-        // not translated yet from empty, not over the default language's words.
-        if (isRowPart(spot)) {
-            const stored = this.host.partText?.(spot) ?? plainText(el);
-            const shown = spot.multiline ? linesText(el) : plainText(el);
-            if (stored !== shown) {
-                this.textShown = el.innerHTML;
-                el.textContent = stored;
-            }
-            el.removeAttribute('data-arc-untranslated');
-            if (!stored) el.setAttribute('data-arc-ph', this.host.placeholder(spot.field, spot.label, spot));
+        // not translated yet from empty, not over the default language's words (VE-D35;
+        // the title, summary and text fields too, review M5).
+        const stored = isRowPart(spot) ? this.host.partText?.(spot) ?? plainText(el) : this.opened.value;
+        const shown = spot.multiline ? linesText(el) : plainText(el);
+        const fromEmpty = !stored && !!this.host.translating?.();
+        if (stored !== shown && (isRowPart(spot) || fromEmpty)) {
+            this.textShown = el.innerHTML;
+            el.textContent = stored;
         }
+        el.removeAttribute('data-arc-untranslated');
+        if (!stored && (isRowPart(spot) || fromEmpty || !shown)) el.setAttribute('data-arc-ph', this.host.placeholder(spot.field, spot.label, spot));
         el.toggleAttribute('data-arc-multiline', !!spot.multiline);
+        this.nameSpot(el, spot, true);
         this.textAtStart = this.typedText(spot);
         el.focus({ preventScroll: true });
         placeCaret(this.doc, el, at);
@@ -878,6 +921,22 @@ export function soleSpot(target: Element): HTMLElement | null {
     return (target.textContent || '').trim() === (only.textContent || '').trim() ? only : null;
 }
 
+/**
+ * Tab from something on the page that is not a spot (a link in the header or footer):
+ * the nearest spot that way in page order, or -1 when there is none, so Tab carries on
+ * to the rest of the page and out of the frame (review M6). From nothing, the first or last.
+ */
+export function nearestSpot(spots: HTMLElement[], from: Element | null, direction: 1 | -1, doc: Document): number {
+    if (!from || from === doc.body || from === doc.documentElement) return direction > 0 ? 0 : spots.length - 1;
+    const FOLLOWING = 4;
+    const PRECEDING = 2;
+    if (direction > 0) return spots.findIndex((spot) => (from.compareDocumentPosition(spot) & FOLLOWING) !== 0);
+    for (let i = spots.length - 1; i >= 0; i--) {
+        if ((from.compareDocumentPosition(spots[i]) & PRECEDING) !== 0 && !spots[i].contains(from)) return i;
+    }
+    return -1;
+}
+
 /** The admin's accent colour, for the spots' outlines; a dark grey when it has none. */
 export function adminAccent(): string {
     if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') return '#1f2937';
@@ -935,6 +994,16 @@ export function linesText(el: HTMLElement): string {
 
 function cssEscapeId(value: string): string {
     return value.replace(/["\\]/g, '\\$&');
+}
+
+/**
+ * The stored words are what the page shows, so typing over what is shown loses nothing:
+ * the same words once spaces are evened out, and no line breaks in what is stored.
+ */
+export function typedAsShown(stored: string, shown: string): boolean {
+    if (/[\r\n]/.test(stored.trim())) return false;
+    const even = (text: string) => text.replace(/\s+/g, ' ').trim();
+    return even(stored) === even(shown);
 }
 
 /** The text of a spot typed in place, on one line. */

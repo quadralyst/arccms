@@ -111,6 +111,9 @@ describe('ContentPreviewComponent', () => {
     it('in the edit-on-page screen\'s frame (?edit=1): draws the page with no strip and leaves clicks to the screen (VE-D14)', async () => {
         await create({ slug: 'events', fields: [{ key: 'events-price', label: 'Price' }] }, '', { edit: '1' });
         expect(component.editMode).toBe(true);
+        // Scripts do not run here: a template can show what one would reveal (VE-D55, review M8).
+        expect(document.documentElement.classList.contains('arc-editing')).toBe(true);
+        document.documentElement.classList.remove('arc-editing');
         expect(fixture.nativeElement.querySelector('[data-testid="preview-strip"]')).toBeNull();
         expect(sent('hello')).toHaveLength(1);
         state();

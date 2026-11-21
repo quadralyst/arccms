@@ -144,6 +144,21 @@ arc-content-partials {
   width: 5px;
 }
 
+/* An empty field's placeholder: lighter and in italics, so it never reads as a value
+   typed in. Every admin form, the setup wizard, and the Visual Editor's panel and boxes. */
+.arc-admin input::placeholder,
+.arc-admin textarea::placeholder,
+.arc-onboarding input::placeholder,
+.arc-onboarding textarea::placeholder,
+.arc-ed-panel input::placeholder,
+.arc-ed-panel textarea::placeholder,
+.arc-ed-pop input::placeholder,
+.arc-ed-pop textarea::placeholder {
+  color: var(--arc-admin-placeholder, #9aa0a6);
+  font-style: italic;
+  opacity: 1;
+}
+
 .arc-admin .top-bar {
   background-color: white;
   border-bottom: 1px solid #e9ecef;

@@ -79,7 +79,13 @@ export function pageOfPageTextId(pageId: string): { kind: 'home' } | { kind: 'st
  * while the site keeps the old words.
  */
 export async function markPageTextUnreleased(pageId: string): Promise<void> {
-    await db.collection(PAGE_TEXT_PUBLISHED).doc(pageId).update({ draftUpdatedAt: null });
+    try {
+        await db.collection(PAGE_TEXT_PUBLISHED).doc(pageId).update({ draftUpdatedAt: null });
+    } catch (error) {
+        // A page whose words were never published: nothing to mark.
+        if ((error as { code?: unknown })?.code === 5 || (error as { code?: unknown })?.code === 'not-found') return;
+        throw error;
+    }
 }
 
 /** `historyId`: the queue item's id, so the same item delivered twice keeps one History entry. */

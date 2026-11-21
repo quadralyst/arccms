@@ -300,6 +300,18 @@ describe('CreateContentComponent', () => {
         });
     });
 
+    describe('empty field placeholders', () => {
+        it('word an empty field as the page does, "Add download label", and show an example address for a link', () => {
+            vi.spyOn((component as any).translocoService, 'translate').mockImplementation(((key: string, params?: { field?: string }) =>
+                key === 'admin.contents.editor.enter_field' ? `Add ${params?.field}` : key) as never);
+            const field = (key: string, label: string, type = 'text') => ({ key, label, type, required: false, order: 0 }) as any;
+            expect(component.fieldPlaceholder(field('x-download_label', 'Download Label'))).toBe('Add download label');
+            expect(component.fieldPlaceholder(field('x-download_url', 'Download URL'))).toBe('https://');
+            expect(component.fieldPlaceholder(field('x-cta_link', 'Button link'))).toBe('https://');
+            expect(component.fieldPlaceholder(field('x-seats', 'Seats', 'number'))).toBe('Add seats');
+        });
+    });
+
     describe('fields from another content type', () => {
         it('offer the other entry\'s custom fields beside its built-in ones, so either can label or be copied', async () => {
             const { referenceOption } = await import('./create-content.component');
@@ -3861,9 +3873,11 @@ describe('CreateContentComponent', () => {
             expect(el.querySelector('.settings-sidebar .sidebar-tabs')).not.toBeNull();
         });
 
-        it('offers Edit on the page for a saved entry of a type with pages, on the form editor only', () => {
+        it('offers Edit on the page for an entry of a type with pages, on the form editor only', () => {
             expect(component.canEditOnPage()).toBe(false);
             component.session.typeSlug.set('article');
+            // Not saved yet: it is started on the page (review H3).
+            expect(component.canEditOnPage()).toBe(true);
             component.session.contentId = 'abc';
             expect(component.canEditOnPage()).toBe(true);
             mockContentTypesStore.items.set([{ name: 'Article', slug: 'article', hasPublicUrl: false }]);
@@ -3882,6 +3896,13 @@ describe('CreateContentComponent', () => {
             await component.openPageEditor();
             expect(save).toHaveBeenCalled();
             expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/edit', 'article', 'abc']);
+        });
+
+        it('opens a new entry with nothing typed on the page as a new one (review H3)', async () => {
+            component.session.typeSlug.set('article');
+            vi.spyOn(component, 'hasUnsavedChanges').mockReturnValue(false);
+            await component.openPageEditor();
+            expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/edit', 'article', 'new']);
         });
 
         it('stays when the save did not land', async () => {

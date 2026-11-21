@@ -601,7 +601,7 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         page('<p>List</p>', '', entry('articles'));
         expect(links()).toEqual([
             ['admin', '/admin/contents/articles', 'Back to admin'],
-            ['add', '/admin/contents/articles/add', 'Add new'],
+            ['add', '/admin/edit/articles/new', 'Add new'],
         ]);
     });
 
@@ -640,13 +640,13 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         const names = (e: string, path: string) => stripLinks(e, path).map((l) => `${l.name} ${l.href}`);
         expect(names('home', '/')).toEqual(['edit /admin/edit-page/home', 'admin /admin/more-pages']);
         expect(names('home', '/hi')).toEqual(['edit /admin/edit-page/home', 'admin /admin/more-pages']);
-        expect(names('home', '/home')).toEqual(['add /admin/contents/home/add', 'admin /admin/contents/home']);
-        expect(names('home', '/hi/home.html')).toEqual(['add /admin/contents/home/add', 'admin /admin/contents/home']);
+        expect(names('home', '/home')).toEqual(['add /admin/edit/home/new', 'admin /admin/contents/home']);
+        expect(names('home', '/hi/home.html')).toEqual(['add /admin/edit/home/new', 'admin /admin/contents/home']);
         expect(names('p/privacy-policy', '/p/privacy-policy')).toEqual(['admin /admin/more-pages']);
         expect(names('p/privacy-policy', '/p/privacy-policy.html')).toEqual(['admin /admin/more-pages']);
         expect(stripLinks('p/about-us', '/p/about-us', true).map((l) => l.href)).toEqual(['/admin/edit-page/p/about-us', '/admin/more-pages']);
         expect(names('p/doc1', '/p/my-first-entry')).toEqual(['edit /admin/edit/p/doc1', 'admin /admin/contents/p']);
-        expect(names('p', '/p')).toEqual(['add /admin/contents/p/add', 'admin /admin/contents/p']);
+        expect(names('p', '/p')).toEqual(['add /admin/edit/p/new', 'admin /admin/contents/p']);
     });
 
     it('says its links in the strings the app hands it, over the script tag\'s (VE3.11)', () => {
@@ -694,6 +694,46 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         expect(document.getElementById('arc-editor-strip-push')).toBeNull();
     });
 
+    it('puts back a header that stops being pinned, as the page scrolls (review M9)', () => {
+        vi.useFakeTimers();
+        try {
+            page('<header id="bar" style="position:fixed;top:0">Site</header>', '', entry('articles/doc1'));
+            const bar = document.getElementById('bar') as HTMLElement;
+            expect(bar.style.getPropertyValue('top')).toBe('40px');
+            // The site's own script unpins it at the top of the page.
+            bar.style.setProperty('position', 'absolute');
+            window.dispatchEvent(new Event('scroll'));
+            vi.advanceTimersByTime(200);
+            expect(bar.style.getPropertyValue('top')).toBe('0px');
+            expect(bar.hasAttribute('data-arc-strip-top')).toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('moves only what is under the strip, and never a box as tall as the window (review M9)', () => {
+        const doc = document as Document & { elementsFromPoint?: unknown };
+        doc.elementsFromPoint = () => ['head', 'menu'].map((id) => document.getElementById(id)).filter(Boolean);
+        const real = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+            return this.id === 'menu' ? ({ height: window.innerHeight } as DOMRect) : real.call(this);
+        };
+        try {
+            page('<header id="head" style="position:fixed;top:0">Site</header>'
+                + '<div id="menu" style="position:fixed;top:0">Open menu</div>'
+                + '<div style="overflow:auto"><table><thead id="thead" style="position:sticky;top:0"></thead></table></div>', '', entry('articles/doc1'));
+            const top = (id: string) => (document.getElementById(id) as HTMLElement).style.getPropertyValue('top');
+            expect(top('head')).toBe('40px');
+            // A sticky table head inside its own scroll box is not under the strip.
+            expect(top('thead')).toBe('0px');
+            // An open menu as tall as the window would run off its bottom.
+            expect(top('menu')).toBe('0px');
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = real;
+            delete doc.elementsFromPoint;
+        }
+    });
+
     it('stops moving headers once another copy of the script took the strip away', async () => {
         vi.useFakeTimers();
         try {
@@ -730,7 +770,7 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         const site = (window as unknown as { arcSite: { drawEditorStrip: () => void } }).arcSite;
         document.head.innerHTML = entry('articles');
         site.drawEditorStrip();
-        expect(links()[1]).toEqual(['add', '/admin/contents/articles/add', 'Add new']);
+        expect(links()[1]).toEqual(['add', '/admin/edit/articles/new', 'Add new']);
         document.head.innerHTML = '';
         site.drawEditorStrip();
         expect(strip()).toBeNull();

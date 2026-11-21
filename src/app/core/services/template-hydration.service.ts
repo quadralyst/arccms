@@ -55,6 +55,21 @@ export const TEMPLATE_HINT_ATTRS = ['data-arc-label', 'data-arc-placeholder', 'd
 /** Elements whose text is not markup: a marker span cannot go inside them. */
 const UNMARKABLE_TEXT = new Set(['title', 'textarea', 'option', 'script', 'style', 'noscript']);
 
+/** Attributes holding an address: the mark an element gets when it also has another (VE-D7). */
+const ADDRESS_ATTRS: ReadonlySet<string> = new Set(['src', 'href', 'poster', 'srcset', 'data-src']);
+
+/**
+ * Where `data-arc-bind` puts the value on this element, for its mark: an address,
+ * a form value, a date's `datetime`; '' when it fills the element's content.
+ */
+function boundAttr($el: { is(selector: string): boolean }): string | undefined {
+  if ($el.is('img, iframe')) return 'src';
+  if ($el.is('a')) return 'href';
+  if ($el.is('input, textarea, select')) return 'value';
+  if ($el.is('time')) return 'datetime';
+  return undefined;
+}
+
 function escapeText(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -531,9 +546,17 @@ export class TemplateHydrationService {
       });
     };
 
-    /** Marks an element with the key that filled it, unless something already did (VE-D7). */
+    /**
+     * Marks an element with the key that filled it, unless something already did (VE-D7).
+     * An address (`src`, `href`) wins over another attribute marked first (`alt`, `class`):
+     * a click on a picture or a link changes what it shows or where it goes.
+     */
     const markElement = (element: any, key: string, attr?: string): void => {
-      if (!mark || !key || element.attribs['data-arc-field'] !== undefined) return;
+      if (!mark || !key) return;
+      if (element.attribs['data-arc-field'] !== undefined) {
+        const had = element.attribs['data-arc-field-attr'];
+        if (!(attr && ADDRESS_ATTRS.has(attr) && had && !ADDRESS_ATTRS.has(had))) return;
+      }
       $(element).attr('data-arc-field', key);
       if (attr) $(element).attr('data-arc-field-attr', attr);
     };
@@ -696,7 +719,9 @@ export class TemplateHydrationService {
 
         // Remove the data-arc-bind attribute for clean output
         $el.removeAttr('data-arc-bind');
-        markElement(element, bindKey);
+        // Marked with the attribute the value went into, so the Visual Editor never types a
+        // link's label or a formatted date over the stored address or date (review H1).
+        markElement(element, bindKey, boundAttr($el));
       }
     });
 

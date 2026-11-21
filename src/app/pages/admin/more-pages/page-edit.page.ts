@@ -22,6 +22,7 @@ import { REPLACE_MARKER } from '../contents/standard-pages/standard-pages';
 import MediaManagerComponent from '../(media)/media.page';
 import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
 import { PagePanel } from '../edit/page-panel';
+import { EditableReveal, readShowEditable, writeShowEditable } from '../edit/editable-reveal';
 import { PageEditorData } from './page-editor-data';
 import { PageInPlace, cardOf, type PageInPlaceHost } from './page-in-place';
 import type { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
@@ -173,6 +174,9 @@ interface Box {
             }
         </span>
         }
+        <!-- What can be changed, outlined until turned off (remembered for this person). -->
+        <button type="button" class="arc-ed-btn" [class.arc-ed-on]="showEditable()" [attr.aria-pressed]="showEditable()" (click)="toggleShowEditable()"
+            [title]="'admin.edit_page.show_editable' | transloco" [attr.aria-label]="'admin.edit_page.show_editable' | transloco" data-testid="page-edit-show-editable"><i class="bi bi-bounding-box" aria-hidden="true"></i></button>
         <span class="arc-ed-group" role="group" [attr.aria-label]="'admin.preview.width' | transloco">
             <button type="button" class="arc-ed-btn" [class.arc-ed-on]="!phone()" [attr.aria-pressed]="!phone()" (click)="phone.set(false)"
                 [title]="'admin.preview.full_width' | transloco" [attr.aria-label]="'admin.preview.full_width' | transloco"><i class="bi bi-display" aria-hidden="true"></i></button>
@@ -333,6 +337,12 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     readonly data = new PageEditorData(inject(Injector), this.route.snapshot.paramMap.get('name') || '');
     readonly panel = new PagePanel();
     readonly phone = signal(false);
+    /** The top bar's switch: every part that can be changed outlined, as this person left it. */
+    readonly showEditable = signal(readShowEditable());
+    /** The outlines that show what can be changed, on the frame's page. */
+    private reveal: EditableReveal | null = null;
+    /** The outlines move once when the screen opens, not again for another language. */
+    private revealedOnce = false;
     readonly drawn = signal(false);
     readonly saving = signal(0);
     readonly saveError = signal('');
@@ -425,6 +435,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
 
     ngOnDestroy(): void {
         this.inPlace?.detach();
+        this.reveal?.detach();
         this.cardsObserver?.disconnect();
         for (const timer of [this.scanTimer, this.barTimer, this.releaseTimer]) if (timer) clearTimeout(timer);
         if (this.drawTimer) clearTimeout(this.drawTimer);
@@ -451,6 +462,15 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         this.inPlace?.detach();
         this.inPlace = new PageInPlace(doc, this);
         this.inPlace.attach();
+        this.reveal?.detach();
+        this.reveal = new EditableReveal(doc, {
+            selector: '[data-arc-edit]:not([data-arc-fixed]), [data-arc-card-id]',
+            outlineSelector: '[data-arc-edit]:not([data-arc-fixed]), [data-arc-card-id]:not(:is(arc-header, arc-footer) *)',
+            // Cards in the header and footer are not edited here (VE-D20).
+            skip: (el) => el.hasAttribute('data-arc-card-id') && !el.hasAttribute('data-arc-edit') && !!el.closest('arc-header, arc-footer'),
+        });
+        this.reveal.attach();
+        this.reveal.setShown(this.showEditable());
         doc.defaultView?.addEventListener('scroll', () => this.place(), { passive: true });
         this.drawn.set(false);
         const started = Date.now();
@@ -461,6 +481,11 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
                 this.drawn.set(true);
                 this.inPlace?.patch(this.views());
                 this.watchCards(doc);
+                // The page opens showing what can be changed on it, once.
+                if (!this.revealedOnce) {
+                    this.revealedOnce = true;
+                    this.reveal?.flash();
+                }
                 this.tellFrame(this.card());
                 if (!this.panel.open()) this.panel.peek(this.document.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
                 return;
@@ -949,6 +974,30 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     /** Back to page: the card's form saved, the page's own panel again. */
     async backToPage(): Promise<void> {
         if (await this.saveCard()) this.card.set(null);
+    }
+
+    /**
+     * A click on the page that opens nothing: a note by the click says the design fixes
+     * it, and the parts that can be changed move. A click that puts a box away only does that.
+     */
+    fixedClick(target: Element, x: number, y: number): void {
+        if (this.box()) {
+            this.closeBox();
+            return;
+        }
+        this.reveal?.explainFixed(target, x, y, {
+            lead: this.t('admin.edit_page.fixed_text'),
+            outlined: this.t('admin.edit_page.fixed_outlined'),
+            scroll: this.t('admin.edit_page.fixed_scroll'),
+        });
+    }
+
+    /** The top bar's switch: every part that can be changed outlined, or not. */
+    toggleShowEditable(): void {
+        const on = !this.showEditable();
+        this.showEditable.set(on);
+        writeShowEditable(on);
+        this.reveal?.setShown(on);
     }
 
     cardHover(el: HTMLElement | null): void {

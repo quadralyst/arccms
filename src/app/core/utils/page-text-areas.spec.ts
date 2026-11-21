@@ -3,7 +3,7 @@
  * (page-text-areas.ts, specs/visual-editing-spec.md VE-D41, VE-D50).
  */
 import { describe, it, expect } from 'vitest';
-import { readPageFile, backgroundUrlOf } from './page-text-areas';
+import { readPageFile, backgroundUrlOf, wordsKept } from './page-text-areas';
 import { pageTextKind } from './page-text';
 
 const FILE = `<!DOCTYPE html><html><head>
@@ -82,5 +82,20 @@ describe('readPageFile', () => {
         expect(backgroundUrlOf('background-image: url("/a.jpg")')).toBe('/a.jpg');
         expect(backgroundUrlOf('background-image:url(/b.jpg); color: red')).toBe('/b.jpg');
         expect(backgroundUrlOf('color: red')).toBe('');
+    });
+});
+
+describe('areas whose words are kept as the file has them (review M2, M3)', () => {
+    it('are not offered to editors: plain text holding elements, an area holding another', () => {
+        const file = readPageFile('<body><h1 data-arc-edit="styled">Hi <em>you</em></h1>'
+            + '<div data-arc-edit="outer" data-arc-edit-kind="rich">A <span data-arc-edit="inner">B</span></div>'
+            + '<a data-arc-edit="cta" href="/x"><i></i></a><p data-arc-edit="plain">P</p></body>');
+        expect(file.areas.map((a) => a.key)).toEqual(['inner', 'cta', 'plain']);
+    });
+
+    it('only for words: a link or a picture is never kept back', () => {
+        const box = new DOMParser().parseFromString('<a data-arc-edit="a"><b data-arc-edit="b">x</b></a>', 'text/html').body.firstElementChild!;
+        expect(wordsKept(box, 'link')).toBe(false);
+        expect(wordsKept(box, 'rich')).toBe(true);
     });
 });

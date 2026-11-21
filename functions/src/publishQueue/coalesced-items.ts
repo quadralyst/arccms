@@ -262,14 +262,14 @@ async function queueNext(item: DocumentReference, action: CoalescedAction, slug:
  * when it failed (`outcome.failed`), to run the same part again (`continuation`
  * is then where the failed part started).
  */
-export async function finishCoalesced(id: string, continuation?: Record<string, unknown>, outcome: RunOutcome = {}): Promise<void> {
+export async function finishCoalesced(id: string, continuation?: Record<string, unknown>, outcome: RunOutcome = {}): Promise<boolean> {
     const item = ref(id);
     for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
         const snap = await item.get();
         const data = (snap.exists ? snap.data() : {}) as Partial<CoalescedItem>;
         // A waiting item is a new request (this run was taken for dead): it is not this
         // run's to remove, and it runs everything, the rest of this run included.
-        if (snap.exists && data.state !== 'running') return;
+        if (snap.exists && data.state !== 'running') return false;
         if (snap.exists) {
             try {
                 // Only if nobody marked it dirty since it was read.
@@ -282,9 +282,11 @@ export async function finishCoalesced(id: string, continuation?: Record<string, 
         const [action, slug] = actionAndSlug(id, data);
         const next = nextRun(id, data, continuation, outcome);
         if (next) await queueNext(item, action, slug, next);
-        return;
+        // A failed run not run again: the caller may say so where it shows (review M1).
+        return !!outcome.failed && !next;
     }
     console.error(`Queue item ${id}: could not be finished after ${ATTEMPTS} attempts; it is cleared once it is ${STALE_MS / 60000} minutes old`);
+    return false;
 }
 
 /**

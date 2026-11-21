@@ -89,12 +89,14 @@ export async function queuePagesShowingItemsOf(slug: string): Promise<void> {
  * (coalesced-items.ts, specs/visual-editing-spec.md VE-D57): five cards and the
  * page text published together make one release of the home page, not one each.
  */
-export async function queueHomePage(reason: string): Promise<void> {
+export async function queueHomePage(reason: string): Promise<boolean> {
     try {
         const outcome = await requestCoalesced('home');
         console.log(`Rebuilding the home page (${outcome}): ${reason}`);
+        return true;
     } catch (error) {
         console.error(`Could not queue the home page rebuild (${reason}):`, error);
+        return false;
     }
 }
 
@@ -524,7 +526,8 @@ export const processPublishQueue = onDocumentCreated({
             await publishPageTextDraft(docId, queueId || undefined);
             published = true;
             if (page.kind === 'home') {
-                await queueHomePage('its page text was published');
+                // Not queued: the words are copied but will not go out, so the admin must not say Published (review M1).
+                if (!(await queueHomePage('its page text was published'))) throw new Error('the home page rebuild could not be queued');
             } else {
                 await generateAndDeployStaticPage(page.name, batch);
                 const released = !batch.isEmpty
@@ -572,8 +575,14 @@ export const processPublishQueue = onDocumentCreated({
             failure = error?.message || String(error);
             console.error('Home page republish failed:', error);
         }
-        if (failure) await finishCoalesced(coalescedId, undefined, { failed: true, error: failure });
-        else await finishCoalesced(coalescedId);
+        if (failure) {
+            const givenUp = await finishCoalesced(coalescedId, undefined, { failed: true, error: failure });
+            // The home page did not go out and will not be tried again: its published words are
+            // shown as not live, so the admin offers Publish again rather than saying Published (review M1).
+            if (givenUp) await markPageTextUnreleased('home').catch((e) => console.error('Could not mark the home page text as not live:', e));
+        } else {
+            await finishCoalesced(coalescedId);
+        }
         return;
     }
 

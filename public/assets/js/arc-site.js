@@ -917,7 +917,8 @@
             links.push({ name: 'edit', text: stripT('strip_edit', 'Edit this page'), href: '/admin/edit/' + enc(type) + '/' + enc(parts[1]) });
         } else if (parts.length === 1) {
             type = parts[0];
-            links.push({ name: 'add', text: stripT('strip_add', 'Add new'), href: '/admin/contents/' + enc(type) + '/add' });
+            // A list page's entries have pages: a new one starts on its page, in the Visual Editor.
+            links.push({ name: 'add', text: stripT('strip_add', 'Add new'), href: '/admin/edit/' + enc(type) + '/new' });
         }
         var back = morePages ? '/admin/more-pages' : type ? '/admin/contents/' + enc(type) : '/admin';
         links.push({ name: 'admin', text: stripT('strip_admin', 'Back to admin'), href: back });
@@ -1000,20 +1001,52 @@
     /**
      * Moves down a header pinned to the top of the window (position fixed or
      * sticky, top 0), so the strip does not cover it. Read again as the page
-     * scrolls, for a header that only pins once scrolled.
+     * scrolls, for a header that only pins once scrolled. Only what is under the
+     * strip is looked at (a sticky part inside its own scroll box never is); a
+     * box as tall as the window (an open menu, a lightbox) is left alone; and an
+     * element that stops being pinned gets its own top back (review M9).
      */
     function pushPinned() {
         if (!document.body) return;
-        var all = document.body.getElementsByTagName('*');
-        for (var i = 0; i < all.length; i++) {
-            var el = all[i];
-            if (el.id === STRIP_ID || el.hasAttribute(PUSHED_ATTR)) continue;
+        Array.prototype.forEach.call(document.querySelectorAll('[' + PUSHED_ATTR + ']'), function (el) {
+            var position = getComputedStyle(el).position;
+            if (position !== 'fixed' && position !== 'sticky') unpush(el);
+        });
+        var candidates = underStrip();
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.id === STRIP_ID || el.hasAttribute(PUSHED_ATTR) || (el.closest && el.closest('#' + STRIP_ID))) continue;
             var style = getComputedStyle(el);
             if (style.position !== 'fixed' && style.position !== 'sticky') continue;
             if (Math.abs(parseFloat(style.top)) > 1 || isNaN(parseFloat(style.top))) continue;
+            if (window.innerHeight && el.getBoundingClientRect().height >= window.innerHeight - 1) continue;
             el.setAttribute(PUSHED_ATTR, el.style.getPropertyValue('top') + '|' + el.style.getPropertyPriority('top'));
             el.style.setProperty('top', STRIP_HEIGHT + 'px', 'important');
         }
+    }
+
+    /**
+     * The elements under the strip, at a few points across it; a browser that cannot
+     * say (or a page not laid out) gets every element, as before.
+     */
+    function underStrip() {
+        if (typeof document.elementsFromPoint !== 'function' || !window.innerWidth) {
+            return document.body.getElementsByTagName('*');
+        }
+        var found = [];
+        var xs = [8, window.innerWidth / 2, window.innerWidth - 8];
+        for (var i = 0; i < xs.length; i++) {
+            var at = document.elementsFromPoint(xs[i], 1) || [];
+            for (var j = 0; j < at.length; j++) if (found.indexOf(at[j]) < 0) found.push(at[j]);
+        }
+        return found;
+    }
+
+    function unpush(el) {
+        var was = (el.getAttribute(PUSHED_ATTR) || '|').split('|');
+        el.removeAttribute(PUSHED_ATTR);
+        if (was[0]) el.style.setProperty('top', was[0], was[1] || '');
+        else el.style.removeProperty('top');
     }
 
     var pinTimer = null;
@@ -1050,12 +1083,7 @@
         if (style) style.remove();
         window.removeEventListener('scroll', onScrollPinned);
         window.removeEventListener('resize', onScrollPinned);
-        Array.prototype.forEach.call(document.querySelectorAll('[' + PUSHED_ATTR + ']'), function (el) {
-            var was = (el.getAttribute(PUSHED_ATTR) || '|').split('|');
-            el.removeAttribute(PUSHED_ATTR);
-            if (was[0]) el.style.setProperty('top', was[0], was[1] || '');
-            else el.style.removeProperty('top');
-        });
+        Array.prototype.forEach.call(document.querySelectorAll('[' + PUSHED_ATTR + ']'), unpush);
     }
 
     function removeStrip() {

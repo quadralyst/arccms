@@ -10,7 +10,8 @@ import { resolve } from 'node:path';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import EntryEditPage, { editFrameUrl, inSentence, textPos } from './entry-edit.page';
+import EntryEditPage, { editFrameKey, editFrameUrl, inSentence, textPos } from './entry-edit.page';
+import { EditableReveal, readShowEditable } from './editable-reveal';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { previewSessionKey } from '../../../core/preview/preview-channel';
@@ -39,7 +40,7 @@ function fakeEditor() {
     const summary = { value: 'Short', setValue: vi.fn(function (this: { value: string }, v: string) { summary.value = v; }) };
     const content = { value: '<p>Body</p>' };
     return {
-        session: Object.assign(session, { holdPreview: vi.fn() }),
+        session: Object.assign(session, { holdPreview: vi.fn(), connectFrame: vi.fn() }),
         hasUnsavedChanges: () => session.hasUnsavedChanges(),
         saveAsDraft: vi.fn(async () => { session.unsaved = false; }),
         directPublishContent: vi.fn(async () => undefined),
@@ -91,11 +92,18 @@ describe('EntryEditPage', () => {
 
     afterEach(() => TestBed.resetTestingModule());
 
-    it('frames the preview route in edit mode, on the entry\'s own channel', () => {
-        expect(editFrameUrl('articles', 'doc1')).toBe(`/admin/preview/articles/doc1?edit=1#s=${encodeURIComponent(previewSessionKey('articles', 'doc1'))}`);
-        expect(editFrameUrl('a b', 'x/y')).toMatch(/^\/admin\/preview\/a%20b\/x%2Fy\?edit=1#s=/);
+    it('frames the preview route in edit mode, on a channel of this screen\'s own (review H2)', () => {
+        const key = editFrameKey('articles', 'doc1', () => 'r1');
+        expect(key).toBe(`${previewSessionKey('articles', 'doc1')}.edit.r1`);
+        expect(editFrameKey('articles', 'doc1')).not.toBe(editFrameKey('articles', 'doc1'));
+        expect(editFrameUrl('articles', 'doc1', key)).toBe(`/admin/preview/articles/doc1?edit=1#s=${encodeURIComponent(key)}`);
+        expect(editFrameUrl('a b', 'x/y', 'k')).toMatch(/^\/admin\/preview\/a%20b\/x%2Fy\?edit=1#s=k$/);
+        // An entry not saved yet: the frame draws `new` from the screen's draft (review H3).
+        expect(editFrameUrl('articles', '', 'k')).toBe('/admin/preview/articles/new?edit=1#s=k');
+        expect(editFrameKey('articles', 'new', () => 'r1')).toMatch(/^articles\.new\.[0-9a-f]+\.edit\.r1$/);
         expect(page.type).toBe('articles');
         expect(page.id).toBe('doc1');
+        expect(page.entryId).toBe('doc1');
     });
 
     it('says Saved, Unsaved changes, Saving and Not saved as the draft is', () => {
@@ -231,6 +239,34 @@ describe('EntryEditPage', () => {
             expect(editor.passEditorContentToParent).toHaveBeenCalledWith('<p>New</p>');
             page.setRich('events-notes', '<p>N</p>');
             expect(editor.onCustomFieldChange).toHaveBeenCalledWith('events-notes', '<p>N</p>');
+        });
+
+        it('shows what can be changed when the page is drawn, once, and the switch outlines it until turned off', () => {
+            const frame = document.createElement('iframe');
+            document.body.appendChild(frame);
+            const doc = frame.contentDocument!;
+            doc.body.innerHTML = '<h1 data-arc-edit-kind="text">T</h1><p id="fixed">Fixed words</p>';
+            const flash = vi.spyOn(EditableReveal.prototype, 'flash').mockReturnValue(true);
+            try {
+                (page as any).pageDrawn(doc);
+                (page as any).pageDrawn(doc);
+                expect(flash).toHaveBeenCalledTimes(1);
+                expect(page.showEditable()).toBe(false);
+                page.toggleShowEditable();
+                expect(doc.documentElement.hasAttribute('data-arc-show-edit')).toBe(true);
+                expect(readShowEditable()).toBe(true);
+                page.toggleShowEditable();
+                expect(doc.documentElement.hasAttribute('data-arc-show-edit')).toBe(false);
+                // A click on fixed words: the note, with a hint's words when the value has one.
+                const explain = vi.spyOn(page.reveal!, 'explainFixed').mockReturnValue(true);
+                page.inPlaceHost.fixedClick!(doc.getElementById('fixed')!, 5, 5);
+                expect(explain).toHaveBeenCalledWith(doc.getElementById('fixed'), 5, 5,
+                    expect.objectContaining({ lead: (page as any).transloco.translate('admin.edit_page.fixed_text') }));
+            } finally {
+                flash.mockRestore();
+                localStorage.clear();
+                frame.remove();
+            }
         });
 
         it('holds the page in the session while a spot is typed in', () => {
@@ -445,6 +481,37 @@ describe('EntryEditPage', () => {
             expect(page.spotActions()).toBeNull();
             delete (document.documentElement as unknown as { clientWidth?: number }).clientWidth;
             el.remove();
+        });
+
+        it('moves Done and Cancel beside the value when below it they would cover words (review M10)', () => {
+            const el = document.createElement('h3');
+            const next = document.createElement('p');
+            next.textContent = 'Ready in a minute';
+            document.body.append(el, next);
+            el.getBoundingClientRect = () => ({ left: 20, top: 100, right: 300, bottom: 120, width: 280, height: 20 }) as DOMRect;
+            page.frame = { nativeElement: { getBoundingClientRect: () => ({ left: 0, top: 40, right: 1000, bottom: 740, width: 1000, height: 700 }) } } as never;
+            page.inPlace = { current: () => ({ kind: 'text', el }) } as never;
+            Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+            const doc = document as Document & { elementFromPoint?: unknown };
+            const realRange = document.createRange.bind(document);
+            // The next line's words sit just under the value.
+            doc.elementFromPoint = (_x: number, y: number) => (y > 120 && y < 150 ? next : null);
+            (document as Document & { createRange: () => Range }).createRange = () => {
+                const range = realRange();
+                (range as Range & { getClientRects: () => DOMRect[] }).getClientRects = () => [{ left: 20, top: 128, right: 300, bottom: 146, width: 280, height: 18 } as DOMRect];
+                return range;
+            };
+            try {
+                page.syncSpotActions();
+                // Beside the value's last line, not over the next line.
+                expect(page.spotActions()).toEqual({ top: 40 + 120 - 28, left: 300 + 8 + 150 });
+            } finally {
+                (document as Document & { createRange: () => Range }).createRange = realRange;
+                delete doc.elementFromPoint;
+                delete (document.documentElement as unknown as { clientWidth?: number }).clientWidth;
+                el.remove();
+                next.remove();
+            }
         });
 
         it('Done leaves the value and Cancel cancels it', () => {

@@ -199,6 +199,14 @@ export class DraftContentsTableComponent
     return this.contentTypesStore.items().find(ct => ct.slug === this.contentTypeSlug) || null;
   });
 
+  /** The type's entries have pages of their own, so they are edited on the page too (VE-D14). */
+  hasPages = computed(() => !!this.currentContentType() && this.currentContentType()?.hasPublicUrl !== false);
+
+  /** An entry in the Visual Editor, on its page. */
+  openOnPage(contentId: string): void {
+    if (this.contentTypeSlug && contentId) this.router.navigate(['/admin/edit', this.contentTypeSlug, contentId]);
+  }
+
   /** The type is kept in its own order (SS2): the list offers Arrange. */
   isOwnOrder = computed(() => entryOrderOf(this.currentContentType()) === 'manual');
 
@@ -382,6 +390,16 @@ export class DraftContentsTableComponent
           class: 'edit',
           isRowClick: true,
           onAction: (row) => this.openContent(row.id),
+        },
+        {
+          action: 'visual-editor',
+          icon: 'fa-solid fa-pen-ruler text-primary',
+          label: 'admin.contents.list.visual_editor',
+          class: 'edit',
+          // Beside Edit, the two ways to change an entry; Preview and the rest go in the menu.
+          placement: 'inline',
+          hide: () => !this.hasPages(),
+          onAction: (row) => this.openOnPage(row.id),
         },
         {
           action: 'unpublish',
@@ -1040,8 +1058,11 @@ export class DraftContentsTableComponent
         this.notify.error('admin.contents.list.no_type_edit');
       }
     } else {
-      // Navigate to add page for this content type
-      if (this.contentTypeSlug) {
+      // A new entry of a type with pages starts on its page, in the Visual Editor (review H3);
+      // the classic editor is a button away there. A type without pages starts in the form.
+      if (this.contentTypeSlug && this.hasPages()) {
+        this.router.navigate(['/admin/edit', this.contentTypeSlug, 'new']);
+      } else if (this.contentTypeSlug) {
         this.router.navigate([`/admin/contents/${this.contentTypeSlug}/add`]);
       } else {
         this.router.navigate(['/admin/contents/create-content']);

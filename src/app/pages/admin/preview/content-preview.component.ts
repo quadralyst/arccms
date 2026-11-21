@@ -292,6 +292,9 @@ export class ContentPreviewComponent implements OnInit {
             limitCount: 1,
         } as QueryParams);
         if (!isPlatformBrowser(this.platformId)) return;
+        // On the Visual Editor the template's scripts do not run: `arc-editing` lets a
+        // template show what a script would reveal, as on the home page (VE-D55, review M8).
+        if (this.editMode) this.document.documentElement.classList.add('arc-editing');
         void this.localization.load();
         void this.loadHome();
 

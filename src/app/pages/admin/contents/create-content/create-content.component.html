@@ -669,7 +669,7 @@
                             <input type="text" class="form-control form-control-sm"
                                 [value]="customFieldValues[field.key] || ''"
                                 (input)="onCustomFieldChange(field.key, $any($event.target).value)" [id]="'cf-' + field.key"
-                                [placeholder]="isTranslating() ? (baseCustomFieldValue(field.key) || ('admin.contents.editor.enter_field' | transloco: { field: fieldLabel(field) })) : ('admin.contents.editor.enter_field' | transloco: { field: fieldLabel(field) })">
+                                [placeholder]="isTranslating() ? (baseCustomFieldValue(field.key) || fieldPlaceholder(field)) : fieldPlaceholder(field)">
                             }
                             
                             <!-- Number input -->
@@ -677,7 +677,7 @@
                             <input type="number" class="form-control form-control-sm"
                                 [value]="customFieldValues[field.key] || ''"
                                 (input)="onCustomFieldChange(field.key, $any($event.target).value)"
-                                [id]="'cf-' + field.key" [placeholder]="'admin.contents.editor.enter_field' | transloco: { field: fieldLabel(field) }">
+                                [id]="'cf-' + field.key" [placeholder]="fieldPlaceholder(field)">
                             }
 
                             <!-- Date: a day only (YYYY-MM-DD) -->

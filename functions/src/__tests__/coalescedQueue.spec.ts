@@ -271,10 +271,13 @@ describe('coalesced queue items', () => {
 
         it('stops after MAX_FAILED_RUNS runs in a row, so a run that always fails does not loop', async () => {
             await ask(1);
+            const givenUp: boolean[] = [];
             for (let run = 1; run <= MAX_FAILED_RUNS; run++) {
                 expect(await claimCoalesced(REDEPLOY_ALL_ID)).not.toBeNull();
-                await finishCoalesced(REDEPLOY_ALL_ID, undefined, failed);
+                givenUp.push(await finishCoalesced(REDEPLOY_ALL_ID, undefined, failed));
             }
+            // Only the last says it is not run again (review M1: the home page's words then show as not live).
+            expect(givenUp).toEqual([...Array(MAX_FAILED_RUNS - 1).fill(false), true]);
             expect(item(REDEPLOY_ALL_ID)).toBeUndefined();
             expect(queue.creates.get(REDEPLOY_ALL_ID)).toBe(MAX_FAILED_RUNS);
             // A new change asks again: a fresh run, with no failures counted.

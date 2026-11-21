@@ -47,6 +47,8 @@ export interface PageInPlaceHost {
     saveCardText(card: CardRef, field: string, value: string): void;
     /** The pointer is over a card (null when it left every card): the card bar follows it. */
     cardHover(el: HTMLElement | null): void;
+    /** A click on the page that opens nothing: words or a picture fixed by the design. */
+    fixedClick?(target: Element, x: number, y: number): void;
 }
 
 function cssEscape(value: string): string {
@@ -73,8 +75,8 @@ interface Typing {
 
 /** Outlines that say what can be changed, drawn in the frame's document. */
 export const IN_PLACE_CSS = `
-[data-arc-edit] { cursor: pointer; }
-[data-arc-edit]:hover { outline: 2px dashed var(--arc-edit-accent); outline-offset: 2px; }
+[data-arc-edit]:not([data-arc-fixed]) { cursor: pointer; }
+[data-arc-edit]:not([data-arc-fixed]):hover { outline: 2px dashed var(--arc-edit-accent); outline-offset: 2px; }
 [data-arc-editing], [data-arc-editing]:hover { outline: 2px solid var(--arc-edit-accent); outline-offset: 2px; cursor: text; }
 [data-arc-editing]:empty { min-width: 4ch; min-height: 1em; display: inline-block; }
 /* An empty area: a faint box with its placeholder, so it can be found and clicked. */
@@ -156,13 +158,20 @@ export class PageInPlace {
         const card = cardOf(target);
         const el = marked && card && marked.contains(card.el) ? null : marked;
         if (this.current && (el === this.current.el || (target && this.current.card && this.current.el.contains(target)))) return;
+        const typing = !!this.current;
         this.done();
         if (!el) {
-            this.onCardClick(target, event);
+            // A click away from the words being typed in only finishes them; with none open,
+            // a click on what cannot be changed says so and shows what can.
+            if (!this.onCardClick(target, event) && !typing && target) this.host.fixedClick?.(target, event.clientX, event.clientY);
             return;
         }
         const view = this.host.areaFor(el.getAttribute('data-arc-edit') || '');
-        if (!view) return;
+        if (!view) {
+            // A marked area the page keeps as its file has it (it holds other areas).
+            if (!typing && target) this.host.fixedClick?.(target, event.clientX, event.clientY);
+            return;
+        }
         event.preventDefault();
         event.stopPropagation();
         if (view.hasWords && (view.area.kind === 'text' || view.area.kind === 'rich' || view.area.kind === 'link')) {
@@ -175,9 +184,9 @@ export class PageInPlace {
     };
 
     /** A click on a card (VE-D54): its value typed in place, or its form opened. */
-    private onCardClick(target: Element | null, event: MouseEvent): void {
+    private onCardClick(target: Element | null, event: MouseEvent): boolean {
         const found = cardOf(target);
-        if (!found) return;
+        if (!found) return false;
         event.preventDefault();
         event.stopPropagation();
         const subEl = target?.closest<HTMLElement>('[data-arc-sub]') ?? null;
@@ -186,6 +195,7 @@ export class PageInPlace {
             ? this.host.cardText(found.card, sub) : null;
         if (field && subEl) this.startCardTyping(found.card, field, subEl, event);
         else this.host.openCard(found.card, sub || null);
+        return true;
     }
 
     private startCardTyping(card: CardRef, field: string, el: HTMLElement, event: MouseEvent): void {
@@ -292,6 +302,13 @@ export class PageInPlace {
 
     /** Puts each area's value on the page; the one being typed in is left alone (VE-D52). */
     patch(views: AreaView[]): void {
+        // A marked area the editor does not offer (it holds other areas, review M2, M3) is
+        // fixed: no outline, and a click on it says so.
+        const offered = new Set(views.map((view) => view.area.key));
+        for (const el of Array.from(this.doc.querySelectorAll<HTMLElement>('[data-arc-edit]'))) {
+            const fixed = !offered.has(el.getAttribute('data-arc-edit') || '');
+            if (el.hasAttribute('data-arc-fixed') !== fixed) el.toggleAttribute('data-arc-fixed', fixed);
+        }
         for (const view of views) {
             for (const el of Array.from(this.doc.querySelectorAll<HTMLElement>(`[data-arc-edit="${cssEscape(view.area.key)}"]`))) {
                 if (el === this.current?.el) continue;

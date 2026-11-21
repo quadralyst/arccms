@@ -52,6 +52,19 @@ describe('page text', () => {
         });
     });
 
+    describe('areas whose words would delete what is inside them (review M2, M3)', () => {
+        it('plain text holding elements keeps the file\'s words and elements', () => {
+            const out = both(page('<h1 data-arc-edit="hero">Hello <span class="accent">world</span><br>again</h1>'), text('en', 'hero', 'Hi'), EN);
+            expect(out).toContain('<h1>Hello <span class="accent">world</span><br>again</h1>');
+        });
+
+        it('an area holding another marked area keeps it, and the inner one is filled', () => {
+            const values: PageTextValues = { text: { en: { outer: { value: 'Gone' }, inner: { value: 'Kept' } } } };
+            const out = both(page('<div data-arc-edit="outer" data-arc-edit-kind="rich">Hi <span data-arc-edit="inner">in</span></div>'), values, EN);
+            expect(out).toContain('<div>Hi <span>Kept</span></div>');
+        });
+    });
+
     describe('kinds of area', () => {
         it('plain text, escaped', () => {
             const out = both(page('<h1 data-arc-edit="hero">Welcome</h1>'), text('en', 'hero', '<script>alert(1)</script> & you'), EN);

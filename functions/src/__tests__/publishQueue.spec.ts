@@ -138,7 +138,7 @@ vi.mock('../pages/card-blocks', () => ({
 const { mockRequestCoalesced, mockClaimCoalesced, mockFinishCoalesced } = vi.hoisted(() => ({
     mockRequestCoalesced: vi.fn(async (_action: string, _slug?: string) => 'queued'),
     mockClaimCoalesced: vi.fn(async (_id: string): Promise<Record<string, unknown> | null> => ({ state: 'running' })),
-    mockFinishCoalesced: vi.fn(async (_id: string, _continuation?: Record<string, unknown>, _outcome?: Record<string, unknown>) => undefined),
+    mockFinishCoalesced: vi.fn(async (_id: string, _continuation?: Record<string, unknown>, _outcome?: Record<string, unknown>) => false),
 }));
 vi.mock('../publishQueue/coalesced-items', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../publishQueue/coalesced-items.js')>()),
@@ -486,6 +486,16 @@ describe('processPublishQueue', () => {
             expect(mockFinishCoalesced).toHaveBeenCalledWith('home-page', undefined, { failed: true, error: 'no home page' });
         });
 
+        it('marks the home page\'s words as not live when its rebuild is given up (review M1)', async () => {
+            mockGenerateHome.mockRejectedValue(new Error('no home page'));
+            mockFinishCoalesced.mockResolvedValueOnce(false);
+            await handler(createEvent('home', '', '', 'home-page'));
+            expect(mockMarkUnreleased).not.toHaveBeenCalled();
+            mockFinishCoalesced.mockResolvedValueOnce(true);
+            await handler(createEvent('home', '', '', 'home-page'));
+            expect(mockMarkUnreleased).toHaveBeenCalledWith('home');
+        });
+
         it('runs nothing when another delivery of the trigger is running it', async () => {
             mockClaimCoalesced.mockResolvedValueOnce(null);
             await handler(createEvent('home', '', '', 'home-page'));
@@ -502,6 +512,15 @@ describe('processPublishQueue', () => {
             expect(mockPublishPageTextDraft).toHaveBeenCalledWith('home');
             expect(requested('home')).toHaveLength(1);
             expect(mockGenerateHome).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('marks the home page\'s copy as not live when its rebuild cannot be asked for (review M1)', async () => {
+            mockRequestCoalesced.mockRejectedValueOnce(new Error('offline'));
+            const event = createEvent('page-text', '', 'home');
+            await handler(event);
+            expect(mockPublishPageTextDraft).toHaveBeenCalledWith('home');
+            expect(mockMarkUnreleased).toHaveBeenCalledWith('home');
             expect(event.data.ref.delete).toHaveBeenCalled();
         });
 
@@ -670,7 +689,7 @@ describe('processPublishQueue', () => {
                 return { pages: 1, dropped: 0 };
             });
             mockDeployBatchToHosting.mockImplementation(async () => { order.push('release'); return true; });
-            mockFinishCoalesced.mockImplementationOnce(async () => { order.push('finish'); });
+            mockFinishCoalesced.mockImplementationOnce(async () => { order.push('finish'); return false; });
             const event = createEvent('items-from', 'events', '', ITEM_ID);
             await handler(event);
 

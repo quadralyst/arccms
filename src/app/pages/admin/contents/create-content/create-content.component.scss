@@ -155,7 +155,8 @@
     }
 
     &::placeholder {
-        color: #5c636a;
+        color: var(--arc-admin-placeholder, #9aa0a6);
+        font-style: italic;
     }
 }
 
@@ -315,7 +316,8 @@
     }
 
     &::placeholder {
-        color: #5c636a;
+        color: var(--arc-admin-placeholder, #9aa0a6);
+        font-style: italic;
         font-weight: 400;
     }
 }

@@ -46,9 +46,32 @@ describe('PageInPlace', () => {
     });
 
     it('outlines what can be changed, in the frame\'s own document', () => {
-        expect(doc.querySelector('style[data-arc-in-place]')?.textContent).toContain('[data-arc-edit]:hover');
+        expect(doc.querySelector('style[data-arc-in-place]')?.textContent).toContain('[data-arc-edit]:not([data-arc-fixed]):hover');
         inPlace.detach();
         expect(doc.querySelector('style[data-arc-in-place]')).toBeNull();
+    });
+
+    it('tells the screen about a click that opens nothing, but not one that only finishes typing', () => {
+        const fixedClick = vi.fn();
+        host.fixedClick = fixedClick;
+        click(doc.getElementById('plain')!);
+        expect(fixedClick).toHaveBeenCalledWith(doc.getElementById('plain'), 0, 0);
+        fixedClick.mockClear();
+        click(el('hero'));
+        click(doc.getElementById('plain')!);
+        expect(fixedClick).not.toHaveBeenCalled();
+    });
+
+    it('marks an area the editor does not offer as fixed: no outline, and a click says so', () => {
+        const fixedClick = vi.fn();
+        host.fixedClick = fixedClick;
+        views = views.filter((view) => view.area.key !== 'hero');
+        inPlace.patch(views);
+        expect(el('hero').hasAttribute('data-arc-fixed')).toBe(true);
+        expect(el('intro').hasAttribute('data-arc-fixed')).toBe(false);
+        click(el('hero'));
+        expect(host.typing).not.toHaveBeenCalled();
+        expect(fixedClick).toHaveBeenCalledWith(el('hero'), 0, 0);
     });
 
     it('types words in place, and Enter saves them (VE-D37)', () => {

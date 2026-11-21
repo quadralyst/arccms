@@ -729,6 +729,7 @@ export type TranslationKey =
     | 'admin.contents.list.view_history'
     | 'admin.contents.list.view_save_failed'
     | 'admin.contents.list.visible_columns'
+    | 'admin.contents.list.visual_editor'
     | 'admin.contents.preview.created'
     | 'admin.contents.preview.details'
     | 'admin.contents.preview.fields'
@@ -1227,6 +1228,9 @@ export type TranslationKey =
     | 'admin.edit_page.done'
     | 'admin.edit_page.done_title'
     | 'admin.edit_page.editing'
+    | 'admin.edit_page.fixed_outlined'
+    | 'admin.edit_page.fixed_scroll'
+    | 'admin.edit_page.fixed_text'
     | 'admin.edit_page.form'
     | 'admin.edit_page.form_title'
     | 'admin.edit_page.formatting'
@@ -1267,6 +1271,7 @@ export type TranslationKey =
     | 'admin.edit_page.saved'
     | 'admin.edit_page.saving'
     | 'admin.edit_page.section_title'
+    | 'admin.edit_page.show_editable'
     | 'admin.edit_page.strip'
     | 'admin.edit_page.subheading'
     | 'admin.edit_page.undo'
@@ -5181,6 +5186,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.list.view_history',
     'admin.contents.list.view_save_failed',
     'admin.contents.list.visible_columns',
+    'admin.contents.list.visual_editor',
     'admin.contents.preview.created',
     'admin.contents.preview.details',
     'admin.contents.preview.fields',
@@ -5679,6 +5685,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.done',
     'admin.edit_page.done_title',
     'admin.edit_page.editing',
+    'admin.edit_page.fixed_outlined',
+    'admin.edit_page.fixed_scroll',
+    'admin.edit_page.fixed_text',
     'admin.edit_page.form',
     'admin.edit_page.form_title',
     'admin.edit_page.formatting',
@@ -5719,6 +5728,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.saved',
     'admin.edit_page.saving',
     'admin.edit_page.section_title',
+    'admin.edit_page.show_editable',
     'admin.edit_page.strip',
     'admin.edit_page.subheading',
     'admin.edit_page.undo',

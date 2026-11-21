@@ -50,6 +50,10 @@ import { layoutLabel, siteLayouts } from '../../../../core/site/site';
 import { EntryDraftSession, EntryDraftView, TranslatableValues, isEmptyFieldValue } from '../draft-content-store/entry-draft-session';
 import { SiteLook, SiteLookService } from '../../../../core/site/site-look.service';
 import { SiteLookViewComponent } from '../../../../core/site/site-look-view';
+import { inSentence } from '../../../../core/utils/in-sentence';
+
+/** A text field holding an address, by its key (`download_url`, `cta_link`): its placeholder is an example address. */
+const LINK_FIELD_KEY = /(^|[_-])(url|link|href|website)$/i;
 
 export { AUTO_SAVE_DELAY_MS, addressFromTitle } from '../draft-content-store/entry-draft-session';
 
@@ -102,6 +106,8 @@ export interface PageModeHooks {
   reveal(key: string): boolean;
   /** Opens the Page settings panel. */
   openPanel(): void;
+  /** An entry started on the page was written for the first time: the page shows its address (review H3). */
+  stored?(id: string): void;
 }
 
 /** How long after the last title keystroke the address is checked with the server. */
@@ -1148,7 +1154,7 @@ export class CreateContentComponent extends BaseComponent {
       },
       echoesDone: () => this.pendingRichEchoes.clear(),
       revealMissing: (missing) => void this.revealMissingRequired(missing),
-      entryCreated: (id) => this.showEntryAddress(id),
+      entryCreated: (id) => this.pageHooks?.stored ? this.pageHooks.stored(id) : this.showEntryAddress(id),
       focusField: (key, row) => this.focusField(key, row),
       refresh: () => this.cdr.detectChanges(),
     };
@@ -1300,6 +1306,15 @@ export class CreateContentComponent extends BaseComponent {
    */
   fieldLabel(field: ContentTypeField): string {
     return contentTypeFieldLabel(this.currentContentType(), field.key, field.label, this.activeLang());
+  }
+
+  /**
+   * An empty custom field's placeholder: "Add download label", worded as the Visual
+   * Editor words an empty value on the page, or an example address for a link field.
+   */
+  fieldPlaceholder(field: ContentTypeField): string {
+    if (field.type === 'text' && LINK_FIELD_KEY.test(field.key)) return 'https://';
+    return this.translocoService.translate('admin.contents.editor.enter_field', { field: inSentence(this.fieldLabel(field)) });
   }
 
   /** Only free-text custom fields are translatable — see M-D5. */
@@ -1701,7 +1716,12 @@ export class CreateContentComponent extends BaseComponent {
   private setSlugValue(slug: string): void {
     // The canonical is left alone: empty means this page's own address,
     // which publishing builds from the site's public URL.
-    this.publishForm.get('urlSlug')?.setValue(slug);
+    const control = this.publishForm.get('urlSlug');
+    const changed = !!control && control.value !== slug;
+    control?.setValue(slug);
+    // The check answers after the typing that asked for it: the address is saved too,
+    // so a saved entry does not stay "Unsaved changes" with its address unwritten.
+    if (changed) this.session.saveSoon();
   }
 
   /**
@@ -2204,11 +2224,12 @@ export class CreateContentComponent extends BaseComponent {
   private navigationSubscription: Subscription | null = null;
 
   /**
-   * The edit-on-page screen is for a saved entry of a type with pages
-   * (specs/visual-editing-spec.md, VE-D14), and only on the form editor itself.
+   * The edit-on-page screen is for an entry of a type with pages
+   * (specs/visual-editing-spec.md, VE-D14), and only on the form editor itself;
+   * an entry not started yet is started there (review H3).
    */
   canEditOnPage(): boolean {
-    return !this.pageMode && !!this.contentId && !!this.contentTypeSlug && this.currentContentType()?.hasPublicUrl !== false;
+    return !this.pageMode && !!this.contentTypeSlug && this.currentContentType()?.hasPublicUrl !== false;
   }
 
   /** Edit on the page: the same entry on the edit-on-page screen, saving first. */
@@ -2217,7 +2238,7 @@ export class CreateContentComponent extends BaseComponent {
     if (this.hasUnsavedChanges()) await this.saveAsDraft();
     // A save that did not land keeps the editor here, with its line saying why.
     if (this.hasUnsavedChanges()) return;
-    void this.router.navigate(['/admin/edit', this.contentTypeSlug, this.contentId]);
+    void this.router.navigate(['/admin/edit', this.contentTypeSlug, this.contentId || 'new']);
   }
 
   /** Close: back to the type's entries, through the router, so the leave question can ask (RF4 review M1). */

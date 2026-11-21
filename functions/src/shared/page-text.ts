@@ -297,6 +297,9 @@ function applyArea($: cheerio.CheerioAPI, element: any, values: PageTextValues, 
         options,
     );
     const url = safePageTextUrl(values.urls?.[key]?.value);
+    // Words over other marked areas, or over elements inside plain text (a styled word, an
+    // icon, a line break), would delete them: such an area keeps the file's words (review M2, M3).
+    const wordsKept = $el.find('[data-arc-edit]').length > 0 || (kind === 'text' && $el.children().length > 0);
     const setText = (text: string | undefined) => {
         if (text === undefined) return;
         $el.text(text).removeAttr('data-arc-t').removeAttr('data-arc-t-params');
@@ -309,10 +312,10 @@ function applyArea($: cheerio.CheerioAPI, element: any, values: PageTextValues, 
 
     switch (kind) {
         case 'text':
-            setText(words(null));
+            if (!wordsKept) setText(words(null));
             break;
         case 'rich': {
-            const html = words(null);
+            const html = wordsKept ? undefined : words(null);
             if (html !== undefined) $el.html(sanitizeRichText(html)).removeAttr('data-arc-t').removeAttr('data-arc-t-params');
             break;
         }

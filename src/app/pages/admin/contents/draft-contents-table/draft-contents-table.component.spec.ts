@@ -833,6 +833,28 @@ describe('DraftContentsTableComponent', () => {
             expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/contents/articles/add']);
         });
 
+        it('starts a new entry of a type with pages on its page, in the Visual Editor (review H3)', () => {
+            component.contentTypeSlug = 'articles';
+            mockContentTypesStore.items.set([{ name: 'Articles', slug: 'articles' }]);
+            component.openContent('');
+            expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/edit', 'articles', 'new']);
+            mockRouter.navigate.mockClear();
+            mockContentTypesStore.items.set([{ name: 'Articles', slug: 'articles', hasPublicUrl: false }]);
+            component.openContent('');
+            expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/contents/articles/add']);
+        });
+
+        it('offers the Visual Editor on each row of a type with pages', () => {
+            component.contentTypeSlug = 'articles';
+            mockContentTypesStore.items.set([{ name: 'Articles', slug: 'articles' }]);
+            const action = component.endColumns.find((c) => c.key === 'actions')!.actions!.find((a) => a.action === 'visual-editor')!;
+            expect(action.hide!({} as never)).toBe(false);
+            action.onAction!({ id: 'doc1' } as never);
+            expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/edit', 'articles', 'doc1']);
+            mockContentTypesStore.items.set([{ name: 'Articles', slug: 'articles', hasPublicUrl: false }]);
+            expect(action.hide!({} as never)).toBe(true);
+        });
+
         it('should navigate to create-content fallback when no id and no contentTypeSlug', () => {
             component.contentTypeSlug = '';
             component.openContent('');

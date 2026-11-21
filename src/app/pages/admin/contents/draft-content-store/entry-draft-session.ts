@@ -1408,6 +1408,15 @@ export class EntryDraftSession implements OnDestroy {
     this.autoSaveTrigger$.next();
   }
 
+  /**
+   * A value the editor set itself changed (the address worked out from the title, which
+   * arrives after the server says it is free): the entry saves it like an edit, without
+   * marking a translation as changed. Before the first write, that write takes it.
+   */
+  saveSoon(): void {
+    if (this.contentId) this.autoSaveTrigger$.next();
+  }
+
   /** Whether a new entry has a title or a body worth keeping. */
   hasTypedSomething(): boolean {
     const base = this.baseLanguageValues();
@@ -1637,6 +1646,23 @@ export class EntryDraftSession implements OnDestroy {
   private previewLeaving = (): void => this.previewChannel?.post({ kind: 'bye', from: 'editor' });
 
   /**
+   * The Visual Editor's own frame (review H2): a channel only this screen and its frame
+   * share, so another tab editing the same entry never draws its draft in this one's page,
+   * and an entry not saved yet is drawn from the first moment. The preview window keeps
+   * the entry's shared channel (VE-D5).
+   */
+  private frameChannel: PreviewChannel | null = null;
+
+  connectFrame(key: string): void {
+    if (this.frameChannel || !key || typeof window === 'undefined') return;
+    this.frameChannel = new PreviewChannel(key, (message) => {
+      if (message.kind === 'hello') this.sendFrameState();
+      else this.onPreviewMessage(message);
+    });
+    this.schedulePreview();
+  }
+
+  /**
    * While a spot on the edit-on-page screen is being typed in, the page there
    * shows the change already and must not be redrawn under the cursor
    * (VE-D16): the draft goes when the spot is left.
@@ -1651,7 +1677,7 @@ export class EntryDraftSession implements OnDestroy {
 
   /** Sends the draft about 150 ms after the last change. */
   schedulePreview(): void {
-    if (!this.previewChannel || this.previewHeld) return;
+    if (!this.previewChannel && !this.frameChannel) return;
     if (this.previewTimer) clearTimeout(this.previewTimer);
     this.previewTimer = setTimeout(() => {
       this.previewTimer = null;
@@ -1697,9 +1723,23 @@ export class EntryDraftSession implements OnDestroy {
     return JSON.parse(JSON.stringify({ draft, lang, translation }));
   }
 
+  /**
+   * The draft to the preview window and the Visual Editor's frame. The hold of a spot
+   * being typed in keeps only the frame as it is: the window follows every keystroke.
+   */
   private sendPreviewState(): void {
-    if (!this.previewChannel || this.previewHeld || !this.view?.ready()) return;
-    this.previewChannel.post({ kind: 'state', ...this.previewState() });
+    if (!this.view?.ready()) return;
+    const frame = this.previewHeld ? null : this.frameChannel;
+    if (!this.previewChannel && !frame) return;
+    const state = { kind: 'state' as const, ...this.previewState() };
+    this.previewChannel?.post(state);
+    frame?.post(state);
+  }
+
+  /** The frame asked for the draft (its first draw, a reload). */
+  private sendFrameState(): void {
+    if (!this.frameChannel || this.previewHeld || !this.view?.ready()) return;
+    this.frameChannel.post({ kind: 'state', ...this.previewState() });
   }
 
   /** A message from the preview window: `hello` asks for the draft, `focus` for a field. */
@@ -1736,6 +1776,8 @@ export class EntryDraftSession implements OnDestroy {
     this.previewLeaving();
     this.previewChannel?.close();
     this.previewChannel = null;
+    this.frameChannel?.close();
+    this.frameChannel = null;
     if (typeof window !== 'undefined') window.removeEventListener('pagehide', this.previewLeaving);
     this.deployStatusSubscription?.unsubscribe();
     this.autoSaveSubscription?.unsubscribe();

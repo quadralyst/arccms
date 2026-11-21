@@ -15,7 +15,7 @@
  * panel shows on the page at once. The panel slides over the page from the
  * right, peeks when the page is drawn, and has a handle on the page's edge.
  */
-import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { DOCUMENT, isPlatformBrowser, Location } from '@angular/common';
 import {
     AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, HostListener, PLATFORM_ID, ViewChild,
     computed, inject, signal,
@@ -24,13 +24,13 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { Editor } from '@tiptap/core';
 import { TextSelection } from 'prosemirror-state';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationCancel, Router } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { CreateContentComponent, PageModeHooks } from '../contents/create-content/create-content.component';
 import { previewSessionKey } from '../../../core/preview/preview-channel';
 import { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
 import { PagePanel } from './page-panel';
-import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichContext, RichHandle, Spot, SpotInfo, spotInfo } from './in-place';
+import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichContext, RichHandle, Spot, SpotInfo, isRowPart, spotInfo } from './in-place';
 import { insertRowsAfter, moveRow, removeRow, restoreRow, rowsAcross, setRowLocation, setRowMedia, setRowValue } from './rows';
 import { MapPickerComponent, PickedLocation } from '../../../../shared/components/map-picker/map-picker.component';
 import { repeaterFieldOf } from '../../../core/preview/row-fields';
@@ -40,6 +40,9 @@ import {
 import { isYouTubeUrl } from '../../../../shared/utils/youtube';
 import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
 import { ArcEmptyLines } from './empty-lines';
+import { boxAt, coversWords, firstClear } from './placement';
+import { EditableReveal, readShowEditable, writeShowEditable } from './editable-reveal';
+import { inSentence } from '../../../core/utils/in-sentence';
 import { isTranslatableField, TRANSLATABLE_BUILTIN_FIELDS } from '../contents/draft-content-store/content-translation.model';
 import { placeImage, removeImage, selectImage, selectedImage, setImageAlt } from '../../../../shared/components/tiptap-editor/service/image-actions';
 import { UrlAddDialog } from '../../../../shared/components/tiptap-editor/service/url-add-dialog/add-url.component';
@@ -70,15 +73,26 @@ const HINT_KEYS: Record<HintKind, string> = {
     shared: 'admin.edit_page.hint_shared',
 };
 
-/** A label inside a sentence ("Add cover image"): its first letter small, unless it starts an acronym (URL, FAQ). */
-export function inSentence(label: string): string {
-    return /^\p{Lu}\p{Ll}/u.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
+/** A label inside a sentence ("Add cover image"), shared with the form editor's placeholders. */
+export { inSentence };
+
+/**
+ * The frame's channel key: the entry's key plus a part of its own, so only this screen
+ * draws in its frame, never another tab editing the same entry (review H2).
+ */
+export function editFrameKey(type: string, id: string, random: () => string = frameRandom): string {
+    return `${previewSessionKey(type, id === 'new' ? '' : id)}.edit.${random()}`;
 }
 
-/** The frame's address: the preview route in edit mode, on the session's channel. */
-export function editFrameUrl(type: string, id: string): string {
-    const key = previewSessionKey(type, id);
-    return `/admin/preview/${encodeURIComponent(type)}/${encodeURIComponent(id)}?edit=1#s=${encodeURIComponent(key)}`;
+function frameRandom(): string {
+    const bytes = new Uint8Array(6);
+    globalThis.crypto?.getRandomValues?.(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('') || String(Date.now());
+}
+
+/** The frame's address: the preview route in edit mode, on the screen's own channel (`new` before the first save). */
+export function editFrameUrl(type: string, id: string, key: string): string {
+    return `/admin/preview/${encodeURIComponent(type)}/${encodeURIComponent(id || 'new')}?edit=1#s=${encodeURIComponent(key)}`;
 }
 
 @Component({
@@ -110,6 +124,9 @@ export function editFrameUrl(type: string, id: string): string {
             }
         </span>
         }
+        <!-- What can be changed, outlined until turned off (remembered for this person). -->
+        <button type="button" class="arc-ed-btn" [class.arc-ed-on]="showEditable()" [attr.aria-pressed]="showEditable()" (click)="toggleShowEditable()"
+            [title]="'admin.edit_page.show_editable' | transloco" [attr.aria-label]="'admin.edit_page.show_editable' | transloco" data-testid="edit-show-editable"><i class="bi bi-bounding-box" aria-hidden="true"></i></button>
         <span class="arc-ed-group" role="group" [attr.aria-label]="'admin.preview.width' | transloco">
             <button type="button" class="arc-ed-btn" [class.arc-ed-on]="!phone()" [attr.aria-pressed]="!phone()" (click)="phone.set(false)"
                 [title]="'admin.preview.full_width' | transloco" [attr.aria-label]="'admin.preview.full_width' | transloco" data-testid="edit-desktop"><i class="bi bi-display" aria-hidden="true"></i></button>
@@ -147,7 +164,7 @@ export function editFrameUrl(type: string, id: string): string {
                 <span aria-hidden="true">{{ panel.open() ? '\u203a' : '\u2039' }}</span>
             </button>
             <div class="arc-ed-panel-body" [attr.inert]="panel.shown() ? null : ''" (focusin)="panelInUse()" (pointerdown)="panelInUse()">
-                <arc-create-content [contentTypeSlug]="type" [contentId]="id" [pageMode]="true" [pageHooks]="hooks" />
+                <arc-create-content [contentTypeSlug]="type" [contentId]="entryId" [pageMode]="true" [pageHooks]="hooks" />
             </div>
         </aside>
     </div>
@@ -263,13 +280,26 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
 
     readonly type = this.route.snapshot.paramMap.get('type') || '';
     readonly id = this.route.snapshot.paramMap.get('id') || '';
+    /** The entry the form editor loads: '' for `new`, an entry started on the page (review H3). */
+    readonly entryId = this.id === 'new' ? '' : this.id;
+    /** The frame's own channel (review H2). */
+    private readonly frameKey = editFrameKey(this.type, this.id);
     /** Only in the browser: the server draws no frame. */
     readonly frameUrl: SafeResourceUrl | null = isPlatformBrowser(this.platformId) && this.type && this.id
-        ? this.sanitizer.bypassSecurityTrustResourceUrl(editFrameUrl(this.type, this.id))
+        ? this.sanitizer.bypassSecurityTrustResourceUrl(editFrameUrl(this.type, this.entryId, this.frameKey))
         : null;
+    private location = inject(Location);
 
     readonly panel = new PagePanel();
     readonly phone = signal(false);
+    /** The top bar's switch: every part that can be changed outlined, as this person left it. */
+    readonly showEditable = signal(readShowEditable());
+    /** The outlines that show what can be changed, on the frame's page. */
+    reveal: EditableReveal | null = null;
+    /** The outlines move once when the screen opens, not again when the frame is drawn again. */
+    private revealedOnce = false;
+    /** When a click on the page last put a box away: that click does not also explain the page. */
+    private boxClosedAt = 0;
     readonly status = signal<EditStatus>('saved');
     readonly busy = signal(false);
     /** The page is drawn in the frame with the draft in place. */
@@ -353,7 +383,23 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     readonly hooks: PageModeHooks = {
         reveal: (key) => this.revealOnPage(key),
         openPanel: () => this.panel.setOpen(true),
+        stored: (id) => this.showEntryAddress(id),
     };
+
+    /** An entry started on the page is written: the address names it, so a reload opens it (review H3). */
+    private showEntryAddress(id: string): void {
+        if (!id || this.entryId) return;
+        this.location.replaceState(this.entryPath(id), '', typeof history !== 'undefined' ? history.state : undefined);
+    }
+
+    private entryPath(id: string): string {
+        return `/admin/edit/${encodeURIComponent(this.type)}/${encodeURIComponent(id)}`;
+    }
+
+    /** The entry being edited: its id once written, '' before. */
+    private currentId(): string {
+        return this.editor?.contentId || this.entryId;
+    }
 
     /** An alert in the panel (a change elsewhere, a failed save or publish) was showing. */
     private alerting = false;
@@ -365,6 +411,16 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         // and the page's spots are worked out from them. Nothing else on this screen,
         // outside the admin shell, loads them.
         if (!this.typesStore.items().some((t: ContentType) => t.slug === this.type)) this.typesStore.getAll();
+        // The frame draws from this screen's own channel, from the first moment (review H2, H3).
+        this.editor?.session.connectFrame(this.frameKey);
+        // A leave question answered Stay puts the router's address back: an entry written meanwhile keeps its own.
+        const cancelled = this.router.events?.subscribe((event) => {
+            const id = this.editor?.contentId;
+            if (event instanceof NavigationCancel && id && !this.entryId) {
+                this.location.replaceState(this.entryPath(id), '', typeof history !== 'undefined' ? history.state : undefined);
+            }
+        });
+        this.destroyRef.onDestroy(() => cancelled?.unsubscribe());
         const timer = setInterval(() => {
             this.readStatus();
             // The page may have been drawn again: the bar follows its row, the buttons their value.
@@ -383,6 +439,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             this.frameCleanup?.();
             this.closePopover();
             this.inPlace?.detach();
+            this.reveal?.detach();
             this.panel.destroy();
         });
     }
@@ -466,7 +523,10 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             const target = event.target as Element | null;
             const onSpot = !!target?.closest?.('[data-arc-edit-kind]')
                 || (!!target && !!this.inPlace?.frameSpotAt(target, (event as PointerEvent).clientX, (event as PointerEvent).clientY));
-            if (this.pop() && !onSpot) this.closePopover();
+            if (this.pop() && !onSpot) {
+                this.closePopover();
+                this.boxClosedAt = Date.now();
+            }
         };
         const onKey = (event: KeyboardEvent) => {
             if (event.key === 'Escape') this.onKey(event);
@@ -491,6 +551,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             this.bar.set(null);
             this.inPlace?.detach();
             this.inPlace = null;
+            this.reveal?.detach();
+            this.reveal = null;
         };
         this.waitForDraw(doc, win);
     }
@@ -535,6 +597,37 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         this.inPlace?.detach();
         this.inPlace = new InPlaceEditing(doc, this.inPlaceHost);
         this.inPlace.attach();
+        this.reveal?.detach();
+        this.reveal = new EditableReveal(doc, { selector: '[data-arc-edit-kind]' });
+        this.reveal.attach();
+        this.reveal.setShown(this.showEditable());
+        // The page opens showing what can be changed on it, once.
+        if (!this.revealedOnce) {
+            this.revealedOnce = true;
+            this.reveal.flash();
+        }
+    }
+
+    /** The top bar's switch: every part that can be changed outlined, or not. */
+    toggleShowEditable(): void {
+        const on = !this.showEditable();
+        this.showEditable.set(on);
+        writeShowEditable(on);
+        this.reveal?.setShown(on);
+    }
+
+    /**
+     * A click on the page that opens nothing: a note by the click says why (where the
+     * value comes from, or that the design fixes it) and the parts that can be changed move.
+     */
+    private fixedClick(target: Element, x: number, y: number): void {
+        if (!this.reveal || Date.now() - this.boxClosedAt < 600 || this.pic()) return;
+        const hint = target.closest('[data-arc-hint]')?.getAttribute('data-arc-hint') as HintKind | null;
+        this.reveal.explainFixed(target, x, y, {
+            lead: hint && HINT_KEYS[hint] ? this.inPlaceHost.hint(hint) : this.transloco.translate('admin.edit_page.fixed_text'),
+            outlined: this.transloco.translate('admin.edit_page.fixed_outlined'),
+            scroll: this.transloco.translate('admin.edit_page.fixed_scroll'),
+        });
     }
 
     /**
@@ -580,10 +673,13 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         panel: (spot) => this.openInPanel(spot),
         placeholder: (field, label, info) => this.placeholderFor(field, label, info),
         hint: (kind) => this.transloco.translate(HINT_KEYS[kind], { language: this.defaultLanguageLabel() }),
+        fieldName: (info, label) => label ?? this.fieldTitle(info.field),
+        fixedClick: (target, x, y) => this.fixedClick(target, x, y),
         shared: (field, builtin, info) => this.sharedField(field, builtin, info),
         partText: (info) => this.partText(info),
         setPartText: (info, value) => this.setPartText(info, value),
-        untranslated: (info) => !!this.editor?.session.isTranslating() && !this.partText(info),
+        untranslated: (info) => !!this.editor?.session.isTranslating()
+            && !(isRowPart(info) ? this.partText(info) : String(this.fieldValue(info.field) ?? '')),
         rowHover: (row) => this.rowHover(row),
         translating: () => !!this.editor?.session.isTranslating(),
         emptyList: (field) => this.emptyList(field),
@@ -1059,7 +1155,10 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (!on) this.rowHover(null);
     }
 
-    /** The bar at the row's top right, inside it, below the strip; across arrows for rows side by side. */
+    /**
+     * The bar at the row's top right: just above the row when that covers no words, else
+     * inside its top (review M10); below the strip; across arrows for rows side by side.
+     */
     private placeBar(row: HTMLElement): void {
         const field = row.getAttribute('data-arc-field') || '';
         const type = this.contentType();
@@ -1076,9 +1175,17 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const next = row.ownerDocument.querySelector<HTMLElement>(`[data-arc-row][data-arc-field="${cssEscape(field)}"][data-arc-row-id="${cssEscape(ids[index + 1] ?? ids[index - 1] ?? '')}"]`);
         const frameTop = frame?.top ?? 0;
         const frameBottom = frame?.bottom ?? (this.document.defaultView?.innerHeight ?? 768);
+        const doc = row.ownerDocument;
+        const width = doc.documentElement.clientWidth;
+        const right = Math.min(box.right, width) - 4;
+        const place = firstClear(
+            [boxAt(right, box.top - BAR_HEIGHT - 2, BAR_WIDTH, BAR_HEIGHT), boxAt(right, box.top + 4, BAR_WIDTH, BAR_HEIGHT)],
+            { width, height: frameBottom - frameTop },
+            (b) => coversWords(doc, b),
+        );
         // Off the frame's top: held at its top while the row is still showing.
-        const top = Math.min(Math.max(frameTop + box.top + 4, frameTop + 4), frameBottom - 34);
-        const left = (frame?.left ?? 0) + Math.min(box.right, row.ownerDocument.documentElement.clientWidth) - 4;
+        const top = Math.round(Math.min(Math.max(frameTop + place.top, frameTop + 4), frameBottom - 34));
+        const left = Math.round((frame?.left ?? 0) + right);
         const visible = box.bottom > 0 && box.top < frameBottom - frameTop;
         if (!visible) {
             this.bar.set(null);
@@ -1321,12 +1428,24 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             if (this.spotActions()) this.spotActions.set(null);
             return;
         }
-        const top = Math.round(area.top + Math.min(box.bottom + 6, area.height - SPOT_ACTIONS_HEIGHT - 8));
         // Page settings open over the page: the buttons stay on the page's side of it.
         const panelLeft = this.panel.shown() ? this.panelBox?.nativeElement.getBoundingClientRect().left ?? Infinity : Infinity;
-        const right = Math.min(area.left + Math.min(box.right, spot.el.ownerDocument.documentElement.clientWidth - 4), panelLeft - 8);
+        const doc = spot.el.ownerDocument;
+        const width = Math.min(doc.documentElement.clientWidth - 4, panelLeft - 8 - area.left);
+        const pair = this.document.querySelector<HTMLElement>('.arc-ed-spot')?.getBoundingClientRect().width || SPOT_ACTIONS_PAIR;
+        // A short value near the left edge: the pair keeps inside the window.
+        const right = Math.max(Math.min(box.right, width), pair + 4);
+        const below = boxAt(right, Math.min(box.bottom + 6, area.height - SPOT_ACTIONS_HEIGHT - 8), pair, SPOT_ACTIONS_HEIGHT);
+        // A value taller than the window (the body): at the window's bottom, as before. Else the
+        // first place that covers no words: below, beside the last line, above (review M10).
+        const place = box.bottom + 6 + SPOT_ACTIONS_HEIGHT > area.height ? below : firstClear([
+            below,
+            boxAt(box.right + 8 + pair, box.bottom - SPOT_ACTIONS_HEIGHT, pair, SPOT_ACTIONS_HEIGHT),
+            boxAt(right, box.top - SPOT_ACTIONS_HEIGHT - 6, pair, SPOT_ACTIONS_HEIGHT),
+        ], { width, height: area.height }, (b) => coversWords(doc, b));
+        const top = Math.round(area.top + place.top);
         // A short value near the left edge: the buttons keep inside the window.
-        const left = Math.round(Math.max(right, SPOT_ACTIONS_WIDTH + 8));
+        const left = Math.round(Math.max(area.left + place.right, SPOT_ACTIONS_WIDTH + 8));
         const now = this.spotActions();
         if (now && now.top === top && now.left === left) return;
         this.spotActions.set({ top, left });
@@ -1495,7 +1614,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     async toForm(): Promise<void> {
         // The screen closed while saving: the editor has gone somewhere else already.
         if (!(await this.saveFirst()) || this.destroyed) return;
-        void this.router.navigate(['/admin/contents', this.type, 'edit', this.id]);
+        const id = this.currentId();
+        void this.router.navigate(id ? ['/admin/contents', this.type, 'edit', id] : ['/admin/contents', this.type, 'add']);
     }
 
     /** Live Preview: the entry's own preview window, opened or brought forward, as from the classic editor. */
@@ -1545,6 +1665,11 @@ export interface RowBar {
 /** How tall and wide the Done and Cancel buttons are, to keep them inside the window. */
 const SPOT_ACTIONS_HEIGHT = 28;
 const SPOT_ACTIONS_WIDTH = 170;
+/** Done and Cancel's own width before they are first drawn. */
+const SPOT_ACTIONS_PAIR = 150;
+/** The row bar's size, for finding a place that covers no words. */
+const BAR_HEIGHT = 30;
+const BAR_WIDTH = 124;
 
 /** About how tall the map box is: search, map, address and point boxes. */
 const MAP_BOX_HEIGHT = 470;

@@ -5,7 +5,7 @@
  * and no redraw under the cursor.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { hintKind, InPlaceEditing, InPlaceHost, linesText, pictureAt, plainText, spotInfo, textAt } from './in-place';
+import { hintKind, InPlaceEditing, InPlaceHost, linesText, pictureAt, plainText, spotInfo, textAt, typedAsShown } from './in-place';
 import { ContentType } from '../contents/content-types/content-types.model';
 
 const TYPE = {
@@ -687,5 +687,145 @@ describe('InPlaceEditing', () => {
         host.type.mockReturnValue(TYPE as never);
         await new Promise((resolve) => setTimeout(resolve, 300));
         expect(q('[data-arc-field="title"]').getAttribute('data-arc-edit-kind')).toBe('text');
+    });
+});
+
+describe('typing only where the page shows the stored words (review H1, M4, M5, M6)', () => {
+    let doc: Document;
+    let frame: HTMLIFrameElement;
+    let host: InPlaceHost & Record<string, ReturnType<typeof vi.fn>>;
+    let editing: InPlaceEditing;
+    let translating = false;
+    const values: Record<string, unknown> = {};
+
+    beforeEach(() => {
+        frame = document.createElement('iframe');
+        document.body.appendChild(frame);
+        doc = frame.contentDocument!;
+        translating = false;
+        for (const k of Object.keys(values)) delete values[k];
+        host = {
+            type: vi.fn(() => TYPE),
+            value: vi.fn((field: string) => values[field] ?? ''),
+            setText: vi.fn(),
+            setRich: vi.fn(),
+            hold: vi.fn(),
+            mountRich: vi.fn(),
+            image: vi.fn(),
+            popover: vi.fn(),
+            panel: vi.fn(),
+            activeChanged: vi.fn(),
+            translating: vi.fn(() => translating),
+            placeholder: vi.fn((field: string, label: string | null) => `Add ${label ?? field}`),
+            hint: vi.fn((kind: string) => `hint:${kind}`),
+            fieldName: vi.fn((info: { field: string }, label: string | null) => label ?? `Name of ${info.field}`),
+        } as never;
+        editing = new InPlaceEditing(doc, host);
+    });
+
+    afterEach(() => {
+        editing.detach();
+        frame.remove();
+    });
+
+    const page = (html: string) => {
+        doc.body.innerHTML = html;
+        editing.attach();
+        for (const node of Array.from(doc.querySelectorAll<HTMLElement>('[data-arc-edit-kind]'))) node.getClientRects = () => [{}] as never;
+    };
+    const q = (selector: string) => doc.querySelector(selector) as HTMLElement;
+    const click = (target: Element) => target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    const key = (name: string, shiftKey = false) => {
+        const event = new KeyboardEvent('keydown', { key: name, shiftKey, bubbles: true, cancelable: true });
+        (doc.activeElement ?? doc.body).dispatchEvent(event);
+        return event;
+    };
+
+    it('tells the screen about a click that opens nothing, but not one that only finishes typing', () => {
+        values['events-venue'] = 'Hall';
+        host.fixedClick = vi.fn();
+        page('<p id="fixed">Words the design fixes</p><p><span data-arc-field="venue">Hall</span></p>');
+        click(q('#fixed'));
+        expect(host.fixedClick).toHaveBeenCalledWith(q('#fixed'), 0, 0);
+        host.fixedClick.mockClear();
+        click(q('[data-arc-field="venue"]'));
+        expect(editing.current()?.field).toBe('events-venue');
+        click(q('#fixed'));
+        expect(editing.current()).toBeNull();
+        expect(host.fixedClick).not.toHaveBeenCalled();
+    });
+
+    it('opens a text field in its box when the page shows something else: a link label, markup, a line break', () => {
+        values['events-venue'] = 'https://tickets.example/hall';
+        page('<p><span data-arc-field="venue">Buy tickets</span></p>');
+        click(q('[data-arc-field="venue"]'));
+        expect(editing.current()).toBeNull();
+        expect(host.popover).toHaveBeenCalledWith(expect.objectContaining({ field: 'events-venue', kind: 'popover' }));
+
+        values['events-venue'] = 'Fast <strong>delivery</strong>';
+        page('<p><span data-arc-field="venue">Fast <strong>delivery</strong></span></p>');
+        host.popover.mockClear();
+        click(q('[data-arc-field="venue"]'));
+        expect(host.popover).toHaveBeenCalled();
+        expect(host.setText).not.toHaveBeenCalled();
+    });
+
+    it('sends the summary with line breaks to Page settings, and types one shown as stored', () => {
+        values['summary'] = 'One\nTwo';
+        page('<p data-arc-field="summary">One\nTwo</p>');
+        click(q('[data-arc-field="summary"]'));
+        expect(host.panel).toHaveBeenCalledWith(expect.objectContaining({ field: 'summary' }));
+        values['summary'] = 'Short  and   plain';
+        page('<p data-arc-field="summary">Short and plain</p>');
+        click(q('[data-arc-field="summary"]'));
+        expect(editing.current()?.field).toBe('summary');
+    });
+
+    it('in a translation, starts a title and a text field not translated yet from empty, the default words faint', () => {
+        translating = true;
+        page('<h1><span data-arc-field="title">Concert</span></h1><span data-arc-field="venue">Hall</span>');
+        expect(q('[data-arc-field="venue"]').hasAttribute('data-arc-untranslated')).toBe(false);
+        click(q('[data-arc-field="title"]'));
+        expect(q('[data-arc-field="title"]').textContent).toBe('');
+        expect(q('[data-arc-field="title"]').getAttribute('data-arc-ph')).toBe('Add title');
+        // Left untouched: the default language's words come back and nothing is written.
+        key('Enter');
+        expect(q('[data-arc-field="title"]').textContent).toBe('Concert');
+        expect(host.setText).not.toHaveBeenCalled();
+        click(q('[data-arc-field="venue"]'));
+        expect(editing.current()?.field).toBe('events-venue');
+        expect(q('[data-arc-field="venue"]').textContent).toBe('');
+    });
+
+    it('tabs from a header link to the next spot, and from the footer out of the page', () => {
+        page('<header><a id="home" href="/">Home</a></header><span data-arc-field="title">T</span>'
+            + '<span data-arc-field="price">5</span><footer><a id="foot" href="/x">X</a></footer>');
+        q('#home').focus();
+        expect(key('Tab').defaultPrevented).toBe(true);
+        expect(editing.current()?.field).toBe('title');
+        key('Escape');
+        q('#foot').focus();
+        expect(key('Tab').defaultPrevented).toBe(false);
+        expect(key('Tab', true).defaultPrevented).toBe(true);
+        expect(doc.activeElement).toBe(q('[data-arc-field="price"]'));
+        q('#home').focus();
+        expect(key('Tab', true).defaultPrevented).toBe(false);
+    });
+
+    it('names each spot for a screen reader: a button while waiting, a text box while typed in', () => {
+        values['title'] = 'Concert';
+        page('<span data-arc-field="title">Concert</span><span data-arc-field="price">5</span>');
+        expect(q('[data-arc-field="title"]').getAttribute('role')).toBe('button');
+        expect(q('[data-arc-field="title"]').getAttribute('aria-label')).toBe('Name of title: Concert');
+        click(q('[data-arc-field="title"]'));
+        expect(q('[data-arc-field="title"]').getAttribute('role')).toBe('textbox');
+        expect(q('[data-arc-field="title"]').getAttribute('aria-label')).toBe('Name of title');
+    });
+
+    it('decides "typed as shown" on the words, never the spacing', () => {
+        expect(typedAsShown('A  b', ' A b ')).toBe(true);
+        expect(typedAsShown('A\nb', 'A b')).toBe(false);
+        expect(typedAsShown('a<br>b', 'ab')).toBe(false);
+        expect(typedAsShown('', '')).toBe(true);
     });
 });

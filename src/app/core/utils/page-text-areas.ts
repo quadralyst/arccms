@@ -97,6 +97,17 @@ function kindOf(element: Element): PageTextKind {
     return 'text';
 }
 
+/**
+ * An area whose words cannot be changed without losing what is inside it: one holding
+ * other marked areas, or plain text holding elements (a styled word, an icon, a line
+ * break). Mark the parts inside instead, or use `data-arc-edit-kind="rich"` for bold,
+ * italic, links and line breaks. Kept the same as page-text.ts by page-text-areas.spec.ts.
+ */
+export function wordsKept(element: Element, kind: PageTextKind): boolean {
+    if (kind !== 'text' && kind !== 'rich') return false;
+    return !!element.querySelector('[data-arc-edit]') || (kind === 'text' && element.children.length > 0);
+}
+
 /** Reads the marked areas, card blocks, title and description of a page's file. */
 export function readPageFile(html: string): PageFile {
     const doc = new DOMParser().parseFromString(html || '', 'text/html');
@@ -114,6 +125,8 @@ export function readPageFile(html: string): PageFile {
         const key = (element.getAttribute('data-arc-edit') || '').trim();
         const kind = kindOf(element);
         if (!PAGE_TEXT_KEY.test(key) || seen.has(key) || kind === 'none' || kind === 'title' || kind === 'description') continue;
+        // Words the publisher keeps as the file has them (page-text.ts, review M2, M3): not offered.
+        if (wordsKept(element, kind)) continue;
         seen.add(key);
         const area: PageTextArea = {
             key, kind,

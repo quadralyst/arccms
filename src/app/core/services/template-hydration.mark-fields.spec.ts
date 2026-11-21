@@ -115,10 +115,28 @@ describe('markFields on (VE-D7)', () => {
         expect(out).toContain('data-arc-field-attr="href"');
     });
 
-    it('prefers the whole element\'s binding to an attribute\'s', () => {
+    it('prefers the whole element\'s binding to an attribute\'s, named by where it went', () => {
         const out = mark('<img alt="{{ summary }}" data-arc-bind="coverImage">');
         expect(out).toContain('data-arc-field="coverImage"');
-        expect(out).not.toContain('data-arc-field-attr');
+        expect(out).toContain('data-arc-field-attr="src"');
+    });
+
+    it('marks data-arc-bind with the attribute it fills: a link, a form value, a date (review H1)', () => {
+        expect(mark('<a data-arc-bind="url">Register</a>')).toContain('data-arc-field="url" data-arc-field-attr="href"');
+        expect(mark('<input data-arc-bind="title">')).toContain('data-arc-field-attr="value"');
+        expect(mark('<time data-arc-bind="url"></time>')).toContain('data-arc-field-attr="datetime"');
+        expect(mark('<p data-arc-bind="summary">x</p>')).not.toContain('data-arc-field-attr');
+    });
+
+    it('marks a picture or a link by its address, whichever attribute comes first (review M7)', () => {
+        const out = mark('<img alt="{{ title }}" src="{{ coverImage }}">');
+        expect(out).toContain('data-arc-field="coverImage"');
+        expect(out).toContain('data-arc-field-attr="src"');
+        const link = mark('<a class="btn {{ summary }}" href="{{ url }}">Go</a>');
+        expect(link).toContain('data-arc-field="url"');
+        expect(link).toContain('data-arc-field-attr="href"');
+        // An address first stays: another attribute after it does not take the mark.
+        expect(mark('<img src="{{ coverImage }}" alt="{{ title }}">')).toContain('data-arc-field="coverImage"');
     });
 
     it('wraps each {{ key }} in text in a span naming it, escaping the value and keeping the text around', () => {
