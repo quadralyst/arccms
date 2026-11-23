@@ -59,6 +59,47 @@ describe('EditableReveal', () => {
         expect(reveal.showing).toBe(false);
     });
 
+    it('follows a part that moves while the outlines show, a font arriving or a section sliding up', () => {
+        const title = document.getElementById('title')!;
+        const at = { top: 300 };
+        boxes(new Map([[title, at]]));
+        const frames: FrameRequestCallback[] = [];
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => { frames.push(cb); return frames.length; });
+        reveal.flash();
+        const svg = document.querySelector('[data-arc-reveal] svg') as SVGSVGElement;
+        expect(svg.style.top).toBe('297px');
+        // The section slides up into place: the next frame moves the same outline with it.
+        at.top = 120;
+        frames.shift()!(0);
+        expect(document.querySelector('[data-arc-reveal] svg')).toBe(svg);
+        expect(svg.style.top).toBe('117px');
+    });
+
+    it('waits for the page\'s fonts before outlining, but never long', async () => {
+        boxes(new Map([[document.getElementById('title')!, { top: 10 }]]));
+        let arrive!: () => void;
+        const ready = new Promise<void>((resolve) => { arrive = resolve; });
+        Object.defineProperty(document, 'fonts', { configurable: true, value: { status: 'loading', ready } });
+        try {
+            reveal.flash();
+            expect(document.querySelector('[data-arc-reveal]')).toBeNull();
+            arrive();
+            await ready;
+            await Promise.resolve();
+            expect(document.querySelectorAll('[data-arc-reveal] svg')).toHaveLength(1);
+            reveal.detach();
+            // A font that never arrives holds the outlines back a second at most.
+            Object.defineProperty(document, 'fonts', { configurable: true, value: { status: 'loading', ready: new Promise(() => undefined) } });
+            reveal.attach();
+            reveal.flash();
+            expect(document.querySelector('[data-arc-reveal]')).toBeNull();
+            vi.advanceTimersByTime(1000);
+            expect(document.querySelectorAll('[data-arc-reveal] svg')).toHaveLength(1);
+        } finally {
+            delete (document as any).fonts;
+        }
+    });
+
     it('waits for the page to mark its parts before outlining them', () => {
         boxes(new Map());
         reveal.flash();

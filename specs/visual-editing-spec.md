@@ -357,6 +357,8 @@ then hosting (the admin app and `arc-site.js`); then Republish website, so publi
 
 
 **Build note, Live Preview on the page strip (2026-11-22):** the page Visual Editor's strip has Live Preview (`openPreview`, window `arc-page-preview-{pageId}`, shared with the classic page editor) at `pageLivePreviewUrl`: the preview route with `?cards=1`. That provides `PageCardsSource` as in the frame, with `PageCardDrafts.editing = false`, so the card blocks draw the changed cards as Publish would but no leaving cards, no field or card marks, and the page's scripts run. The classic editor's Live Preview stays without cards, as its Publish is the words only. Settles the low item "home page strip has no Live Preview".
+
+**Build note, outlines on a settling page (2026-11-23):** `EditableReveal.flash` measured each part once, so outlines drawn while a web font was still loading or an entrance animation was running stood at the old places for the two seconds (seen on a site with a display serif). It now waits for `document.fonts.ready` while the fonts are `loading` (at most `FONT_WAIT_MS`, 1 s), reads the parts once and keeps one SVG per part, placed again on every `requestAnimationFrame` until the fade ends (moved only when its box changed); the parts are read again on scroll, resize or a redraw of the page.
 ---
 
 ## 3. Risks

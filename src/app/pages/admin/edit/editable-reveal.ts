@@ -6,7 +6,10 @@
  *   opens and when someone clicks something that cannot be changed. The outlines are
  *   drawn on a layer of their own over the page, so the page's layout never moves
  *   and they cannot be taken for a border of the design. With less motion asked for,
- *   they show and fade without moving.
+ *   they show and fade without moving. A page still settling as they start (its
+ *   fonts arriving, sections sliding into place) is followed: they start once the
+ *   fonts are ready (a second at most) and are placed again on every frame while
+ *   they show.
  * - `setShown(true)`: the top bar's switch, a faint still outline on every part
  *   until it is turned off; remembered for each person (`readShowEditable`).
  * - `explainFixed()`: a click on words or a picture that cannot be changed says so
@@ -25,6 +28,9 @@ const WAIT_TRIES = 12;
 const WAIT_STEP_MS = 250;
 /** At most this many outlines at once: a long list stays quick. */
 const MAX_BOXES = 300;
+/** The page's fonts may still be on their way: the outlines wait for them this long at most. */
+const FONT_WAIT_MS = 1000;
+const PAD = 3;
 
 const STYLE_ATTR = 'data-arc-reveal-style';
 const SHOWN_ATTR = 'data-arc-show-edit';
@@ -100,7 +106,15 @@ export class EditableReveal {
     private timers: ReturnType<typeof setTimeout>[] = [];
     private noteTimer: ReturnType<typeof setTimeout> | null = null;
     private flashing = false;
-    private readonly redraw = () => this.draw();
+    /** The parts that can be changed, read as the outlines start, and each one's box. */
+    private parts: HTMLElement[] = [];
+    private readonly boxes = new Map<HTMLElement, SVGSVGElement>();
+    private frame: number | null = null;
+    /** Scrolled or resized: the parts are read again (one may have come into the page) and drawn. */
+    private readonly redraw = () => {
+        this.parts = this.targets();
+        this.draw();
+    };
     private readonly dropNote = () => this.hideNote();
 
     constructor(private readonly doc: Document, private readonly options: RevealOptions) {}
@@ -152,6 +166,7 @@ export class EditableReveal {
     flash(tries = WAIT_TRIES): boolean {
         if (this.flashing) return false;
         this.flashing = true;
+        const begin = () => start(tries);
         const start = (left: number) => {
             if (!this.flashing) return;
             // The page may still be marking its parts (its content type loading).
@@ -167,15 +182,41 @@ export class EditableReveal {
             this.layer.setAttribute('data-arc-reveal', '');
             this.layer.setAttribute('aria-hidden', 'true');
             this.doc.body?.appendChild(this.layer);
+            this.parts = this.targets();
             this.draw();
-            this.doc.defaultView?.addEventListener('scroll', this.redraw, { passive: true });
-            this.doc.defaultView?.addEventListener('resize', this.redraw);
+            const win = this.doc.defaultView;
+            win?.addEventListener('scroll', this.redraw, { passive: true });
+            win?.addEventListener('resize', this.redraw);
+            // The page may still move (a font swapping in, a section sliding up): every frame
+            // the outlines go where their parts are now.
+            if (win?.requestAnimationFrame) {
+                const tick = () => {
+                    if (!this.layer) return;
+                    this.draw();
+                    this.frame = win.requestAnimationFrame(tick);
+                };
+                this.frame = win.requestAnimationFrame(tick);
+            }
             this.timers.push(setTimeout(() => {
                 this.layer?.setAttribute('data-arc-fading', '');
                 this.timers.push(setTimeout(() => this.endFlash(), FADE_MS));
             }, FLASH_MS));
         };
-        start(tries);
+        // Words in a font still on its way are drawn in another, at another size: the
+        // outlines wait for the page's fonts, but never long.
+        const fonts = (this.doc as Document & { fonts?: FontFaceSet }).fonts;
+        if (fonts?.ready && fonts.status === 'loading') {
+            let started = false;
+            const once = () => {
+                if (started) return;
+                started = true;
+                begin();
+            };
+            fonts.ready.then(once, once);
+            this.timers.push(setTimeout(once, FONT_WAIT_MS));
+        } else {
+            begin();
+        }
         return true;
     }
 
@@ -233,31 +274,48 @@ export class EditableReveal {
         };
     }
 
-    /** The outlines of the parts in view, drawn again as the page scrolls. */
+    /**
+     * The outlines of the parts in view, where they are now. A part's box is kept and
+     * moved, so its dashes keep moving smoothly; one out of view goes, one come into
+     * view gets a box.
+     */
     private draw(): void {
         const layer = this.layer;
         if (!layer) return;
-        layer.textContent = '';
-        for (const el of this.inView().slice(0, MAX_BOXES)) layer.appendChild(this.box(el));
+        // The page was drawn again under the outlines: its parts are new elements.
+        if (this.parts.some((el) => !el.isConnected)) this.parts = this.targets();
+        const view = this.view();
+        const shown = new Set<HTMLElement>();
+        for (const el of this.parts) {
+            if (shown.size >= MAX_BOXES) break;
+            if (!el.isConnected || el.closest('[data-arc-editing]')) continue;
+            const r = el.getBoundingClientRect();
+            if (!(r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < view.height && r.left < view.width)) continue;
+            shown.add(el);
+            let svg = this.boxes.get(el);
+            if (!svg) {
+                svg = this.box(el);
+                this.boxes.set(el, svg);
+                layer.appendChild(svg);
+            }
+            place(svg, r);
+        }
+        for (const [el, svg] of this.boxes) {
+            if (shown.has(el)) continue;
+            svg.remove();
+            this.boxes.delete(el);
+        }
     }
 
     private box(el: HTMLElement): SVGSVGElement {
-        const r = el.getBoundingClientRect();
-        const pad = 3;
         const radius = parseFloat(this.doc.defaultView?.getComputedStyle?.(el).borderTopLeftRadius || '0') || 0;
         const svg = this.doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
-        svg.setAttribute('width', String(Math.round(r.width + pad * 2)));
-        svg.setAttribute('height', String(Math.round(r.height + pad * 2)));
-        svg.style.left = `${Math.round(r.left - pad)}px`;
-        svg.style.top = `${Math.round(r.top - pad)}px`;
         for (const cls of ['arc-reveal-halo', 'arc-reveal-ants']) {
             const rect = this.doc.createElementNS(SVG_NS, 'rect');
             rect.setAttribute('class', cls);
             rect.setAttribute('x', '1');
             rect.setAttribute('y', '1');
-            rect.setAttribute('width', String(Math.max(0, Math.round(r.width + pad * 2 - 2))));
-            rect.setAttribute('height', String(Math.max(0, Math.round(r.height + pad * 2 - 2))));
-            if (radius) rect.setAttribute('rx', String(Math.round(radius + pad)));
+            if (radius) rect.setAttribute('rx', String(Math.round(radius + PAD)));
             svg.appendChild(rect);
         }
         return svg;
@@ -266,10 +324,31 @@ export class EditableReveal {
     private endFlash(): void {
         for (const t of this.timers) clearTimeout(t);
         this.timers = [];
+        if (this.frame !== null) this.doc.defaultView?.cancelAnimationFrame?.(this.frame);
+        this.frame = null;
+        this.boxes.clear();
+        this.parts = [];
         this.doc.defaultView?.removeEventListener('scroll', this.redraw);
         this.doc.defaultView?.removeEventListener('resize', this.redraw);
         this.layer?.remove();
         this.layer = null;
         this.flashing = false;
+    }
+}
+
+/** An outline on its part's box now: moved and sized only when that changed. */
+function place(svg: SVGSVGElement, r: DOMRect): void {
+    const width = String(Math.round(r.width + PAD * 2));
+    const height = String(Math.round(r.height + PAD * 2));
+    const left = `${Math.round(r.left - PAD)}px`;
+    const top = `${Math.round(r.top - PAD)}px`;
+    if (svg.style.left !== left) svg.style.left = left;
+    if (svg.style.top !== top) svg.style.top = top;
+    if (svg.getAttribute('width') === width && svg.getAttribute('height') === height) return;
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    for (const rect of Array.from(svg.children)) {
+        rect.setAttribute('width', String(Math.max(0, Number(width) - 2)));
+        rect.setAttribute('height', String(Math.max(0, Number(height) - 2)));
     }
 }
