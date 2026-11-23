@@ -39,21 +39,25 @@ Two dashboard banners are removed, so setup has one place:
   This row is shown first and styled as a warning, since no email leaves the site. The same banner on the waitlists page stays, because there it explains why
 that page's controls are off.
 
-The "Google Analytics is not connected" card stays as it is. Analytics is not a row in
-the panel, because the card beside it already asks for it.
+Added after SU4: Google Analytics is a row (optional), and while it shows, the dashboard's
+"Google Analytics is not connected" card shrinks to one line with no button, so the same
+call to action is not on screen twice. Without the row (the panel not loaded, or the check
+could not read), the full card with "Set up analytics" stays. While the row is the amber
+nobody-tracked warning, the dashboard hides its own tracking line above the numbers, which
+says the same, and keeps the full card.
 
 ## The items
 
 | Id | Feature | Pending when | Tag |
 |---|---|---|---|
 | email | core | `Settings/email_status.isEnabled` false; amber when `debugMode` (log only) | Needed |
+| analytics | `analytics` | `Settings/analytics_status.isConnected` false; amber, first, when consent is `required` and `Settings/site-usage.isEnabled` is not true (nobody can be tracked), its Check going to `/admin/settings/site-usage` | Optional |
 | sms | `sms` | provider not `msg91` or no `msg91AuthKey` | Optional; Needed and amber when `Settings/users.phoneSignIn` |
 | payments | `payments` | `Settings/dodo-payments` off, or no key for its mode, or no webhook secret; amber when all set but mode is test | Optional |
 | ai | `ai` | no connection with `keyPreview` (preset `vertex` needs none); amber when a key failed after its last success, or mode is test | Optional |
 | unsplash | none | `Settings/integrations.unsplash.accessKey` empty | Optional |
 
-Analytics is not a row (the card beside the panel asks for it), nor is geolocation (off by
-default, works without a key). Checks read only whether a key is saved.
+Geolocation is not a row (off by default, works without a key). Checks read only whether a key is saved.
 
 ## Plug point for apps
 
@@ -61,7 +65,7 @@ default, works without a key). Checks read only whether a key is saved.
 An app adds rows in the new starter `src/custom/setup-items.ts`
 (`CUSTOM_SETUP_ITEMS: SetupItem[] = []`). An item is `{ id, feature?, icon, route,
 pending(read) }`; `pending` returns `null` or `{ required, title, titleKey?, why, whyKey?,
-warning? }`, and `read(id)` gives a `Settings` document, read once for all rows.
+warning?, route? }` (`route`: where this need's button goes, when not the item's route), and `read(id)` gives a `Settings` document, read once for all rows.
 
 ## Phases
 

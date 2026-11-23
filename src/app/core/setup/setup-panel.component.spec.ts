@@ -79,6 +79,14 @@ describe('SetupPanelComponent', () => {
         expect(maps.querySelector('a')?.textContent).toContain('Check');
     });
 
+    it('sends the button to the need\'s own page when it names one, else to the item\'s', () => {
+        status.rows.set([row('analytics', { warning: true, route: '/admin/settings/site-usage' }), row('sms', {})]);
+        const el = render();
+        const [analytics, sms] = Array.from(el.querySelectorAll('.setup-row a'));
+        expect(analytics.getAttribute('href')).toBe('/admin/settings/site-usage');
+        expect(sms.getAttribute('href')).toBe('/admin/settings/sms');
+    });
+
     it('folds into a small Finish setting up button with the count, red while something is needed, and opens again', async () => {
         status.rows.set([row('email', { required: true }), row('sms', {})]);
         const fixture = mount();

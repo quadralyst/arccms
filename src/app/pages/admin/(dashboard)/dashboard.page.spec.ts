@@ -491,6 +491,37 @@ describe('DashboardComponent', () => {
             mockSetupStatus.collapsed.set(false);
         });
 
+        it('shrinks the Google Analytics card to one line while the panel asks for it, with no second Set up button', () => {
+            const analytics: SetupRow = {
+                item: { id: 'analytics', icon: 'fa-solid fa-chart-line', route: '/admin/settings/analytics', pending: async () => null },
+                need: { required: false, title: 'Google Analytics', why: 'See visitors.' },
+            };
+            const el: HTMLElement = fixture.nativeElement;
+            const setUpButtons = () => el.querySelectorAll('.dashboard-main .analytics-connect-card .btn-primary').length;
+            show([row]);
+            expect(el.querySelector('.analytics-connect-card')).toBeTruthy();
+            expect(setUpButtons()).toBe(1);
+            show([row, analytics]);
+            expect(el.querySelector('.analytics-connect-card')).toBeNull();
+            expect(el.querySelector('[data-testid="ga-not-connected-line"]')?.textContent).toContain('Google Analytics is not connected. Once it is, visitor numbers show here.');
+            expect(setUpButtons()).toBe(0);
+            expect(el.querySelector('[data-testid="setup-panel"] [data-setup-id="analytics"] .setup-go')).toBeTruthy();
+        });
+
+        it('keeps the full card while the panel\'s Analytics row is the nobody-tracked warning, and drops the warning line above the numbers', () => {
+            const warning: SetupRow = {
+                item: { id: 'analytics', icon: 'fa-solid fa-chart-line', route: '/admin/settings/analytics', pending: async () => null },
+                need: { required: false, title: 'Google Analytics', why: 'No one is tracked.', warning: true, route: '/admin/settings/site-usage' },
+            };
+            const el: HTMLElement = fixture.nativeElement;
+            show([row]);
+            expect(el.querySelector('arc-analytics-tracking-status')).toBeTruthy();
+            show([row, warning]);
+            expect(el.querySelector('arc-analytics-tracking-status')).toBeNull();
+            expect(el.querySelector('.analytics-connect-card')).toBeTruthy();
+            expect(el.querySelector('[data-testid="ga-not-connected-line"]')).toBeNull();
+        });
+
         it('has no email banners: the panel replaces them', () => {
             show([row]);
             const el: HTMLElement = fixture.nativeElement;

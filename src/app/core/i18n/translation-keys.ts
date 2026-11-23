@@ -937,6 +937,7 @@ export type TranslationKey =
     | 'admin.dashboard.first_page_text_no_type'
     | 'admin.dashboard.first_page_title'
     | 'admin.dashboard.ga_not_connected'
+    | 'admin.dashboard.ga_not_connected_short'
     | 'admin.dashboard.ga_overview'
     | 'admin.dashboard.ga_setup_hint'
     | 'admin.dashboard.growth_leads'
@@ -984,6 +985,9 @@ export type TranslationKey =
     | 'admin.dashboard.setup.ai_off'
     | 'admin.dashboard.setup.ai_test'
     | 'admin.dashboard.setup.ai_title'
+    | 'admin.dashboard.setup.analytics_nobody'
+    | 'admin.dashboard.setup.analytics_off'
+    | 'admin.dashboard.setup.analytics_title'
     | 'admin.dashboard.setup.check'
     | 'admin.dashboard.setup.collapse'
     | 'admin.dashboard.setup.email_off'
@@ -5399,6 +5403,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.first_page_text_no_type',
     'admin.dashboard.first_page_title',
     'admin.dashboard.ga_not_connected',
+    'admin.dashboard.ga_not_connected_short',
     'admin.dashboard.ga_overview',
     'admin.dashboard.ga_setup_hint',
     'admin.dashboard.growth_leads',
@@ -5446,6 +5451,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.setup.ai_off',
     'admin.dashboard.setup.ai_test',
     'admin.dashboard.setup.ai_title',
+    'admin.dashboard.setup.analytics_nobody',
+    'admin.dashboard.setup.analytics_off',
+    'admin.dashboard.setup.analytics_title',
     'admin.dashboard.setup.check',
     'admin.dashboard.setup.collapse',
     'admin.dashboard.setup.email_off',

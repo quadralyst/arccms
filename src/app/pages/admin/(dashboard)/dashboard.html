@@ -48,7 +48,9 @@
 
     @if (analyticsOn) {
     <!-- Analytics Summary Section (the analytics feature) -->
+    @if (!trackingWarningInSetup()) {
     <arc-analytics-tracking-status />
+    }
     <div class="section-header">
         <h2>{{ 'admin.dashboard.ga_overview' | transloco }}</h2>
         @if (analyticsData()[0]?.dateRange) {
@@ -145,6 +147,10 @@
         <div class="col-12">
             @if (analyticsConnectionStatus.isLoading()) {
             <arc-loader kind="block"></arc-loader>
+            } @else if (!analyticsConnectionStatus.isConnected() && analyticsInSetup()) {
+            <p class="text-muted mb-0" data-testid="ga-not-connected-line">
+                <i class="fa-solid fa-chart-line me-2" aria-hidden="true"></i>{{ 'admin.dashboard.ga_not_connected_short' | transloco }}
+            </p>
             } @else if (!analyticsConnectionStatus.isConnected()) {
             <div class="analytics-connect-card text-center py-5">
                 <div class="mb-3">

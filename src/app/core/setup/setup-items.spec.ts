@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-    CORE_SETUP_ITEMS, aiNeed, emailNeed, orderRows, paymentsNeed, setupItemsFor, smsNeed, unsplashNeed,
+    CORE_SETUP_ITEMS, aiNeed, analyticsNeed, emailNeed, orderRows, paymentsNeed, setupItemsFor, smsNeed, unsplashNeed,
     type SetupItem, type SetupNeed,
 } from './setup-items';
 import { onceEach, pendingRows } from './setup-status.service';
@@ -85,13 +85,44 @@ describe('unsplash', () => {
     });
 });
 
+describe('analytics', () => {
+    const always = { mode: 'always' as const, measurementId: 'G-1' };
+    const required = { mode: 'required' as const, measurementId: 'G-1' };
+
+    it('is optional and pending until Google Analytics is connected', () => {
+        expect(analyticsNeed(undefined, undefined, always)).toMatchObject({ required: false });
+        expect(analyticsNeed(undefined, undefined, always)?.warning).toBeUndefined();
+        expect(analyticsNeed({ isConnected: false }, undefined, always)).not.toBeNull();
+        expect(analyticsNeed({ isConnected: true }, undefined, always)).toBeNull();
+    });
+
+    it('warns, with Check to the cookie notice, when the site waits for consent and the notice is off', () => {
+        for (const status of [undefined, { isConnected: true }]) {
+            expect(analyticsNeed(status, { isEnabled: false }, required)).toMatchObject({
+                required: false, warning: true, whyKey: 'admin.dashboard.setup.analytics_nobody', route: '/admin/settings/site-usage',
+            });
+        }
+        expect(analyticsNeed({ isConnected: true }, undefined, required)?.warning).toBe(true);
+    });
+
+    it('does not warn when the cookie notice is on, consent is not needed, or there is no measurement ID', () => {
+        expect(analyticsNeed({ isConnected: true }, { isEnabled: true }, required)).toBeNull();
+        expect(analyticsNeed({ isConnected: true }, { isEnabled: false }, always)).toBeNull();
+        expect(analyticsNeed({ isConnected: true }, { isEnabled: false }, { mode: 'required', measurementId: undefined })).toBeNull();
+    });
+
+    it('goes where the dashboard\'s Set up analytics button goes', () => {
+        expect(CORE_SETUP_ITEMS.find((i) => i.id === 'analytics')).toMatchObject({ feature: 'analytics', route: '/admin/settings/analytics' });
+    });
+});
+
 describe('the items', () => {
     const needs: SetupNeed[] = [
         emailNeed(undefined)!, emailNeed({ isEnabled: true, debugMode: true })!,
         paymentsNeed(undefined)!, paymentsNeed({ enabled: true, testApiKey: 't', webhookSecret: 's' })!,
         smsNeed(undefined, undefined)!, smsNeed(undefined, { phoneSignIn: true })!,
         aiNeed(undefined)!, aiNeed({ connections: { v: { preset: 'vertex' } } })!, aiNeed({ mode: 'live', connections: { a: { keyPreview: 'k', lastError: 'x' } } })!,
-        unsplashNeed(undefined)!,
+        analyticsNeed(undefined, undefined, { mode: 'always', measurementId: 'G-1' })!, analyticsNeed(undefined, undefined, { mode: 'required', measurementId: 'G-1' })!, unsplashNeed(undefined)!,
     ];
 
     it('use keys that exist in every language, with the English as written', () => {
@@ -110,7 +141,7 @@ describe('the items', () => {
     });
 
     it('leave out an item whose feature is off', () => {
-        const ids = setupItemsFor([], (id) => id !== 'ai' && id !== 'sms').map((i) => i.id);
+        const ids = setupItemsFor([], (id) => id !== 'ai' && id !== 'sms' && id !== 'analytics').map((i) => i.id);
         expect(ids).toEqual(['email', 'payments', 'unsplash']);
     });
 
@@ -118,7 +149,7 @@ describe('the items', () => {
         const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
         const app: SetupItem = { id: 'maps', icon: 'fa-solid fa-map', route: '/admin/maps', pending: async () => null };
         const ids = setupItemsFor([app, { ...app, id: 'email' }], () => true).map((i) => i.id);
-        expect(ids).toEqual(['email', 'sms', 'payments', 'ai', 'unsplash', 'maps']);
+        expect(ids).toEqual(['email', 'analytics', 'sms', 'payments', 'ai', 'unsplash', 'maps']);
         expect(error).toHaveBeenCalledWith(expect.stringContaining('"email" is listed twice'));
         error.mockRestore();
     });
@@ -148,7 +179,7 @@ describe('pendingRows', () => {
         const read = onceEach(fetch);
         await pendingRows(CORE_SETUP_ITEMS, read);
         await read('ai');
-        expect(fetch.mock.calls.map((c) => c[0]).sort()).toEqual(['ai', 'dodo-payments', 'email_status', 'integrations', 'sms', 'users']);
+        expect(fetch.mock.calls.map((c) => c[0]).sort()).toEqual(['ai', 'analytics_status', 'dodo-payments', 'email_status', 'integrations', 'site-usage', 'sms', 'users']);
     });
 
     it('orderRows keeps the order within each group', () => {

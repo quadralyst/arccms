@@ -8,6 +8,9 @@
  * secret's value: whether a key is saved is enough.
  */
 import type { FeatureId } from '../features/feature-registry';
+import { environment } from '../../../environments/environment';
+import { arcConfig, type AnalyticsConsentMode } from '../config/arc-config';
+import { analyticsTrackingState } from '../analytics/analytics-status';
 
 /** The `Settings/<id>` document, or undefined when there is none. Each document is read once per panel. */
 export type SettingsReader = (id: string) => Promise<Record<string, unknown> | undefined>;
@@ -25,6 +28,8 @@ export interface SetupNeed {
     whyKey?: string;
     /** Set up but not working (a test provider, a failing key): shown as a warning. */
     warning?: boolean;
+    /** Where the button goes for this need, when it is not the item's own `route`. */
+    route?: string;
 }
 
 export interface SetupItem {
@@ -109,6 +114,31 @@ export function aiNeed(ai: Doc): SetupNeed | null {
     return null;
 }
 
+/** How this build tracks visitors: the consent mode and the web config's measurement ID. */
+export interface AnalyticsBuild {
+    mode: AnalyticsConsentMode;
+    measurementId: string | undefined;
+}
+
+const ANALYTICS_BUILD: AnalyticsBuild = {
+    mode: arcConfig.analyticsConsent,
+    measurementId: (environment.firebaseConfig as { measurementId?: string })?.measurementId,
+};
+
+/**
+ * Google Analytics. First, amber, when nobody can be tracked: the site waits for cookie
+ * consent and the cookie notice (`Settings/site-usage.isEnabled`) is off, so no visitor can
+ * accept; its button opens the cookie notice. Otherwise pending until it is connected to a
+ * property (`Settings/analytics_status.isConnected`), so the dashboard shows its numbers.
+ */
+export function analyticsNeed(status: Doc, siteUsage: Doc, build: AnalyticsBuild = ANALYTICS_BUILD): SetupNeed | null {
+    const tracking = analyticsTrackingState({ featureOn: true, ...build, bannerEnabled: siteUsage?.['isEnabled'] === true });
+    if (tracking === 'nobody-banner-off') {
+        return { ...need('analytics_nobody', false, 'Google Analytics', 'No one is tracked: the site waits for cookie consent, and the cookie notice is off.', true), route: '/admin/settings/site-usage' };
+    }
+    return status?.['isConnected'] ? null : need('analytics_off', false, 'Google Analytics', 'See visitors and page views on the dashboard.');
+}
+
 /** Unsplash: an access key saved. */
 export function unsplashNeed(integrations: Doc): SetupNeed | null {
     const unsplash = integrations?.['unsplash'] as Doc;
@@ -117,11 +147,11 @@ export function unsplashNeed(integrations: Doc): SetupNeed | null {
 
 /**
  * Arc CMS's own items, in the order the panel lists them (needed ones first, then
- * the rest in this order). Analytics is not one: the dashboard's analytics card asks
- * for it. Geolocation is not one: it works without a key.
+ * the rest in this order). Geolocation is not one: it works without a key.
  */
 export const CORE_SETUP_ITEMS: readonly SetupItem[] = [
     { id: 'email', icon: 'fa-solid fa-envelope', route: '/admin/settings/email', pending: async (read) => emailNeed(await read('email_status')) },
+    { id: 'analytics', feature: 'analytics', icon: 'fa-solid fa-chart-line', route: '/admin/settings/analytics', pending: async (read) => analyticsNeed(await read('analytics_status'), await read('site-usage')) },
     { id: 'sms', feature: 'sms', icon: 'fa-solid fa-comment-sms', route: '/admin/settings/sms', pending: async (read) => smsNeed(await read('sms'), await read('users')) },
     { id: 'payments', feature: 'payments', icon: 'fa-solid fa-credit-card', route: '/admin/settings/payments', pending: async (read) => paymentsNeed(await read('dodo-payments')) },
     { id: 'ai', feature: 'ai', icon: 'fa-solid fa-wand-magic-sparkles', route: '/admin/settings/ai', pending: async (read) => aiNeed(await read('ai')) },

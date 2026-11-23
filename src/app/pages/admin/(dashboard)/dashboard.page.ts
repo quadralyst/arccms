@@ -88,6 +88,12 @@ export default class DashboardComponent extends BaseComponent {
   readonly showSetup = computed(() => this.setupStatus.loaded() && this.setupStatus.rows().length > 0);
   /** The open panel takes a right-hand column; folded, it is a small button above the cards. */
   readonly setupColumn = computed(() => this.showSetup() && !this.setupStatus.collapsed());
+  /** The panel's Google Analytics row, while it shows. */
+  private readonly analyticsRow = computed(() => (this.showSetup() ? this.setupStatus.rows().find((r) => r.item.id === 'analytics') : undefined));
+  /** The panel already asks to connect Google Analytics, so its numbers section shrinks to one line rather than a second Set up button. */
+  readonly analyticsInSetup = computed(() => !!this.analyticsRow() && !this.analyticsRow()!.need.warning);
+  /** The panel already warns that nobody is tracked, so the same warning is not repeated above the numbers. */
+  readonly trackingWarningInSetup = computed(() => !!this.analyticsRow()?.need.warning);
 
   // App installs (docs/features/pwa.html), when this install's PWA is on
   readonly pwaEnabled = PWA.enabled;

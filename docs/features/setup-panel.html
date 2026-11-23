@@ -19,6 +19,7 @@
       <thead><tr><th>Row</th><th>Shows while</th><th>Tag</th><th>Feature</th><th>Settings page</th></tr></thead>
       <tbody>
         <tr><td>Email</td><td>Email is off, or on the Debug Provider (log only), which sends nothing</td><td>Needed</td><td>Always on</td><td><a href="email.html">Email engine</a></td></tr>
+        <tr><td>Google Analytics</td><td>Google Analytics is not connected (<code>Settings/analytics_status</code>), so the dashboard has no numbers to show. Amber, with <strong>Check</strong> to the cookie notice settings, while nobody can be tracked: the site waits for cookie consent and the cookie notice is off, so no visitor can accept (whether connected or not).</td><td>Optional</td><td><code>analytics</code></td><td><a href="analytics.html">Analytics</a></td></tr>
         <tr><td>SMS</td><td>The provider is the test one, or MSG91 has no auth key. Needed, and amber, once phone sign-in is on, since sign-in codes then reach no one.</td><td>Optional, or Needed with phone sign-in</td><td><code>sms</code></td><td><a href="sms.html">SMS</a></td></tr>
         <tr><td>Payments</td><td>Payments are off, the key for the current mode or the webhook secret is missing, or (amber) everything is set but the mode is test</td><td>Optional</td><td><code>payments</code></td><td><a href="payments.html">Payments</a></td></tr>
         <tr><td>AI</td><td>No connection can answer (no key saved; Vertex AI needs none), or (amber) a key failed since it last worked, or the mode is test</td><td>Optional</td><td><code>ai</code></td><td><a href="ai.html">AI</a></td></tr>
@@ -26,7 +27,7 @@
       </tbody>
     </table>
     <p>Needed rows come first, then optional ones, each group in the order above, then the app's own rows.</p>
-    <p>Google Analytics is not a row: the dashboard's analytics card already asks for it, right beside the panel. Geolocation is not one either: it is off unless you turn it on, and works without a key.</p>
+    <p>While the Google Analytics row asks to connect, the dashboard's analytics section is one line saying it is not connected, with no button of its own, so the panel is the one place to set it up. While the row is the amber nobody-tracked warning, the dashboard leaves out its own line saying the same above the numbers. An admin who cannot see the panel's row gets the full card with <strong>Set up analytics</strong>, as before. Geolocation is not a row: it is off unless you turn it on, and works without a key.</p>
 
     <h2>Turn it on or off</h2>
     <p>The panel is core, always there for admins (the dashboard is admin-only). A row whose feature is off in <code>src/custom/features.ts</code> is never checked or shown (see <a href="../app/choose-features.html">Choose your app's features</a>). There is no switch for the panel itself, and no button to hide a row: it lists strictly what is pending.</p>
@@ -76,7 +77,7 @@ export const CUSTOM_SETUP_ITEMS: SetupItem[] = [
         <tr><td><code>pending(read)</code></td><td>Returns <code>null</code> when nothing is to do, or what is. <code>read(id)</code> gives the <code>Settings/&lt;id&gt;</code> document, read once for all rows; a check may read anything else it needs. A check that throws is left out.</td></tr>
       </tbody>
     </table>
-    <p>What <code>pending</code> returns: <code>required</code> (Needed or Optional), <code>title</code> and <code>why</code> as written, with optional <code>titleKey</code> and <code>whyKey</code> translation keys (the written text shows when a key has no translation), and <code>warning: true</code> for an amber row with a Check button.</p>
+    <p>What <code>pending</code> returns: <code>required</code> (Needed or Optional), <code>title</code> and <code>why</code> as written, with optional <code>titleKey</code> and <code>whyKey</code> translation keys (the written text shows when a key has no translation), <code>warning: true</code> for an amber row with a Check button, and <code>route</code> when this need's button should open another page than the item's own <code>route</code>.</p>
 
     <h3>Arc CMS's own rows</h3>
     <p>Arc CMS's own rows are in <code>src/app/core/setup/setup-items.ts</code>, one rule per service, and <code>SetupStatusService</code> in <code>src/app/core/setup/setup-status.service.ts</code> runs them. A new outside service in core gets its row there, with a test in <code>setup-items.spec.ts</code>.</p>

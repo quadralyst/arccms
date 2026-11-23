@@ -45,7 +45,7 @@ import { SetupStatusService } from './setup-status.service';
                             } @else {
                             <span class="setup-tag">{{ 'admin.dashboard.setup.optional' | transloco }}</span>
                             }
-                            <a class="btn btn-sm setup-go" [class.btn-primary]="!row.need.warning" [class.btn-warning]="row.need.warning" [routerLink]="row.item.route">
+                            <a class="btn btn-sm setup-go" [class.btn-primary]="!row.need.warning" [class.btn-warning]="row.need.warning" [routerLink]="row.need.route ?? row.item.route">
                                 {{ (row.need.warning ? 'admin.dashboard.setup.check' : 'admin.dashboard.setup.set_up') | transloco }}
                                 <span class="visually-hidden">: {{ text(row.need.titleKey, row.need.title) }}</span>
                             </a>
