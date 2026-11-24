@@ -39,6 +39,7 @@ import { BaseComponent } from '../../../../shared/components/base/base.component
 import { AuthState, NO_ACCESS_KEY } from '../auth.store';
 import { BLOCKED_KEY } from '../auth-messages';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { injectLiveText, PageLanguage } from '../../../core/i18n/live-text';
 import { sentenceParts } from '../../../core/i18n/sentence-parts';
 import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { AuthService } from '../auth.service';
@@ -60,7 +61,7 @@ import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../.
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
 import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
 import { WaitLineComponent } from '../../../../shared/components/wait-line/wait-line.component';
-import { readSignInError, SignInService, type CheckedCode, type CodeReply, type EmailAccount } from '../sign-in.service';
+import { readSignInError, refusal, SignInService, type CheckedCode, type CodeReply, type EmailAccount } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes, sentCodeKey } from '../sent-codes';
 import { StepHistory } from './step-history';
 import { ClockCountdown } from '../../../core/sign-in/clock-countdown';
@@ -182,11 +183,13 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private leavingTimer: ReturnType<typeof setTimeout> | undefined;
   /** A step is running or the page is moving on: the buttons are busy. */
   readonly working = computed(() => this.isLoading() || this.leaving());
-  errorMessage = signal('');
-  successMessage = signal('');
-  otpError = signal('');
+  /** The messages on the steps follow the page's language when it changes (core/i18n/live-text.ts). */
+  private readonly pageLanguage = inject(PageLanguage);
+  errorMessage = injectLiveText();
+  successMessage = injectLiveText();
+  otpError = injectLiveText();
   /** A quiet line under the code boxes: a code was sent a moment ago (SC-D2). */
-  otpNotice = signal('');
+  otpNotice = injectLiveText();
   /**
    * The resend countdown and the first step's wait, by the clock (core/sign-in/clock-countdown.ts):
    * right after a visit to the SMS app or a tab in the background, whose timers the
@@ -204,6 +207,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private requestWaitFor = '';
   /** The wait in words, the number going down with it. */
   readonly requestWaitMessage = computed(() => {
+    this.pageLanguage.version();
     const wait = this.requestWait();
     return wait > 0 ? this.t('member.auth.server_error.wait', { wait }) : '';
   });
@@ -365,7 +369,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
       // Handle error
       if (error) {
-        untracked(() => this.handleAuthError(error, this.authStore.errorCode()));
+        untracked(() => this.handleAuthError(error, this.authStore.errorCode(), this.authStore.errorSay()));
       }
 
       // Redirect once a signup/login the user just initiated has produced a
@@ -387,16 +391,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    * Firebase Auth, and the two disagree whenever the lookup entry was never
    * written (its trigger failed, the database was replaced) or the Auth pool is
    * shared with another app. Auth is the truth, so ask for the password.
+   * `say`: how the store says the error, to follow the page's language.
    */
-  handleAuthError(error: string, code: string): void {
+  handleAuthError(error: string, code: string, say: (() => string) | null = null): void {
     this.authActionPending = false; // a failed attempt must not redirect later
     this.stopLeaving();
     if (code === 'auth/email-already-in-use' && this.currentStep() === 'signup') {
       this.goToStep('login');
-      this.successMessage.set(this.t('member.auth.existing_account_password'));
+      this.successMessage.set(() => this.t('member.auth.existing_account_password'));
       return;
     }
-    this.errorMessage.set(error);
+    this.errorMessage.set(say ?? error);
   }
 
   ngOnInit() {
@@ -573,7 +578,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.continueHeld.set(true);
     try {
       const ready = await this.loadSettings();
-      if (!ready) this.errorMessage.set(this.t('member.auth.settings_failed'));
+      if (!ready) this.errorMessage.set(() => this.t('member.auth.settings_failed'));
       return ready;
     } finally {
       this.continueHeld.set(false);
@@ -963,7 +968,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.offerPin.set(how === 'password' && !!account?.offerPin);
         if (how === 'blocked') {
           // Nothing to ask for: no step could end in anything but this.
-          this.errorMessage.set(this.t(BLOCKED_KEY));
+          this.errorMessage.set(() => this.t(BLOCKED_KEY));
         } else if (how === 'pin' && account?.deviceCode) {
           this.emailPurpose.set('device');
           this.goToStep('verify');
@@ -979,12 +984,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
           this.goToStep('login');
         }
       } else if (status === 'no-access') {
-        this.errorMessage.set(this.t(NO_ACCESS_KEY));
+        this.errorMessage.set(() => this.t(NO_ACCESS_KEY));
       } else {
         const settings = this.settings();
         if (!settings) {
           // Not reached through Continue, which waits for them (settingsIn).
-          this.errorMessage.set(this.t('member.auth.settings_failed'));
+          this.errorMessage.set(() => this.t('member.auth.settings_failed'));
           return;
         }
         if (!settings.isSignupEnabled) {
@@ -1006,7 +1011,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     } catch (error) {
       // No network says so, rather than blaming the email (RF6, 6.7).
       const failed = readSignInError(error);
-      this.errorMessage.set(failed.reason === 'offline' ? failed.message : this.t('member.auth.check_email_failed'));
+      this.errorMessage.set(failed.reason === 'offline' ? failed.say : () => this.t('member.auth.check_email_failed'));
     } finally {
       this.isLoading.set(false);
     }
@@ -1069,7 +1074,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       const wait = Number(failed.details?.['wait']);
       // The number's last code was used under a minute ago: the check waits too (F41).
       if (failed.reason === 'wait' && wait > 0) this.startRequestWait(wait);
-      else this.errorMessage.set(failed.message);
+      else this.errorMessage.set(failed.say);
     } finally {
       this.isLoading.set(false);
     }
@@ -1127,7 +1132,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     // is on its way, so Resend is not offered while it is still going (SP-D14).
     const sending = !checked?.code && !checked?.codeError;
     if (sending) {
-      this.otpNotice.set(this.t('member.auth.sending_code'));
+      this.otpNotice.set(() => this.t('member.auth.sending_code'));
       this.startCountdown();
     }
     try {
@@ -1145,7 +1150,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       if (!phone && reply.sent === false) {
         // No email engine to send it (only reachable with email PIN sign-in, which needs one).
         this.stopCountdown();
-        this.otpError.set(this.t('member.auth.server_error.email_failed'));
+        this.otpError.set(() => this.t('member.auth.server_error.email_failed'));
         return 'failed';
       }
       this.testCode.set(reply.testCode ?? '');
@@ -1153,12 +1158,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       const wait = Number(reply.wait);
       if (reply.alreadySent && wait > 0) {
         // Asked again under a minute after it went (a reload, another tab): nothing new was sent (F22).
-        this.otpNotice.set(this.t('member.auth.code_already_sent'));
+        this.otpNotice.set(() => this.t('member.auth.code_already_sent'));
         this.sentCodes.remember(key, { testCode: this.testCode(), testCodeInLogs: this.testCodeInLogs() }, wait);
         this.startCountdown(wait);
         return 'sent';
       }
-      if (reply.sameCode) this.otpNotice.set(this.t('member.auth.code_sent_again'));
+      if (reply.sameCode) this.otpNotice.set(() => this.t('member.auth.code_sent_again'));
       else if (!reply.testMode) this.toastService.success(this.t(phone ? 'member.auth.code_sent_sms' : 'member.auth.code_sent_email'));
       this.sentCodes.remember(key, { testCode: this.testCode(), testCodeInLogs: this.testCodeInLogs() });
       // Already counting since the send began; a code the check sent starts it now.
@@ -1168,16 +1173,16 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       // Not sent: Resend is there at once, unless the server says to wait.
       this.otpNotice.set('');
       this.stopCountdown();
-      const failed = readSignInError(error, this.t('member.auth.send_code_failed'));
+      const failed = readSignInError(error, () => this.t('member.auth.send_code_failed'));
       const wait = Number(failed.details?.['wait']);
       if (failed.reason === 'wait' && wait > 0) {
         // A code went out under a minute ago (this tab before a reload, or another one).
         this.sentCodes.remember(key, { testCode: known?.testCode ?? '', testCodeInLogs: known?.testCodeInLogs ?? false }, wait);
-        this.otpNotice.set(this.t('member.auth.code_already_sent'));
+        this.otpNotice.set(() => this.t('member.auth.code_already_sent'));
         this.startCountdown(wait);
         return 'sent';
       }
-      this.otpError.set(failed.message);
+      this.otpError.set(failed.say);
       return 'failed';
     }
   }
@@ -1233,7 +1238,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     if (this.isLoading()) return;
 
     if (!otp || otp.length !== 6) {
-      this.otpError.set(this.t('member.auth.enter_code'));
+      this.otpError.set(() => this.t('member.auth.enter_code'));
       return;
     }
 
@@ -1272,14 +1277,14 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.toastService.success(this.t('member.auth.email_verified'));
         this.goToStep('signup');
       } else {
-        this.otpError.set(this.t('member.auth.code_wrong'));
+        this.otpError.set(() => this.t('member.auth.code_wrong'));
         this.codeBoxes()?.reset();
       }
     } catch (error: any) {
-      const failed = readSignInError(error, this.t('member.auth.code_wrong_short'));
+      const failed = readSignInError(error, () => this.t('member.auth.code_wrong_short'));
       // A spent code (expired, or too many tries): coming back sends a new one.
       if (failed.reason === 'code-expired' || failed.reason === 'code-tries') this.sentCodes.forget(this.codeKey());
-      this.otpError.set(failed.message);
+      this.otpError.set(failed.say);
       this.codeBoxes()?.reset();
     } finally {
       this.isLoading.set(false);
@@ -1338,7 +1343,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     // The code ran out while the name and PIN were typed: back to it, to ask for another.
     if (failed?.reason === 'code-expired') {
       this.goToStep('verify');
-      this.otpError.set(failed.message);
+      this.otpError.set(failed.say);
     }
   }
 
@@ -1351,7 +1356,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     if (!field) return null;
     const read = field.check();
     if ('problem' in read) {
-      this.errorMessage.set(this.t(read.problem));
+      this.errorMessage.set(() => this.t(read.problem));
       return null;
     }
     return read.pin;
@@ -1378,7 +1383,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     const value = pin ?? this.pinBoxes()?.value() ?? '';
     if (this.working()) return;
     if (value.length !== 6) {
-      this.errorMessage.set(this.t('member.auth.enter_pin'));
+      this.errorMessage.set(() => this.t('member.auth.enter_pin'));
       return;
     }
     const failed = await this.finishPhoneSignIn(() => this.channel() === 'phone'
@@ -1411,7 +1416,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     } catch (err) {
       this.authActionPending = false;
       const error = readSignInError(err);
-      this.errorMessage.set(error.message);
+      this.errorMessage.set(error.say);
       return error;
     } finally {
       this.isLoading.set(false);
@@ -1467,7 +1472,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         await this.firebaseResetEmail(email);
       } else {
         // Refused (another app's login, too many codes): said here, on the password step.
-        this.errorMessage.set(this.otpError());
+        this.errorMessage.set(this.otpError.source());
         this.otpError.set('');
       }
     } finally {
@@ -1479,9 +1484,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private async firebaseResetEmail(email: string): Promise<void> {
     const res: any = await this.authStore.forgotPassword(email);
     if (res?.status === 200) {
-      this.successMessage.set(this.t('member.auth.reset_link_sent', { email }));
+      this.successMessage.set(() => this.t('member.auth.reset_link_sent', { email }));
     } else {
-      this.errorMessage.set(this.t('member.auth.reset_failed'));
+      this.errorMessage.set(() => this.t('member.auth.reset_failed'));
     }
   }
 
@@ -1510,10 +1515,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       if (failed.reason === 'code-expired') {
         // The code ran out before the password was saved: back to the code, to ask for another.
         this.goToStep('verify');
-        this.otpError.set(failed.message);
+        this.otpError.set(failed.say);
         return;
       }
-      this.errorMessage.set(failed.message);
+      this.errorMessage.set(failed.say);
       return;
     }
     this.toastService.success(this.t('member.auth.password_changed'));
@@ -1532,7 +1537,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       await this.signIn.signInWithGoogle();
       this.authActionPending = true;
       const user = await this.authStore.refreshCurrentUser();
-      if (!user) throw { code: 'no-record', message: this.t(NO_ACCESS_KEY) };
+      if (!user) throw refusal('no-record', () => this.t(NO_ACCESS_KEY));
       this.startLeaving();
     } catch (err) {
       this.authActionPending = false;
@@ -1554,18 +1559,18 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.registrationForm.get('identifier')?.setValue(email);
       this.channel.set('email');
       this.goToStep('login');
-      this.successMessage.set(this.t('member.auth.existing_account_google'));
+      this.successMessage.set(() => this.t('member.auth.existing_account_google'));
       return;
     }
-    const error = readSignInError(err, this.t('member.auth.google_failed'));
+    const error = readSignInError(err, () => this.t('member.auth.google_failed'));
     // Signed in to Google but no access here: do not stay half signed in.
     await firstValueFrom(this.authStore.logout()).catch(() => undefined);
     if (error.reason === 'signup-closed') {
       this.goToStep('disabled');
       return;
     }
-    if (error.reason === 'offline') this.errorMessage.set(error.message);
-    else this.errorMessage.set(code.startsWith('auth/') ? this.t('member.auth.google_failed') : error.message);
+    if (error.reason === 'offline') this.errorMessage.set(error.say);
+    else this.errorMessage.set(code.startsWith('auth/') ? () => this.t('member.auth.google_failed') : error.say);
   }
 
   /** Back to the first step, keeping what was typed. */
@@ -1689,7 +1694,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.toastService.success(this.t('member.auth.pin_chosen'));
     } catch (err) {
       const failed = readSignInError(err);
-      this.errorMessage.set(failed.message);
+      this.errorMessage.set(failed.say);
       this.restartIfRefused(failed);
       return;
     } finally {

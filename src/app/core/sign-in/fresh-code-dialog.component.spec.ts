@@ -5,18 +5,19 @@
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { TranslocoTestingModule } from '@jsverse/transloco';
+import { TranslocoService, TranslocoTestingModule } from '@jsverse/transloco';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FreshCodeDialogComponent } from './fresh-code-dialog.component';
 import { FreshCodeService } from './fresh-code.service';
+import { inMemberLanguage } from '../../pages/(auth)/sign-in.service';
 
 describe('FreshCodeDialogComponent', () => {
     let codes: { request: ReturnType<typeof vi.fn>; confirmCode: ReturnType<typeof vi.fn> };
     let ref: { close: ReturnType<typeof vi.fn> };
 
-    async function open() {
+    async function open(langs: Record<string, Record<string, string>> = { en: {} }) {
         await TestBed.configureTestingModule({
-            imports: [FreshCodeDialogComponent, NoopAnimationsModule, TranslocoTestingModule.forRoot({ langs: { en: {} } })],
+            imports: [FreshCodeDialogComponent, NoopAnimationsModule, TranslocoTestingModule.forRoot({ langs, translocoConfig: { availableLangs: Object.keys(langs), defaultLang: 'en' } })],
             providers: [
                 { provide: MAT_DIALOG_DATA, useValue: { purpose: 'pos-setup' } },
                 { provide: MatDialogRef, useValue: ref },
@@ -66,6 +67,23 @@ describe('FreshCodeDialogComponent', () => {
         const fixture = await open();
         expect(fixture.componentInstance.error()).toBe('Please wait 40 seconds.');
         expect(fixture.componentInstance.wait()).toBe(40);
+    });
+
+    it('says a refusal in the page\'s language, and again when it changes (F52)', async () => {
+        const err = { code: 'functions/permission-denied', message: "That code didn't work.", details: { reason: 'code-wrong' } };
+        codes.confirmCode.mockImplementation(async () => {
+            inMemberLanguage(err, TestBed.inject(TranslocoService));
+            throw err;
+        });
+        const fixture = await open({ en: { 'member.auth.server_error.code_wrong': "That code didn't work." }, de: { 'member.auth.server_error.code_wrong': 'Dieser Code stimmt nicht.' } });
+        const shown = () => (fixture.nativeElement.querySelector('.fresh-code-error') as HTMLElement).textContent!.trim();
+        TestBed.inject(TranslocoService).setActiveLang('de');
+        await fixture.componentInstance.check('000000');
+        fixture.detectChanges();
+        expect(shown()).toBe('Dieser Code stimmt nicht.');
+        TestBed.inject(TranslocoService).setActiveLang('en');
+        fixture.detectChanges();
+        expect(shown()).toBe("That code didn't work.");
     });
 
     it('counts the wait down by the clock, so it is right when the page comes back from the background (RF6)', async () => {

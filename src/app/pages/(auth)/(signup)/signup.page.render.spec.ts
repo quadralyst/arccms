@@ -13,9 +13,10 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, RouterModule } from '@angular/router';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { of } from 'rxjs';
 import { Auth } from '@angular/fire/auth';
+import { Functions } from '@angular/fire/functions';
 
 const { mockCallableFn } = vi.hoisted(() => ({ mockCallableFn: vi.fn() }));
 vi.mock('@angular/fire/functions', () => ({
@@ -120,6 +121,7 @@ beforeEach(async () => {
                 recordReady: () => record.promise,
             } },
             { provide: Auth, useValue: auth },
+            { provide: Functions, useValue: {} },
             { provide: AuthService, useValue: {} },
             { provide: SignInService, useValue: signIn },
             { provide: OnboardingSetupService, useValue: { shouldShowOnboarding: () => of(false) } },
@@ -1440,6 +1442,162 @@ describe('SignupComponent: no connection on a code or PIN step (RF6, 6.7)', () =
         page.handleSubmit();
         await flush();
         expect(page.errorMessage()).toBe(offline);
+    });
+});
+
+describe('SignupComponent: a message follows the page\'s language (F52)', () => {
+    /** The sentence in a language, as the page would say it there. */
+    const say = (lang: 'en' | 'hi', key: string, params: Record<string, unknown> = {}) => TestBed.inject(TranslocoService).translate<string>(key, params, lang);
+    const text = (selector: string) => (fixture.nativeElement.querySelector(selector) as HTMLElement | null)?.textContent?.trim() ?? '';
+    const refusal = (message: string, details: Record<string, unknown>) =>
+        Object.assign(new Error(message), { code: 'functions/resource-exhausted', details });
+    let real: SignInService;
+
+    function speak(lang: 'en' | 'hi'): void {
+        TestBed.inject(TranslocoService).setActiveLang(lang);
+        fixture.detectChanges();
+    }
+
+    /** The page at a step, its calls going through the real SignInService to a stubbed function. */
+    async function at(step: 'request' | 'verify' | 'pin' | 'newPin' | 'login', setUp: () => void = () => undefined): Promise<void> {
+        settingsRead.resolve(OPEN);
+        real = TestBed.runInInjectionContext(() => new SignInService());
+        const callables = signIn as unknown as Record<string, unknown>;
+        for (const name of ['checkEmail', 'checkPhone', 'requestPhoneCode', 'requestSignupCode', 'verifyPhoneCode', 'verifySignupCode', 'signInWithPin', 'resetPin', 'signInWithGoogle'] as const) {
+            callables[name] = vi.fn((...args: never[]) => (real[name] as (...a: never[]) => unknown)(...args));
+        }
+        render();
+        await flush();
+        page.channel.set('phone');
+        page.phone.set('+919876543210');
+        page.currentStep.set(step);
+        setUp();
+        fixture.detectChanges();
+    }
+
+    beforeEach(() => { mockCallableFn.mockReset(); });
+
+    it('the quiet line under the code boxes: sent a moment ago, the same code again, sending', async () => {
+        await at('verify');
+        mockCallableFn.mockResolvedValue({ data: { sent: true, alreadySent: true, wait: 40 } });
+        await page.sendOtp(true);
+        speak('hi');
+        expect(text('.otp-notice')).toBe(say('hi', 'member.auth.code_already_sent'));
+        expect(text('.otp-notice')).not.toBe(say('en', 'member.auth.code_already_sent'));
+        speak('en');
+        expect(text('.otp-notice')).toBe(say('en', 'member.auth.code_already_sent'));
+
+        mockCallableFn.mockResolvedValue({ data: { sent: true, sameCode: true } });
+        await page.sendOtp(true);
+        speak('hi');
+        expect(text('.otp-notice')).toBe(say('hi', 'member.auth.code_sent_again'));
+
+        const sending = later<{ data: unknown }>();
+        mockCallableFn.mockReturnValue(sending.promise);
+        const sent = page.sendOtp(true);
+        speak('en');
+        expect(text('.otp-notice')).toBe(say('en', 'member.auth.sending_code'));
+        speak('hi');
+        expect(text('.otp-notice')).toBe(say('hi', 'member.auth.sending_code'));
+        sending.resolve({ data: { sent: true } });
+        await sent;
+    });
+
+    it('a code the server refused: in the page\'s language at once, and in the next one when it changes', async () => {
+        await at('verify');
+        speak('hi');
+        mockCallableFn.mockRejectedValue(refusal("That code didn't work.", { reason: 'code-wrong' }));
+        await page.verifyOtp('482913');
+        fixture.detectChanges();
+        expect(text('[role=alert]')).toBe(say('hi', 'member.auth.server_error.code_wrong'));
+        speak('en');
+        expect(text('[role=alert]')).toBe("That code didn't work.");
+    });
+
+    it('a refusal keeps its numbers: the PIN tries left, the time a limit lifts', async () => {
+        await at('pin');
+        mockCallableFn.mockRejectedValue(refusal('Wrong PIN. 2 left.', { reason: 'wrong', remaining: 2 }));
+        await page.signInWithPin('123456');
+        speak('hi');
+        expect(text('.pin-error')).toBe(say('hi', 'member.auth.server_error.wrong', { remaining: 2 }));
+
+        vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 8, 17, 0, 0) });
+        mockCallableFn.mockRejectedValue(refusal('Too many tries.', { reason: 'too-many-attempts', retryAfter: 42 * 60 }));
+        await page.signInWithPin('123456');
+        speak('en');
+        // Still the time it named, however long the message has been there.
+        vi.setSystemTime(new Date(2026, 9, 8, 17, 30, 0));
+        speak('hi');
+        speak('en');
+        expect(text('.pin-error')).toMatch(/Too many tries from here\. Try again after 5:42\sPM\./);
+    });
+
+    it('a code the check was refused, shown on the code step', async () => {
+        await at('request');
+        mockCallableFn.mockResolvedValue({ data: {
+            phone: '+919876543210', exists: false, hasPin: false, signupOpen: true,
+            codeRefused: { code: 'unavailable', message: "We couldn't send the SMS.", details: { reason: 'sms-failed' } },
+        } });
+        await page.checkPhone('+919876543210');
+        fixture.detectChanges();
+        expect(text('[role=alert]')).toBe(say('en', 'member.auth.server_error.sms_failed'));
+        speak('hi');
+        expect(text('[role=alert]')).toBe(say('hi', 'member.auth.server_error.sms_failed'));
+    });
+
+    it('the page\'s own words: the code or PIN not typed, two PINs that differ, no connection, a failed check', async () => {
+        await at('verify');
+        await page.verifyOtp('12');
+        speak('hi');
+        expect(text('[role=alert]')).toBe(say('hi', 'member.auth.enter_code'));
+
+        speak('en');
+        page.goToStep('newPin');
+        // The last digit saves, and two that differ are refused.
+        typeNewPin('482913', '482914');
+        speak('hi');
+        expect(text('.pin-error')).toBe(say('hi', 'member.auth.pins_mismatch'));
+
+        vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+        mockCallableFn.mockRejectedValue(Object.assign(new Error('internal'), { code: 'functions/internal' }));
+        page.goToStep('pin');
+        await page.signInWithPin('123456');
+        fixture.detectChanges();
+        expect(text('.pin-error')).toBe(say('hi', 'member.errors.network_request_failed'));
+        speak('en');
+        expect(text('.pin-error')).toBe(say('en', 'member.errors.network_request_failed'));
+        vi.restoreAllMocks();
+    });
+
+    it('a sign-in the store refused, and the line above the password', async () => {
+        await at('login', () => page.channel.set('email'));
+        page.handleAuthError(say('en', 'member.auth.blocked'), 'blocked', () => say(TestBed.inject(TranslocoService).getActiveLang() as 'en', 'member.auth.blocked'));
+        speak('hi');
+        expect(text('[role=alert]')).toBe(say('hi', 'member.auth.blocked'));
+
+        speak('en');
+        page.goToStep('signup');
+        page.handleAuthError('used', 'auth/email-already-in-use');
+        speak('hi');
+        expect(page.successMessage()).toBe(say('hi', 'member.auth.existing_account_password'));
+        expect(shown()).toContain(say('hi', 'member.auth.existing_account_password'));
+    });
+
+    it('the first step\'s "please wait", at once and not at its next second', async () => {
+        await at('request', () => page.channel.set('email'));
+        page.requestWait.set(30);
+        fixture.detectChanges();
+        speak('hi');
+        expect(text('.request-wait')).toBe(say('hi', 'member.auth.server_error.wait', { wait: 30 }));
+    });
+
+    it('a message taken off stays off when the language changes', async () => {
+        await at('verify');
+        await page.verifyOtp('12');
+        page.goToStep('verify');
+        speak('hi');
+        expect(page.otpError()).toBe('');
+        expect(text('[role=alert]')).toBe('');
     });
 });
 

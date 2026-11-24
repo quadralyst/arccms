@@ -105,12 +105,23 @@ arc_articles/{id}/translations/hi     Hindi: only what is translated</code></pre
       <tbody>
         <tr><td>Template</td><td><code>{{ 'admin.users.page_title' | transloco }}</code>, with <code>TranslocoPipe</code> in the component's <code>imports</code></td></tr>
         <tr><td>TypeScript</td><td><code>this.t('key', params)</code> in a <code>BaseComponent</code>, or <code>private t = injectT()</code> from <code>src/app/core/i18n/inject-t.ts</code>. Both check the key at compile time.</td></tr>
+        <tr><td>A message that stays on the screen</td><td><code>injectLiveText()</code> from <code>src/app/core/i18n/live-text.ts</code>, set with how to say it (below)</td></tr>
         <tr><td>Toast</td><td><code>this.notify.success('key')</code> from <code>src/shared/services/notify.service.ts</code>. A toast shows its message as plain text, so a file name or a server's words cannot inject HTML; keep markup out of toast keys.</td></tr>
         <tr><td>Table column or action</td><td>Pass the key as <code>header</code> or <code>label</code>; the table translates it</td></tr>
         <tr><td>A field that holds a key or plain text</td><td>The <code>translatable</code> pipe, <code>src/app/core/i18n/translatable.pipe.ts</code></td></tr>
       </tbody>
     </table>
     <p>Keep a sentence in one key, with <code>{{ params }}</code> and any markup inside the value (rendered with <code>[innerHTML]</code>), so a translator can reorder it.</p>
+    <h4 id="messages-that-follow-the-language">Messages that follow the language</h4>
+    <p>A sentence kept as finished text (<code>this.error.set(this.t('...'))</code>) stays in the language it was said in when the person changes the page's. Keep how to say it instead:</p>
+    <pre><code>import { injectLiveText } from '../../core/i18n/live-text';
+
+readonly error = injectLiveText();   // read as error(), in the template and in code
+
+this.error.set(() =&gt; this.t('member.auth.enter_code'));
+this.error.set(readSignInError(err).say);   // a refusal from the sign-in functions, with its numbers
+this.error.set('');                          // nothing to say</code></pre>
+    <p>It is said again once the new language's file is in, and for no other reason, so take its values before: <code>const left = this.left(); this.error.set(() =&gt; this.t('key', { left }))</code>. Text with no translation, such as a provider's own message, is set as a plain string. In a <code>computed()</code> that builds a sentence, read <code>inject(PageLanguage).version()</code> from the same file. A spec fails when a sign-in screen keeps a finished sentence.</p>
     <div class="trap"><p>Table headings show as <code>ADMIN.CONTENTS.LIST.COL_TITLE</code>. Column definitions run before the translation file loads, so <code>translate()</code> there returns the key. Pass the key itself as <code>header</code>.</p></div>
 
     <h2>Extend it</h2>

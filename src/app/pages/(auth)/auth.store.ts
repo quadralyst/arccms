@@ -19,6 +19,7 @@ import { ToastService } from '../../../shared/services/toast.service';
 import { IAuth } from './auth.model';
 import { isLockedAppAccount, type LockFields } from '../../core/app-accounts/app-account-lock';
 import { AuthService } from './auth.service';
+import { said, type Say } from '../../core/i18n/live-text';
 import { readSignInError, SignInService } from './sign-in.service';
 import { deviceRemembered, markDeviceRemembered } from '../../core/sign-in/device-key';
 import { TranslocoService } from '@jsverse/transloco';
@@ -80,6 +81,8 @@ type AuthState = {
     isLoading: boolean;
     isSuccess: boolean;
     error: string;
+    /** How `error` is said, in the language the page shows by then (core/i18n/live-text.ts). Means something only while there is an error. */
+    errorSay: (() => string) | null;
     errorCode: string;
     query: string;
     firstVisible: null;
@@ -102,6 +105,7 @@ const initialState: AuthState = {
     isLoading: false,
     isSuccess: false,
     error: '',
+    errorSay: null,
     errorCode: '',
     query: '',
     firstVisible: null,
@@ -135,6 +139,8 @@ export const AuthState = signalStore(
         ) => {
             // Messages in the person's language (specs/app-member-language-spec.md, A1b).
             const say: Translate = (key, params) => transloco.translate(key, params);
+            /** What went wrong, for the state: the words now, and how to say them again in another language (text that came as it is has no other). */
+            const failed = (how: Say | undefined) => ({ error: said(how ?? ''), errorSay: typeof how === 'function' ? how : null });
             // Looked up when first needed, so everything that only reads the auth
             // state does not also need Firebase Functions.
             const signIn = () => injector.get(SignInService);
@@ -175,7 +181,7 @@ export const AuthState = signalStore(
                         },
                         error: (error) => {
                             patchState(store, {
-                                error: error.message,
+                                ...failed(error.message),
                                 isLoading: false,
                             });
                         },
@@ -214,17 +220,16 @@ export const AuthState = signalStore(
                                                 switchMap((result) => {
                                                     if (result.outcome === 'ok') return from(this.refreshCurrentUser()).pipe(map(() => res));
                                                     const again = result.outcome === 'refused' && readSignInError(result.error).reason === SIGNUP_AGAIN_CODE;
-                                                    const [error, errorCode] = again ? [say(SIGNUP_AGAIN_KEY), SIGNUP_AGAIN_CODE] : [say(NO_ACCESS_KEY), NO_ACCESS_CODE];
+                                                    const [key, errorCode] = again ? [SIGNUP_AGAIN_KEY, SIGNUP_AGAIN_CODE] as const : [NO_ACCESS_KEY, NO_ACCESS_CODE] as const;
                                                     return authService.logout().pipe(
-                                                        tap(() => patchState(store, { error, errorCode, isSuccess: false })),
+                                                        tap(() => patchState(store, { ...failed(() => say(key)), errorCode, isSuccess: false })),
                                                         map(() => null),
                                                     );
                                                 }),
                                             );
                                         }
-                                        const [error, errorCode] = [say(BLOCKED_KEY), BLOCKED_CODE];
                                         return authService.logout().pipe(
-                                            tap(() => patchState(store, { error, errorCode, isSuccess: false })),
+                                            tap(() => patchState(store, { ...failed(() => say(BLOCKED_KEY)), errorCode: BLOCKED_CODE, isSuccess: false })),
                                             map(() => null),
                                         );
                                     }),
@@ -237,7 +242,7 @@ export const AuthState = signalStore(
                             }),
                             catchError((err) => {
                                 console.error('Login error:', err.code);
-                                patchState(store, { isLoading: false, isSuccess: false, error: firebaseErrorMessage(say, err.code), errorCode: err.code || '' });
+                                patchState(store, { isLoading: false, isSuccess: false, ...failed(() => firebaseErrorMessage(say, err.code)), errorCode: err.code || '' });
                                 return of(null);
                             }),
                             finalize(() => {
@@ -268,23 +273,23 @@ export const AuthState = signalStore(
                                             return;
                                         }
                                         console.error('Failed to create the account record:', result.error);
-                                        const error = readSignInError(result.error, say(FALLBACK_KEY));
+                                        const error = readSignInError(result.error, () => say(FALLBACK_KEY));
                                         if (result.outcome === 'refused') {
                                             // Nothing was written: leave no sign-in behind, so the person can simply try again.
                                             await res.delete().catch(() => undefined);
-                                            patchState(store, { isLoading: false, error: error.message, errorCode: error.code, isSuccess: false });
+                                            patchState(store, { isLoading: false, ...failed(error.say), errorCode: error.code, isSuccess: false });
                                         } else {
-                                            patchState(store, { isLoading: false, error: say(UNFINISHED_SIGNUP_KEY), errorCode: error.code, isSuccess: false });
+                                            patchState(store, { isLoading: false, ...failed(() => say(UNFINISHED_SIGNUP_KEY)), errorCode: error.code, isSuccess: false });
                                         }
                                     })
                                     .catch((err) => {
                                         console.error('Failed to load the new account:', err);
-                                        patchState(store, { isLoading: false, error: say(UNFINISHED_SIGNUP_KEY), isSuccess: false });
+                                        patchState(store, { isLoading: false, ...failed(() => say(UNFINISHED_SIGNUP_KEY)), isSuccess: false });
                                     });
                             }),
                             catchError((err) => {
                                 console.error('Signup error:', err.code);
-                                patchState(store, { isLoading: false, error: firebaseErrorMessage(say, err.code), errorCode: err.code || '', isSuccess: false });
+                                patchState(store, { isLoading: false, ...failed(() => firebaseErrorMessage(say, err.code)), errorCode: err.code || '', isSuccess: false });
                                 return of(null);
                             }),
                         )
@@ -308,7 +313,7 @@ export const AuthState = signalStore(
                             patchState(store, {
                                 isLoading: false,
                                 isSuccess: false,
-                                error: error.message || say('member.auth.logout_failed'),
+                                ...failed(error.message || (() => say('member.auth.logout_failed'))),
                             });
                             return throwError(() => error);
                         }),
@@ -322,13 +327,13 @@ export const AuthState = signalStore(
                     // A locked app account keeps the name and photo its app gave it: refused
                     // here before Firebase's own profile changes, as the rules refuse the record.
                     if (isLockedAppAccount(oldCurrentUser) && ('name' in updatedFields || 'photo' in updatedFields)) {
-                        patchState(store, { isLoading: false, isSuccess: false, error: say('member.profile.app_managed') });
+                        patchState(store, { isLoading: false, isSuccess: false, ...failed(() => say('member.profile.app_managed')) });
                         return;
                     }
                     try {
                         const result = await authService.updateUser(id, updatedFields);
                         if (result === 'auth/wrong-password' || result === 'auth/too-many-requests') {
-                            patchState(store, { isLoading: false, isSuccess: false, error: result });
+                            patchState(store, { isLoading: false, isSuccess: false, ...failed(result) });
                         } else if (result === 'Profile updated') {
                             patchState(store, {
                                 isLoading: false,
@@ -342,11 +347,11 @@ export const AuthState = signalStore(
                             patchState(store, {
                                 isLoading: false,
                                 isSuccess: false,
-                                error: result || say('member.auth.profile_update_failed'),
+                                ...failed(result || (() => say('member.auth.profile_update_failed'))),
                             });
                         }
                     } catch (error: any) {
-                        patchState(store, { isLoading: false, isSuccess: false, error: error.message });
+                        patchState(store, { isLoading: false, isSuccess: false, ...failed(error.message) });
                     } finally {
                         patchState(store, { isLoading: false });
                     }
@@ -355,7 +360,7 @@ export const AuthState = signalStore(
                 async changePassword(passwordData: { currentPassword: string; newPassword: string }) {
                     patchState(store, { isLoading: true, isSuccess: false, error: '' });
                     if (isLockedAppAccount(store.currentUser())) {
-                        patchState(store, { isLoading: false, isSuccess: false, error: say('member.profile.app_managed') });
+                        patchState(store, { isLoading: false, isSuccess: false, ...failed(() => say('member.profile.app_managed')) });
                         return;
                     }
                     try {
@@ -364,13 +369,13 @@ export const AuthState = signalStore(
                             patchState(store, { isLoading: false, isSuccess: true, error: '' });
                         } else {
                             // A Firebase code reads as its message; anything else is shown as it came.
-                            const errorMsg = result && result.startsWith('auth/')
-                                ? firebaseErrorMessage(say, result, 'member.auth.password_update_failed')
-                                : result || say('member.auth.password_update_failed');
-                            patchState(store, { isLoading: false, isSuccess: false, error: errorMsg });
+                            const how: Say = result && result.startsWith('auth/')
+                                ? () => firebaseErrorMessage(say, result, 'member.auth.password_update_failed')
+                                : result || (() => say('member.auth.password_update_failed'));
+                            patchState(store, { isLoading: false, isSuccess: false, ...failed(how) });
                         }
                     } catch (error: any) {
-                        patchState(store, { isLoading: false, isSuccess: false, error: error.message });
+                        patchState(store, { isLoading: false, isSuccess: false, ...failed(error.message) });
                     }
                 },
 
@@ -388,7 +393,7 @@ export const AuthState = signalStore(
                             return result;
                         }
                     } catch (error: any) {
-                        patchState(store, { isLoading: false, isSuccess: false, error: error.message });
+                        patchState(store, { isLoading: false, isSuccess: false, ...failed(error.message) });
                     } finally {
                         patchState(store, { isLoading: false });
                     }
@@ -634,7 +639,7 @@ export const AuthState = signalStore(
                 if (stopAuth) return;
                 stopAuth = runInInjectionContext(injector, () => onAuthStateChanged(auth, onAuthChange, (error) => {
                     console.error('Auth state change error:', error);
-                    patchState(store, { error: error.message });
+                    patchState(store, { ...failed(error.message) });
                     noRecord(shared.value.seq);
                 }));
             }

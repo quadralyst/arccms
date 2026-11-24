@@ -29,7 +29,7 @@ async setUpTill(): Promise&lt;void&gt; {
     <pre><code>const sent = await this.freshCode.request('pos-setup');       // { via, to, wait, testCode? }
 // ... show "We've sent a 6-digit code to " + sent.to, and &lt;arc-code-input (completed)="..."&gt; ...
 const proof = await this.freshCode.confirmCode('pos-setup', code);</code></pre>
-    <p>A refusal comes as an error whose message is already in the member's language, with <code>details.reason</code> (<code>code-wrong</code>, <code>code-expired</code>, <code>code-tries</code>, <code>wait</code>, <code>too-many-codes</code>, <code>no-contact</code>).</p>
+    <p>A refusal comes as an error whose message is already in the member's language, with <code>details.reason</code> (<code>code-wrong</code>, <code>code-expired</code>, <code>code-tries</code>, <code>wait</code>, <code>too-many-codes</code>, <code>no-contact</code>). In Arc CMS's dialog a message on the screen changes when the language does. A sheet of your own keeps its message that way with a live text: <code>this.error.set(readSignInError(err).say)</code>, with <code>readSignInError</code> from <code>src/app/pages/(auth)/sign-in.service.ts</code> (see <a href="../features/languages.html#messages-that-follow-the-language">Messages that follow the language</a>).</p>
 
     <h2 id="in-your-function">In your function</h2>
     <p>Use the proof up with <code>useFreshCodeProof()</code> from the app kit before doing anything else:</p>

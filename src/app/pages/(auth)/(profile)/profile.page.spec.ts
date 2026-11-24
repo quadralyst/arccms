@@ -10,6 +10,8 @@ import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { of } from 'rxjs';
 import ProfileComponent, { DELETE_ACCOUNT_PURPOSE } from './profile.page';
 import { english } from '../../../../test/english';
+import { standInText } from '../../../../test/live-text';
+import { said, type Say } from '../../../core/i18n/live-text';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -69,13 +71,39 @@ describe('ProfileComponent', () => {
                 fileUpload: { uploadAvatar },
                 authStore: { updateUserProfile, isSuccess: () => true, error: () => '' },
                 clearMessages: vi.fn(),
-                successMsg: { set: vi.fn() },
-                errorMsg: { set: vi.fn() },
+                successMsg: standInText(),
+                errorMsg: standInText(),
             };
             const file = new File(['x'], 'me.png', { type: 'image/png' });
             await ProfileComponent.prototype.onAvatarFileSelected.call(ctx, { target: { files: [file], value: 'x' } } as any);
             expect(uploadAvatar).toHaveBeenCalledWith('uid1', file);
             expect(updateUserProfile).toHaveBeenCalledWith('doc1', { photo: 'https://cdn/avatar.webp' });
+        });
+
+        it('shows what the store says went wrong, its words following the page\'s language, else its own (F52)', async () => {
+            let words = 'This account is managed by the app that made it.';
+            const ctx = {
+                t: english,
+                currentUser: () => ({ id: 'doc1' }),
+                authStore: { updateUserProfile: vi.fn(), isSuccess: () => false, error: () => words, errorSay: () => (() => words) as (() => string) | null },
+                clearMessages: vi.fn(),
+                successMsg: standInText(),
+                errorMsg: standInText(),
+                storeError: (ProfileComponent.prototype as any).storeError,
+            };
+            await ProfileComponent.prototype.removePhoto.call(ctx as never);
+            words = 'Dieses Konto wird von der App verwaltet.';
+            expect(ctx.errorMsg()).toBe('Dieses Konto wird von der App verwaltet.');
+
+            // Text that came as it is: shown as it is.
+            words = 'permission-denied';
+            ctx.authStore.errorSay = () => null;
+            await ProfileComponent.prototype.removePhoto.call(ctx as never);
+            expect(ctx.errorMsg()).toBe('permission-denied');
+
+            words = '';
+            await ProfileComponent.prototype.removePhoto.call(ctx as never);
+            expect(ctx.errorMsg()).toBe(english('member.profile.photo_remove_failed'));
         });
 
         it('should have removePhoto method', () => {
@@ -566,7 +594,7 @@ describe('ProfileComponent', () => {
                 clearMessages: vi.fn(),
                 isDeleting: { set: vi.fn() },
                 deleteNeedsSignIn: { set: deleteNeedsSignIn },
-                errorMsg: { set: errorMsg },
+                errorMsg: { set: (say: Say) => errorMsg(said(say)) },
                 injector: { get: () => ({ confirm }) },
                 authStore: { logout },
                 toastService: { success: vi.fn() },

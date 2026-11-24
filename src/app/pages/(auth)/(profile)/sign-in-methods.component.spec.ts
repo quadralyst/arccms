@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { TranslocoService } from '@jsverse/transloco';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { english } from '../../../../test/english';
+import { standInText } from '../../../../test/live-text';
 import { SentCodes } from '../sent-codes';
-import { NEVER } from 'rxjs';
-import { SIGN_IN_SETTINGS_CACHE_KEY } from '../../admin/(settings)/user-setting/user-setting.service';
+import { NEVER, of } from 'rxjs';
+import { AuthState } from '../auth.store';
+import { refusal, SignInService } from '../sign-in.service';
+import { FreshCodeService } from '../../../core/sign-in/fresh-code.service';
+import { ToastService } from '../../../../shared/services/toast.service';
+import { SIGN_IN_SETTINGS_CACHE_KEY, UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 
 const proto = SignInMethodsComponent.prototype as unknown as Record<string, (this: unknown, ...args: unknown[]) => Promise<void>>;
 
@@ -20,14 +28,14 @@ function ctx(check: Record<string, unknown> = { status: 'available' }, countryCo
         phoneCountry: signal(country),
         flow: signal<any>(null),
         busy: signal(false),
-        error: signal(''),
-        message: signal(''),
+        error: standInText(),
+        message: standInText(),
         secret: signal(''),
         secretAgain: signal(''),
         // The two rows of a new PIN: what check() finds in them (the rows themselves are new-pin-input.component.spec.ts).
         newPinField: () => newPin,
         testCodeInLogs: signal(false),
-        notice: signal(''),
+        notice: standInText(),
         resendIn: signal(0),
         resendClock: { stop: vi.fn(), start: vi.fn() },
         sentCodes: new SentCodes(),
@@ -417,6 +425,96 @@ describe('SignInMethodsComponent', () => {
             await proto['savePin'].call(c);
             expect(c['hasCurrentPin']()).toBe(true);
         });
+    });
+});
+
+describe('SignInMethodsComponent: a message follows the page\'s language (F52)', () => {
+    const signIn = {
+        hasGoogle: () => false,
+        checkForLink: vi.fn(),
+        requestPhoneCode: vi.fn(),
+        verifyPhoneCode: vi.fn(),
+        connectGoogle: vi.fn(),
+    };
+    const say = (lang: 'en' | 'hi', key: string, params: Record<string, unknown> = {}) => TestBed.inject(TranslocoService).translate<string>(key, params, lang);
+
+    async function render() {
+        TestBed.configureTestingModule({
+            imports: [SignInMethodsComponent],
+            providers: [
+                provideRouter([]),
+                { provide: SignInService, useValue: signIn },
+                { provide: AuthState, useValue: { currentUser: signal({ email: '', phone: '' }) } },
+                { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
+                { provide: UserSettingService, useValue: { getSettings: () => of({ phoneSignIn: true, googleSignIn: true, phoneCountries: ['IN'], phoneCountry: 'IN' }) } },
+                { provide: FreshCodeService, useValue: { confirm: vi.fn() } },
+            ],
+        });
+        const fixture = TestBed.createComponent(SignInMethodsComponent);
+        fixture.detectChanges();
+        // The site's settings are in (its countries).
+        await fixture.whenStable();
+        const speak = (lang: 'en' | 'hi') => {
+            TestBed.inject(TranslocoService).setActiveLang(lang);
+            fixture.detectChanges();
+        };
+        const text = (selector: string) => (fixture.nativeElement.querySelector(selector) as HTMLElement | null)?.textContent?.trim() ?? '';
+        return { fixture, card: fixture.componentInstance, speak, text };
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        signIn.checkForLink.mockResolvedValue({ kind: 'phone', value: '+919876543210', status: 'available', needsPin: false });
+    });
+
+    it('what is wrong with the number, the countries it names included', async () => {
+        const { card, speak, text } = await render();
+        card.start('phone');
+        card.setTyped('+44 7700 900123');
+        await card.sendCode();
+        speak('en');
+        expect(text('[role=alert]')).toContain('India');
+        speak('hi');
+        expect(text('[role=alert]')).toBe(say('hi', 'member.auth.identifier_error.phone_not_allowed', { countries: 'भारत' }));
+    });
+
+    it('the quiet line under the code, a refused code, and the page\'s own refusal', async () => {
+        signIn.requestPhoneCode.mockResolvedValue({ sent: true, alreadySent: true, wait: 40 });
+        const { card, speak, text } = await render();
+        card.start('phone');
+        card.setTyped('98765 43210');
+        await card.sendCode();
+        speak('en');
+        expect(text('.code-notice')).toBe(say('en', 'member.auth.code_already_sent'));
+        speak('hi');
+        expect(text('.code-notice')).toBe(say('hi', 'member.auth.code_already_sent'));
+
+        signIn.verifyPhoneCode.mockRejectedValue(refusal('invalid-argument', () => TestBed.inject(TranslocoService).translate('member.auth.server_error.code_wrong')));
+        await card.verifyCode('482913');
+        speak('en');
+        expect(text('[role=alert]')).toBe(say('en', 'member.auth.server_error.code_wrong'));
+        speak('hi');
+        expect(text('[role=alert]')).toBe(say('hi', 'member.auth.server_error.code_wrong'));
+
+        card.cancel();
+        signIn.checkForLink.mockResolvedValue({ kind: 'phone', value: '+919876543210', status: 'yours' });
+        card.start('phone');
+        card.setTyped('98765 43210');
+        await card.sendCode();
+        speak('en');
+        expect(text('[role=alert]')).toBe(say('en', 'member.methods.already_yours_number'));
+        speak('hi');
+        expect(text('[role=alert]')).toBe(say('hi', 'member.methods.already_yours_number'));
+    });
+
+    it('what was saved', async () => {
+        signIn.connectGoogle.mockResolvedValue(undefined);
+        const { card, speak, text } = await render();
+        await card.connectGoogle();
+        speak('en');
+        expect(text('.alert-success')).toBe(say('en', 'member.methods.google_connected'));
+        speak('hi');
+        expect(text('.alert-success')).toBe(say('hi', 'member.methods.google_connected'));
     });
 });
 

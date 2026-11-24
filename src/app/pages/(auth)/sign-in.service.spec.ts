@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@angular/fire/functions', () => ({ Functions: class {}, httpsCallable: vi.fn() }));
 
-import { readSignInError, translateRefusal, SIGN_IN_FUNCTIONS, SignInService, WARM_UP_EVERY_MS } from './sign-in.service';
+import { inMemberLanguage, readSignInError, refusal, translateRefusal, SIGN_IN_FUNCTIONS, SignInService, WARM_UP_EVERY_MS } from './sign-in.service';
 import { deviceKey } from '../../core/sign-in/device-key';
 import { english } from '../../../test/english';
 
@@ -52,7 +52,7 @@ describe('SignInService.ensureRecordClaim', () => {
 describe('readSignInError', () => {
     it('keeps the server message and reason, hides internal errors', () => {
         expect(readSignInError({ code: 'functions/failed-precondition', message: 'Sign in again.', details: { reason: 'recent-sign-in' } }))
-            .toEqual({ code: 'failed-precondition', message: 'Sign in again.', reason: 'recent-sign-in', details: { reason: 'recent-sign-in' } });
+            .toEqual({ code: 'failed-precondition', message: 'Sign in again.', say: expect.any(Function), reason: 'recent-sign-in', details: { reason: 'recent-sign-in' } });
         expect(readSignInError({ code: 'functions/internal', message: 'stack trace' }, 'Oops').message).toBe('Oops');
     });
 
@@ -79,6 +79,60 @@ describe('readSignInError', () => {
             vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
             expect(readSignInError({ code: 'functions/internal', message: 'internal' }, 'Oops')).toMatchObject({ message: 'Oops', reason: undefined });
         });
+    });
+});
+
+describe('a message said again in another language (F52)', () => {
+    let lang = 'en';
+    const translate = (key: string, params: Record<string, unknown> = {}) => {
+        const text = english(key, params);
+        // A key with no words comes back as it is, as Transloco does.
+        return text === key || lang === 'en' ? text : `${lang}: ${text}`;
+    };
+    const transloco = { translate, getActiveLang: () => lang } as never;
+    beforeEach(() => { lang = 'en'; });
+
+    it('a refusal: its reason and numbers kept, its words from the language now', () => {
+        const err = Object.assign(new Error('Wrong PIN. 2 left.'), { code: 'functions/permission-denied', details: { reason: 'wrong', remaining: 2 } });
+        lang = 'de';
+        inMemberLanguage(err, transloco);
+        const failed = readSignInError(err);
+        // With no switch, already in the page's language.
+        expect(failed.message).toBe('de: Wrong PIN. 2 left.');
+        lang = 'en';
+        expect(failed.say()).toBe('Wrong PIN. 2 left.');
+        // Read again, it is in the language now.
+        expect(readSignInError(err).message).toBe('Wrong PIN. 2 left.');
+    });
+
+    it('a limit keeps the time it named, however long the message has been there', () => {
+        vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 8, 17, 0, 0) });
+        const err = { code: 'functions/resource-exhausted', message: 'Too many codes.', details: { reason: 'too-many-codes', retryAfter: 42 * 60 } };
+        inMemberLanguage(err, transloco);
+        const { say } = readSignInError(err);
+        vi.setSystemTime(new Date(2026, 9, 8, 17, 40, 0));
+        expect(say()).toBe('Too many codes. Try again after 5:42 PM.');
+        vi.useRealTimers();
+    });
+
+    it('text with no words of the page\'s own stays as the server sent it', () => {
+        for (const err of [
+            { code: 'functions/invalid-argument', message: 'Unknown request.' },
+            { code: 'functions/unavailable', message: 'Something new.', details: { reason: 'something-new' } },
+            Object.freeze({ code: 'functions/permission-denied', message: 'Frozen.', details: { reason: 'wrong', remaining: 1 } }),
+        ]) {
+            inMemberLanguage(err, transloco);
+            expect(readSignInError(err).say()).toBe(err.message);
+        }
+        expect(() => inMemberLanguage(undefined, transloco)).not.toThrow();
+    });
+
+    it('the page\'s own refusal and its fallback', () => {
+        const own = readSignInError(refusal('local', () => translate('member.methods.invalid_email')));
+        const fallback = readSignInError({ code: 'functions/internal', message: 'internal' }, () => translate('member.auth.send_code_failed'));
+        lang = 'de';
+        expect(own.say()).toBe(`de: ${english('member.methods.invalid_email')}`);
+        expect(fallback.say()).toBe(`de: ${english('member.auth.send_code_failed')}`);
     });
 });
 
@@ -353,7 +407,7 @@ describe('a code the check sends (specs/sign-in-speed-spec.md, SP-D5 to SP-D9)',
         });
         const account = await proto['checkPhone'].call(c, '+919876543210', { sendCode: true }) as Record<string, any>;
         expect(account['codeRefused']).toBeUndefined();
-        expect(account['codeError']).toEqual({
+        expect(account['codeError']).toMatchObject({
             code: 'resource-exhausted', message: 'Please wait 39 seconds before asking for another code.', details: { reason: 'wait', wait: 39 },
         });
         expect(readSignInError(account['codeError'])).toMatchObject({ reason: 'wait', details: { wait: 39 } });

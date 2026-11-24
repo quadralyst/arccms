@@ -13,7 +13,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { arcCallable } from '../config/arc-functions';
-import { translateRefusal } from '../../pages/(auth)/sign-in.service';
+import { inMemberLanguage } from '../../pages/(auth)/sign-in.service';
 
 /** What requestFreshCode answered: where the code went, and while testing the code itself. */
 export interface FreshCodeSent {
@@ -67,13 +67,7 @@ export class FreshCodeService {
             return result.data as T;
         } catch (err) {
             // Say a refusal in the member's language, as the sign-in page does.
-            const e = err as { message?: string; details?: Record<string, unknown> };
-            const text = translateRefusal(e?.details, (key, params) => this.transloco.translate(key, params), this.transloco.getActiveLang());
-            if (text && e && typeof e === 'object') {
-                try {
-                    e.message = text;
-                } catch { /* a frozen error keeps the server's text */ }
-            }
+            inMemberLanguage(err, this.transloco);
             throw err;
         }
     }

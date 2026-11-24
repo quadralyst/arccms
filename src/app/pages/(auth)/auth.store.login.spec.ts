@@ -6,13 +6,15 @@
 import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { TranslocoService } from '@jsverse/transloco';
 import { Auth } from '@angular/fire/auth';
 
 vi.mock('@angular/fire/auth', () => ({ Auth: class {}, onAuthStateChanged: vi.fn(() => () => undefined) }));
 
 import { AuthState, NO_ACCESS_CODE, SIGNUP_AGAIN_CODE } from './auth.store';
 import { english } from '../../../test/english';
+import { ConstantVariables } from '../../../shared/constants/common-constants';
 import { AuthService } from './auth.service';
 import { SignInService } from './sign-in.service';
 import { ToastService } from '../../../shared/services/toast.service';
@@ -23,6 +25,7 @@ describe('AuthState.login', () => {
         login: vi.fn(),
         getCurrentUserByUid: vi.fn(),
         logout: vi.fn(() => of(undefined)),
+        updateUser: vi.fn(),
     };
     const toast = { success: vi.fn(), error: vi.fn() };
     const signIn = { ensureRecordClaim: vi.fn(async () => false), createAccountRecord: vi.fn() };
@@ -77,6 +80,48 @@ describe('AuthState.login', () => {
         expect(store.error()).toBe(english('member.auth.no_access'));
         expect(store.errorCode()).toBe(NO_ACCESS_CODE);
         expect(store.isSuccess()).toBe(false);
+        // For the page, when its language changes (F52).
+        TestBed.inject(TranslocoService).setActiveLang('hi');
+        expect(store.errorSay()!()).toBe(TestBed.inject(TranslocoService).translate('member.auth.no_access', {}, 'hi'));
+        expect(store.errorSay()!()).not.toBe(store.error());
+    });
+
+    it('keeps text that came as it is, with no other way to say it, even when there is none (F52)', async () => {
+        const store = TestBed.inject(AuthState);
+        authService.updateUser.mockRejectedValueOnce(new Error('permission-denied'));
+        await store.updateUserProfile('rec-1', { name: 'Ada' });
+        expect([store.error(), store.errorSay()]).toEqual(['permission-denied', null]);
+        // An error with no message must not throw in its own handler.
+        authService.updateUser.mockRejectedValueOnce({ code: 'unknown' });
+        await expect(store.updateUserProfile('rec-1', { name: 'Ada' })).resolves.toBeUndefined();
+        expect([store.error(), store.errorSay(), store.isLoading()]).toEqual(['', null, false]);
+    });
+
+    it('says a wrong password, a blocked account and an unfinished sign-up again in another language (F52)', async () => {
+        const store = TestBed.inject(AuthState);
+        const transloco = TestBed.inject(TranslocoService);
+        const both = (key: string) => [english(key), transloco.translate<string>(key, {}, 'hi')];
+        const shown = () => {
+            transloco.setActiveLang('en');
+            const now = store.errorSay()!();
+            transloco.setActiveLang('hi');
+            return [now, store.errorSay()!()];
+        };
+        authService.login.mockReturnValue(throwError(() => ({ code: 'auth/wrong-password' })));
+        store.login({ email: 'a@x.com', password: 'pw' });
+        const wrong = new ConstantVariables().firebaseAuthErrors.find((item) => item.code === 'auth/wrong-password')!.key;
+        expect(shown()).toEqual(both(wrong));
+
+        authService.login.mockReturnValue(of({ uid: 'u1' }));
+        authService.getCurrentUserByUid.mockReturnValue(of({ id: 'rec-1', uid: 'u1', isActive: false }));
+        store.login({ email: 'a@x.com', password: 'pw' });
+        expect(shown()).toEqual(both('member.auth.blocked'));
+
+        authService.register.mockReturnValue(of({ delete: vi.fn(async () => undefined) }));
+        signIn.createAccountRecord.mockRejectedValue({ code: 'functions/invalid-argument', message: 'Please enter your name.', say: () => transloco.translate('member.auth.server_error.name_required') });
+        store.signup({ name: '', email: 'a@x.com', password: 'pw' });
+        await vi.waitFor(() => expect(store.isLoading()).toBe(false));
+        expect(shown()).toEqual(both('member.auth.server_error.name_required'));
     });
 
     it('says to sign up again when the server removed a sign-up that never finished (page reloaded mid sign-up)', async () => {

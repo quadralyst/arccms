@@ -24,6 +24,7 @@ import { signal } from '@angular/core';
 import { SentCodes } from '../sent-codes';
 import { homeFor } from '../../../core/home/home';
 import { english } from '../../../../test/english';
+import { standInText } from '../../../../test/live-text';
 import { FormControl, FormGroup } from '@angular/forms';
 import { identifierProblem } from '../../../../shared/utils/identifier.util';
 
@@ -331,7 +332,7 @@ describe('SignupComponent', () => {
         const loading = () => Object.assign(() => false, { set: vi.fn() });
 
         it.each(['', '123'])('verifyOtp asks for all 6 digits when given %j', async (entered) => {
-            const mockOtpError = { set: vi.fn() };
+            const mockOtpError = standInText();
             const mockContext = {
                 t: english,
                 codeBoxes: () => ({ value: () => entered }),
@@ -341,7 +342,7 @@ describe('SignupComponent', () => {
 
             await SignupComponent.prototype.verifyOtp.call(mockContext);
 
-            expect(mockOtpError.set).toHaveBeenCalledWith('Please enter the 6-digit code');
+            expect(mockOtpError()).toBe('Please enter the 6-digit code');
         });
     });
 
@@ -365,7 +366,7 @@ describe('SignupComponent', () => {
                 emailPurpose: () => 'signup',
                 functions: {},
                 otpVerified: false,
-                otpError: { set: vi.fn() },
+                otpError: standInText(),
                 sentCodes: new SentCodes(),
                 codeKey: () => 'key',
                 isLoading: Object.assign(() => false, { set: vi.fn() }),
@@ -392,7 +393,7 @@ describe('SignupComponent', () => {
             const c = ctx();
             c.signIn.verifySignupCode.mockResolvedValue({ verified: false });
             await verifyOtp.call(c, '123456');
-            expect(c.otpError.set).toHaveBeenCalledWith("That code didn't work. Check it and try again.");
+            expect(c.otpError()).toBe("That code didn't work. Check it and try again.");
             expect(c.otpVerified).toBe(false);
             expect(c.goToStep).not.toHaveBeenCalled();
         });
@@ -553,7 +554,7 @@ describe('SignupComponent', () => {
             return {
                 t: english,
                 isLoading: { set: vi.fn() },
-                errorMessage: { set: vi.fn() },
+                errorMessage: standInText(),
                 channel: { set: vi.fn() },
                 phone: { set: vi.fn() },
                 phonePurpose: { set: vi.fn() },
@@ -616,7 +617,7 @@ describe('SignupComponent', () => {
             const c = ctx({});
             c.signIn.checkPhone.mockRejectedValue({ code: 'functions/invalid-argument', message: 'Only numbers starting +91 can be used here.' });
             await checkPhone.call(c, '+44 7700 900123');
-            expect(c.errorMessage.set).toHaveBeenCalledWith('Only numbers starting +91 can be used here.');
+            expect(c.errorMessage()).toBe('Only numbers starting +91 can be used here.');
         });
     });
 
@@ -632,8 +633,8 @@ describe('SignupComponent', () => {
                 phone: () => '+919876543210',
                 phonePurpose: () => purpose,
                 emailPurpose: () => 'signup',
-                otpError: { set: vi.fn() },
-                otpNotice: signal(''),
+                otpError: standInText(),
+                otpNotice: standInText(),
                 sentCodes: new SentCodes(),
                 testCode: Object.assign(() => shown, { set: (v: string) => (shown = v) }),
                 testCodeInLogs: Object.assign(() => inLogs, { set: (v: boolean) => (inLogs = v) }),
@@ -765,8 +766,8 @@ describe('SignupComponent', () => {
                 channel: () => 'phone',
                 phone: () => phone,
                 phonePurpose: () => 'signup',
-                otpError: signal(''),
-                otpNotice: signal(''),
+                otpError: standInText(),
+                otpNotice: standInText(),
                 sentCodes: new SentCodes(),
                 testCode: Object.assign(() => shown, { set: (v: string) => (shown = v) }),
                 testCodeInLogs: Object.assign(() => inLogs, { set: (v: boolean) => (inLogs = v) }),
@@ -890,7 +891,7 @@ describe('SignupComponent', () => {
                 t: english,
                 phone: () => '+919876543210',
                 isLoading: Object.assign(() => false, { set: vi.fn() }),
-                errorMessage: { set: vi.fn() },
+                errorMessage: standInText(),
                 pinLocked: { set: vi.fn() },
                 pinBoxes: () => ({ reset: vi.fn(), value: () => '' }),
                 forgotPin: vi.fn(),
@@ -932,7 +933,7 @@ describe('SignupComponent', () => {
         it('shows a wrong PIN and clears the boxes', async () => {
             const c = ctx({ code: 'functions/permission-denied', message: 'Wrong PIN. 4 tries left.', details: { reason: 'wrong' } });
             await signInWithPin.call(c, '000000');
-            expect(c['errorMessage'].set).toHaveBeenCalledWith('Wrong PIN. 4 tries left.');
+            expect(c['errorMessage']()).toBe('Wrong PIN. 4 tries left.');
             expect(c['pinLocked'].set).not.toHaveBeenCalled();
         });
 
@@ -951,7 +952,7 @@ describe('SignupComponent', () => {
                 t: english,
                 email: 'new@user.com',
                 isLoading: { set: vi.fn() },
-                errorMessage: { set: vi.fn() },
+                errorMessage: standInText(),
                 otpVerified: true, // should be reset to false by checkEmail
                 emailPurpose: { set: vi.fn() },
                 emailStatus: vi.fn().mockResolvedValue({ status: status ?? (emailExists ? 'registered' : 'new') }),
@@ -1002,7 +1003,7 @@ describe('SignupComponent', () => {
         it('tells a login from another app (no record here) straight away', async () => {
             const c = ctx(false, false, 'no-access');
             await checkEmail.call(c);
-            expect(c.errorMessage.set).toHaveBeenCalledWith(expect.stringContaining("doesn't have access"));
+            expect(c.errorMessage()).toContain("doesn't have access");
             expect(c.goToStep).not.toHaveBeenCalled();
             expect(c.sendOtp).not.toHaveBeenCalled();
         });
@@ -1130,7 +1131,7 @@ describe('SignupComponent', () => {
             t: english,
             currentStep: vi.fn(() => step),
             goToStep: vi.fn(),
-            errorMessage: { set: vi.fn() },
+            errorMessage: standInText(),
             authActionPending: true,
         });
 
@@ -1142,10 +1143,10 @@ describe('SignupComponent', () => {
         });
 
         it('sends an already-registered email to sign-in instead of failing silently', () => {
-            const c = { ...ctx('signup'), successMessage: { set: vi.fn() } };
+            const c = { ...ctx('signup'), successMessage: standInText() };
             SignupComponent.prototype.handleAuthError.call(c, 'You already have an account', 'auth/email-already-in-use');
             expect(c.goToStep).toHaveBeenCalledWith('login');
-            expect(c.successMessage.set).toHaveBeenCalledWith(expect.stringContaining('already have an account'));
+            expect(c.successMessage()).toContain('already have an account');
             expect(c.authActionPending).toBe(false);
         });
 
@@ -1153,7 +1154,15 @@ describe('SignupComponent', () => {
             const c = ctx('signup');
             SignupComponent.prototype.handleAuthError.call(c, 'Something went wrong!', 'auth/network-request-failed');
             expect(c.goToStep).not.toHaveBeenCalled();
-            expect(c.errorMessage.set).toHaveBeenCalledWith('Something went wrong!');
+            expect(c.errorMessage()).toBe('Something went wrong!');
+        });
+
+        it('keeps how the store says it, to follow the page\'s language (F52)', () => {
+            const c = ctx('login');
+            let words = 'Wrong email or password.';
+            SignupComponent.prototype.handleAuthError.call(c, words, 'auth/invalid-credential', () => words);
+            words = 'E-Mail oder Passwort falsch.';
+            expect(c.errorMessage()).toBe('E-Mail oder Passwort falsch.');
         });
     });
 
@@ -1177,7 +1186,7 @@ describe('SignupComponent', () => {
                 t: english,
                 email: 'asha@example.com',
                 isLoading: { set: vi.fn() },
-                errorMessage: { set: vi.fn() },
+                errorMessage: standInText(),
                 otpVerified: false,
                 emailPurpose: { set: vi.fn() },
                 emailStatus: vi.fn().mockResolvedValue({ status: account['status'] ?? 'registered', checked: { code: { sent: true } }, account }),
@@ -1195,7 +1204,7 @@ describe('SignupComponent', () => {
         it('a blocked account is told so on the email step, and asked for nothing', async () => {
             const c = emailCheckCtx({ signInWith: 'blocked' });
             await proto.checkEmail.call(c);
-            expect(c.errorMessage.set).toHaveBeenLastCalledWith(expect.stringContaining('blocked'));
+            expect(c.errorMessage()).toContain('blocked');
             expect(c.goToStep).not.toHaveBeenCalled();
             expect(c.sendOtp).not.toHaveBeenCalled();
         });
@@ -1245,7 +1254,7 @@ describe('SignupComponent', () => {
                 t: english,
                 email: 'asha@example.com',
                 channel: () => 'email',
-                errorMessage: { set: vi.fn() },
+                errorMessage: standInText(),
                 pinLocked: { set: vi.fn() },
                 pinBoxes: () => ({ reset: vi.fn(), value: () => '' }),
                 forgotPin: vi.fn(),
@@ -1262,7 +1271,7 @@ describe('SignupComponent', () => {
             for (const [purpose, step] of [['device', 'pin'], ['pin-reset', 'newPin']] as const) {
                 const c = {
                     t: english, email: 'asha@example.com', channel: () => 'email', emailPurpose: () => purpose,
-                    otpError: { set: vi.fn() }, sentCodes: new SentCodes(), codeKey: () => 'key',
+                    otpError: standInText(), sentCodes: new SentCodes(), codeKey: () => 'key',
                     isLoading: Object.assign(() => false, { set: vi.fn() }), goToStep: vi.fn(), pinLocked: { set: vi.fn() },
                     codeBoxes: () => ({ reset: vi.fn(), value: () => '' }),
                     signIn: { verifyEmailPinCode: vi.fn().mockResolvedValue({ verified: true }) },

@@ -17,6 +17,7 @@ import {
 import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../../core/config/arc-functions';
 import { TranslocoService } from '@jsverse/transloco';
+import { said, type Say } from '../../core/i18n/live-text';
 import { genericErrorText, isOfflineError, offlineText } from './auth-messages';
 import { minPasswordLength } from '../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../core/sign-in/sign-in-strength';
@@ -83,7 +84,10 @@ export const WARM_UP_EVERY_MS = 5 * 60 * 1000;
 /** A callable's error, as the page shows it. */
 export interface SignInError {
     code: string;
+    /** What went wrong, in the language the page shows now. */
     message: string;
+    /** The same, said again in whatever language the page shows by then: for a message that stays on screen (core/i18n/live-text.ts). */
+    say: () => string;
     reason?: string;
     /** The refusal's numbers, such as `wait` or `retryAfter` (specs/sign-in-codes-spec.md). */
     details?: Record<string, unknown>;
@@ -94,12 +98,38 @@ export interface SignInError {
  * network it is "No internet connection" (reason `offline`), not a server error
  * or the fallback (RF6, 6.7).
  */
-export function readSignInError(err: unknown, fallback = genericErrorText()): SignInError {
-    const e = err as { code?: string; message?: string; details?: Record<string, unknown> & { reason?: string } };
+export function readSignInError(err: unknown, fallback: Say = genericErrorText): SignInError {
+    const e = err as { code?: string; message?: string; say?: unknown; details?: Record<string, unknown> & { reason?: string } };
     const code = String(e?.code ?? '').replace(/^functions\//, '');
-    if (isOfflineError(code, e?.details?.reason)) return { code, message: offlineText(), reason: 'offline', details: e?.details };
-    const message = code && code !== 'internal' && e?.message ? e.message : fallback;
-    return { code, message, reason: e?.details?.reason, details: e?.details };
+    const read = (say: () => string, reason: string | undefined): SignInError => ({ code, message: say(), say, reason, details: e?.details });
+    if (isOfflineError(code, e?.details?.reason)) return read(offlineText, 'offline');
+    if (!code || code === 'internal' || !e?.message) return read(() => said(fallback), e?.details?.reason);
+    // A refusal in the member's language (inMemberLanguage), or a page's own (refusal); else the text as it came.
+    const text = e.message;
+    return read(typeof e.say === 'function' ? (e.say as () => string) : () => text, e.details?.reason);
+}
+
+/** A refusal of the page's own, thrown where a server's would be: `say` gives its words. */
+export function refusal(code: string, say: () => string): { code: string; message: string; say: () => string } {
+    return { code, message: say(), say };
+}
+
+/**
+ * Say a server refusal in the member's language: every page shows `message`, and
+ * `say` gives it again in another one, with the same numbers (readSignInError). An
+ * error with no reason, or none the page has words for, keeps the server's text.
+ */
+export function inMemberLanguage(err: unknown, transloco: TranslocoService): void {
+    const e = err as { message?: string; say?: () => string; details?: Record<string, unknown> } | undefined;
+    if (!e || typeof e !== 'object') return;
+    const now = Date.now();
+    const translated = () => translateRefusal(e.details, (key, params) => transloco.translate(key, params), transloco.getActiveLang(), now);
+    const text = translated();
+    if (!text) return;
+    try {
+        e.say = () => translated() ?? text;
+        e.message = text;
+    } catch { /* a frozen error keeps the server's text */ }
 }
 
 /**
@@ -159,7 +189,7 @@ export interface CodeReply {
  */
 export interface CheckedCode {
     code?: CodeReply & { testCode?: string };
-    codeError?: { code: string; message: string; details?: Record<string, unknown> };
+    codeError?: { code: string; message: string; say?: () => string; details?: Record<string, unknown> };
 }
 
 type CodeRefused = { codeRefused?: { code: string; message: string; details?: Record<string, unknown> } };
@@ -220,19 +250,8 @@ export class SignInService {
             const result = await runInInjectionContext(this.injector, () => arcCallable(this.functions, name)(data));
             return result.data as T;
         } catch (err) {
-            this.inMemberLanguage(err);
+            inMemberLanguage(err, this.transloco);
             throw err;
-        }
-    }
-
-    /** Every page shows `message` (readSignInError): say a refusal in the member's language. */
-    private inMemberLanguage(err: unknown): void {
-        const e = err as { message?: string; details?: Record<string, unknown> };
-        const text = translateRefusal(e?.details, (key, params) => this.transloco.translate(key, params), this.transloco.getActiveLang());
-        if (text && e && typeof e === 'object') {
-            try {
-                e.message = text;
-            } catch { /* a frozen error keeps the server's text */ }
         }
     }
 
@@ -241,7 +260,7 @@ export class SignInService {
         const { codeRefused, ...rest } = reply;
         if (!codeRefused) return rest;
         const codeError = { ...codeRefused };
-        this.inMemberLanguage(codeError);
+        inMemberLanguage(codeError, this.transloco);
         return { ...rest, codeError };
     }
 

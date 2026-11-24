@@ -12,13 +12,14 @@ import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { injectT } from '../../../core/i18n/inject-t';
+import { injectLiveText, type Say } from '../../../core/i18n/live-text';
 import { sentenceParts } from '../../../core/i18n/sentence-parts';
 import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthState } from '../auth.store';
 import { FreshCodeService } from '../../../core/sign-in/fresh-code.service';
-import { readSignInError, SignInService, type LinkCheck } from '../sign-in.service';
+import { readSignInError, refusal, SignInService, type LinkCheck } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes } from '../sent-codes';
 import { ClockCountdown } from '../../../core/sign-in/clock-countdown';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
@@ -281,8 +282,8 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     /** Email accounts sign in with a PIN on this site (Settings, User Settings, or the app). */
     readonly emailPin = signal(false);
     readonly busy = signal(false);
-    readonly error = signal('');
-    readonly message = signal('');
+    readonly error = injectLiveText();
+    readonly message = injectLiveText();
     /** The PIN or password being chosen. */
     readonly secret = signal('');
     /** The new password typed a second time, to catch a typo. */
@@ -293,7 +294,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
      */
     readonly testCodeInLogs = signal(false);
     /** A quiet line under the code boxes: a code was sent a moment ago (specs/sign-in-codes-spec.md, SC-D2). */
-    readonly notice = signal('');
+    readonly notice = injectLiveText();
     /** Seconds until Resend comes back, by the clock (core/sign-in/clock-countdown.ts, RF6). */
     private readonly resendClock = new ClockCountdown();
     readonly resendIn = this.resendClock.left;
@@ -419,16 +420,17 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         return chipPhone(typed, countryByIso(this.phoneCountry()));
     }
 
-    /** What is wrong with the number typed, said as on the sign-in page. */
-    private phoneError(typed: string): string {
+    /** How to say what is wrong with the number typed, as on the sign-in page. */
+    private phoneError(typed: string): () => string {
         const country = countryByIso(this.phoneCountry());
-        const allowed = this.countriesListed() ? codesOf(this.phoneCountries()) : undefined;
+        const countries = this.phoneCountries();
+        const allowed = this.countriesListed() ? codesOf(countries) : undefined;
         const problem = identifierProblem(withoutTrunk(typed, country?.trunk), true, country?.code, allowed);
         if (problem === 'phone_not_allowed') {
-            return this.t('member.auth.identifier_error.phone_not_allowed', { countries: countryListText(this.phoneCountries(), this.lang()) });
+            return () => this.t('member.auth.identifier_error.phone_not_allowed', { countries: countryListText(countries, this.lang()) });
         }
-        if (problem === 'phone_start' && this.phoneCountries().length > 1) return this.t('member.auth.identifier_error.phone_start_choose');
-        return this.t(problem?.startsWith('phone_') ? `member.auth.identifier_error.${problem}` as TranslationKey : 'member.methods.invalid_phone');
+        if (problem === 'phone_start' && countries.length > 1) return () => this.t('member.auth.identifier_error.phone_start_choose');
+        return () => this.t(problem?.startsWith('phone_') ? `member.auth.identifier_error.${problem}` as TranslationKey : 'member.methods.invalid_phone');
     }
 
     /**
@@ -446,7 +448,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             return;
         }
         if (f.kind === 'email' && classifyIdentifier(f.typed).kind !== 'email') {
-            this.error.set(this.t('member.methods.invalid_email'));
+            this.error.set(() => this.t('member.methods.invalid_email'));
             return;
         }
         if (phone && !hasCountryCode(f.typed)) rememberCountry(this.phoneCountry());
@@ -455,10 +457,10 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             if (!check) {
                 check = await this.signIn.checkForLink(phone ?? f.typed);
                 this.flow.set({ ...f, check });
-                if (check.status === 'yours') throw { code: 'local', message: this.t(f.kind === 'email' ? 'member.methods.already_yours_email' : 'member.methods.already_yours_number') };
-                if (check.status === 'blocked') throw { code: 'local', message: this.t('member.methods.blocked_email') };
+                if (check.status === 'yours') throw refusal('local', () => this.t(f.kind === 'email' ? 'member.methods.already_yours_email' : 'member.methods.already_yours_number'));
+                if (check.status === 'blocked') throw refusal('local', () => this.t('member.methods.blocked_email'));
                 // The app keeps an address or number on the account that has it (src/custom/own-account.ts).
-                if (check.status === 'taken') throw { code: 'local', message: this.t(f.kind === 'email' ? 'member.methods.taken_email' : 'member.methods.taken_number') };
+                if (check.status === 'taken') throw refusal('local', () => this.t(f.kind === 'email' ? 'member.methods.taken_email' : 'member.methods.taken_number'));
                 if (check.status === 'other') return; // shown; the next press sends the code
             }
             // An account with a way in already confirms it is them first, on their own
@@ -479,7 +481,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     /** The fresh code dialog's proof; cancelled, a refusal whose line says why. */
     private async askFreshCode(kind: Kind): Promise<string> {
         const proof = await this.freshCode.confirm({ purpose: LINK_FRESH_PURPOSE[kind] });
-        if (!proof) throw { code: 'local', message: this.t('member.methods.fresh_code_needed') };
+        if (!proof) throw refusal('local', () => this.t('member.methods.fresh_code_needed'));
         return proof;
     }
 
@@ -524,12 +526,12 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             const wait = Number(reply.wait);
             if (reply.alreadySent && wait > 0) {
                 // Asked again under a minute after it went: nothing new was sent (F22).
-                this.notice.set(this.t('member.auth.code_already_sent'));
+                this.notice.set(() => this.t('member.auth.code_already_sent'));
                 this.sentCodes.remember(key, { testCode: '', testCodeInLogs: !!reply.testMode }, wait);
                 this.startCountdown(wait);
                 return;
             }
-            if (reply.sameCode) this.notice.set(this.t('member.auth.code_sent_again'));
+            if (reply.sameCode) this.notice.set(() => this.t('member.auth.code_sent_again'));
             this.sentCodes.remember(key, { testCode: '', testCodeInLogs: !!reply.testMode });
             this.startCountdown(RESEND_SECONDS);
         } catch (err) {
@@ -538,7 +540,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             if (failed.reason !== 'wait' || !(wait > 0)) throw err;
             this.sentCodes.remember(key, { testCode: '', testCodeInLogs: known?.testCodeInLogs ?? false }, wait);
             this.testCodeInLogs.set(known?.testCodeInLogs ?? false);
-            this.notice.set(this.t('member.auth.code_already_sent'));
+            this.notice.set(() => this.t('member.auth.code_already_sent'));
             this.startCountdown(wait);
         }
     }
@@ -549,7 +551,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         const value = code ?? this.codeBoxes()?.value() ?? '';
         if (!f?.check || this.busy()) return;
         if (value.length !== 6) {
-            this.error.set(this.t('member.methods.enter_code'));
+            this.error.set(() => this.t('member.methods.enter_code'));
             return;
         }
         const check = f.check;
@@ -592,11 +594,11 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
                 // under the app's strength (src/custom/sign-in.ts), and typed twice.
                 const problem = passwordProblem(secret, { email: check.value, name: this.authStore.currentUser()?.name }, SIGN_IN_STRENGTH);
                 if (problem) {
-                    this.error.set(this.t(`member.auth.password_error.${problem}` as TranslationKey, this.passwordMin));
+                    this.error.set(() => this.t(`member.auth.password_error.${problem}` as TranslationKey, this.passwordMin));
                     return;
                 }
                 if (this.secretAgain() !== secret) {
-                    this.error.set(this.t('member.auth.passwords_mismatch'));
+                    this.error.set(() => this.t('member.auth.passwords_mismatch'));
                     return;
                 }
             }
@@ -618,7 +620,8 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             this.reset();
             // Whole sentences per case, so each language orders its own words (L-D15).
             const email = check.kind === 'email';
-            this.message.set(this.t(result.moved
+            const { moved } = result;
+            this.message.set(() => this.t(moved
                 ? (email ? 'member.methods.email_moved' : 'member.methods.phone_moved')
                 : (email ? 'member.methods.email_saved' : 'member.methods.phone_saved')));
         }, check.kind === 'phone' && f.step === 'secret' ? (err) => this.pinRefused(err) : undefined);
@@ -629,7 +632,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         if (this.busy()) return;
         const current = this.currentPin();
         if (this.hasCurrentPin() && current.length !== 6) {
-            this.error.set(this.t('member.auth.server_error.current_pin_required'));
+            this.error.set(() => this.t('member.auth.server_error.current_pin_required'));
             this.currentPinBoxes()?.focus(0);
             return;
         }
@@ -639,7 +642,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             const { passwordRemoved } = await this.signIn.setPin(pin, this.hasCurrentPin() ? current : undefined);
             this.reset();
             // An email account's password goes when it chooses a PIN (specs/sign-in-pin-spec.md).
-            this.message.set(this.t(passwordRemoved ? 'member.methods.pin_saved_password_removed' : 'member.methods.pin_changed'));
+            this.message.set(() => this.t(passwordRemoved ? 'member.methods.pin_saved_password_removed' : 'member.methods.pin_changed'));
         }, (err) => this.pinRefused(err));
     }
 
@@ -652,7 +655,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         if (!field) return null;
         const read = field.check();
         if ('problem' in read) {
-            this.error.set(this.t(read.problem));
+            this.error.set(() => this.t(read.problem));
             return null;
         }
         return read.pin;
@@ -662,7 +665,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
      * A refused PIN's message; one too easy to guess empties both rows, for another typed
      * twice. A wrong current PIN empties its row; one the page did not know about shows it.
      */
-    private pinRefused(err: unknown): string {
+    private pinRefused(err: unknown): () => string {
         const failed = readSignInError(err);
         if (failed.reason === 'weak-pin' || failed.reason === 'pin-format') this.newPinField()?.restart();
         if (failed.reason === 'wrong') {
@@ -670,19 +673,19 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             this.currentPinBoxes()?.reset();
         }
         if (failed.reason === 'current-pin-required') this.hasCurrentPin.set(true);
-        return failed.message;
+        return failed.say;
     }
 
     async connectGoogle(): Promise<void> {
         const ok = await this.run(() => this.signIn.connectGoogle(), (err) => {
             const code = String((err as { code?: string })?.code ?? '');
             if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return '';
-            if (code === 'auth/credential-already-in-use') return this.t('member.methods.google_in_use');
-            return this.t('member.methods.google_failed');
+            if (code === 'auth/credential-already-in-use') return () => this.t('member.methods.google_in_use');
+            return () => this.t('member.methods.google_failed');
         });
         if (ok) {
             this.googleConnected.set(true);
-            this.message.set(this.t('member.methods.google_connected'));
+            this.message.set(() => this.t('member.methods.google_connected'));
         }
     }
 
@@ -693,7 +696,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     }
 
     /** Run a step with the busy flag and errors shown in place. Returns whether it worked. */
-    private async run(action: () => Promise<unknown>, describe?: (err: unknown) => string): Promise<boolean> {
+    private async run(action: () => Promise<unknown>, describe?: (err: unknown) => Say): Promise<boolean> {
         this.busy.set(true);
         this.error.set('');
         this.message.set('');
@@ -701,7 +704,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             await action();
             return true;
         } catch (err) {
-            this.error.set(describe ? describe(err) : readSignInError(err).message);
+            this.error.set(describe ? describe(err) : readSignInError(err).say);
             return false;
         } finally {
             this.busy.set(false);

@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogActions, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { CodeInputComponent } from '../../../shared/components/code-input/code-input.component';
+import { injectLiveText } from '../i18n/live-text';
 import { readSignInError } from '../../pages/(auth)/sign-in.service';
 import { FreshCodeService, type FreshCodeSent } from './fresh-code.service';
 
@@ -74,7 +75,7 @@ export class FreshCodeDialogComponent {
 
     readonly sent = signal<FreshCodeSent | null>(null);
     readonly working = signal(false);
-    readonly error = signal('');
+    readonly error = injectLiveText();
     /** Seconds until another code may be sent, by the clock (clock-countdown.ts, RF6). */
     private readonly clock = new ClockCountdown();
     readonly wait = this.clock.left;
@@ -94,7 +95,7 @@ export class FreshCodeDialogComponent {
             this.boxes()?.reset();
         } catch (err) {
             const e = readSignInError(err);
-            this.error.set(e.message);
+            this.error.set(e.say);
             const wait = Number(e.details?.['wait'] ?? 0);
             if (wait > 0) this.countDown(wait);
         } finally {
@@ -110,7 +111,7 @@ export class FreshCodeDialogComponent {
             const proof = await this.codes.confirmCode(this.data.purpose, code);
             this.ref.close(proof);
         } catch (err) {
-            this.error.set(readSignInError(err).message);
+            this.error.set(readSignInError(err).say);
             this.working.set(false);
             this.boxes()?.reset();
         }

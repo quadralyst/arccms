@@ -23,6 +23,7 @@ import { ConfirmationPopupComponent } from '../../../../shared/components/confir
 import { firstValueFrom } from 'rxjs';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { injectLiveText, type Say } from '../../../core/i18n/live-text';
 import { isLockedAppAccount } from '../../../core/app-accounts/app-account-lock';
 import { newPasswordValidator, passwordProblemOf } from '../../../../shared/utils/password-validator';
 import { minPasswordLength } from '../../../../shared/utils/password-rule';
@@ -62,9 +63,9 @@ export default class ProfileComponent extends BaseComponent {
   isEditingName = signal(false);
   isChangingPassword = signal(false);
 
-  // Feedback
-  errorMsg = signal('');
-  successMsg = signal('');
+  // Feedback, in the page's language when it changes (core/i18n/live-text.ts)
+  errorMsg = injectLiveText();
+  successMsg = injectLiveText();
 
   // Per-section loading
   isSavingName = signal(false);
@@ -177,12 +178,12 @@ export default class ProfileComponent extends BaseComponent {
       const url = await this.fileUpload.uploadAvatar(user.uid, file);
       await this.authStore.updateUserProfile(user.id, { photo: url });
       if (this.authStore.isSuccess()) {
-        this.successMsg.set(this.t('member.profile.photo_updated'));
+        this.successMsg.set(() => this.t('member.profile.photo_updated'));
       } else {
-        this.errorMsg.set(this.authStore.error() || this.t('member.profile.photo_update_failed'));
+        this.errorMsg.set(this.storeError(() => this.t('member.profile.photo_update_failed')));
       }
     } catch (err) {
-      this.errorMsg.set(err instanceof Error ? err.message : this.t('member.profile.photo_upload_failed'));
+      this.errorMsg.set(err instanceof Error ? err.message : () => this.t('member.profile.photo_upload_failed'));
     }
   }
 
@@ -208,9 +209,9 @@ export default class ProfileComponent extends BaseComponent {
         await this.authStore.updateUserProfile(user.id, { photo: result.mediaUrl });
 
         if (this.authStore.isSuccess()) {
-          this.successMsg.set(this.t('member.profile.photo_updated'));
+          this.successMsg.set(() => this.t('member.profile.photo_updated'));
         } else {
-          this.errorMsg.set(this.authStore.error() || this.t('member.profile.photo_update_failed'));
+          this.errorMsg.set(this.storeError(() => this.t('member.profile.photo_update_failed')));
         }
       }
     });
@@ -224,9 +225,9 @@ export default class ProfileComponent extends BaseComponent {
     await this.authStore.updateUserProfile(user.id, { photo: '' });
 
     if (this.authStore.isSuccess()) {
-      this.successMsg.set(this.t('member.profile.photo_removed'));
+      this.successMsg.set(() => this.t('member.profile.photo_removed'));
     } else {
-      this.errorMsg.set(this.authStore.error() || this.t('member.profile.photo_remove_failed'));
+      this.errorMsg.set(this.storeError(() => this.t('member.profile.photo_remove_failed')));
     }
   }
 
@@ -246,7 +247,7 @@ export default class ProfileComponent extends BaseComponent {
 
   async saveName(): Promise<void> {
     if (this.nameControl.invalid) {
-      this.errorMsg.set(this.t('member.profile.name_invalid_short'));
+      this.errorMsg.set(() => this.t('member.profile.name_invalid_short'));
       return;
     }
 
@@ -262,13 +263,13 @@ export default class ProfileComponent extends BaseComponent {
       });
 
       if (this.authStore.isSuccess()) {
-        this.successMsg.set(this.t('member.profile.name_updated'));
+        this.successMsg.set(() => this.t('member.profile.name_updated'));
         this.isEditingName.set(false);
       } else {
-        this.errorMsg.set(this.authStore.error() || this.t('member.profile.name_update_failed'));
+        this.errorMsg.set(this.storeError(() => this.t('member.profile.name_update_failed')));
       }
     } catch (error) {
-      this.errorMsg.set(this.t('member.profile.name_update_error'));
+      this.errorMsg.set(() => this.t('member.profile.name_update_error'));
     } finally {
       this.isSavingName.set(false);
     }
@@ -295,7 +296,7 @@ export default class ProfileComponent extends BaseComponent {
     }
 
     if (this.hasPasswordMismatch) {
-      this.errorMsg.set(this.t('member.profile.passwords_mismatch'));
+      this.errorMsg.set(() => this.t('member.profile.passwords_mismatch'));
       return;
     }
 
@@ -309,14 +310,14 @@ export default class ProfileComponent extends BaseComponent {
       });
 
       if (this.authStore.isSuccess()) {
-        this.successMsg.set(this.t('member.profile.password_changed'));
+        this.successMsg.set(() => this.t('member.profile.password_changed'));
         this.isChangingPassword.set(false);
         this.passwordForm.reset();
       } else {
-        this.errorMsg.set(this.authStore.error() || this.t('member.profile.password_change_failed'));
+        this.errorMsg.set(this.storeError(() => this.t('member.profile.password_change_failed')));
       }
     } catch (error) {
-      this.errorMsg.set(this.t('member.profile.password_change_error'));
+      this.errorMsg.set(() => this.t('member.profile.password_change_error'));
     } finally {
       this.isSavingPassword.set(false);
     }
@@ -371,7 +372,7 @@ export default class ProfileComponent extends BaseComponent {
     } catch (err) {
       const error = readSignInError(err);
       this.deleteNeedsSignIn.set(error.reason === 'recent-sign-in');
-      this.errorMsg.set(error.message);
+      this.errorMsg.set(error.say);
     } finally {
       this.isDeleting.set(false);
     }
@@ -384,6 +385,12 @@ export default class ProfileComponent extends BaseComponent {
   }
 
   // --- Utilities ---
+
+  /** What the store says went wrong, else the page's own words. */
+  private storeError(otherwise: () => string): Say {
+    const error = this.authStore.error();
+    return error ? this.authStore.errorSay() ?? error : otherwise;
+  }
 
   clearMessages(): void {
     this.errorMsg.set('');
