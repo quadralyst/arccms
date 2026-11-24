@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Set up sign-in | Arc CMS docs</title>
   <meta name="description" content="Choose your app's sign-in methods, send people back to the page that asked them to sign in, set each role's home page, and sign in from another app.">
-  <meta name="docs:sources" content="src/custom/home.ts, src/app/core/home/home.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/sign-in.service.ts, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/admin/(settings)/user-setting, src/app/core/config/arc-functions.ts, functions/src/auth, functions/src/users/accountCallables.ts, src/custom/sign-in.ts, src/app/core/sign-in, src/shared/utils/sign-in-strength.ts, functions/src/shared/sign-in-strength.ts, functions/src/sign-in-choice.ts, src/custom/sign-in-page.ts, src/shared/components/wait-line, src/shared/utils/wait-stage.ts">
+  <meta name="docs:sources" content="src/custom/home.ts, src/app/core/home/home.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/sign-in.service.ts, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/admin/(settings)/user-setting, src/app/core/config/arc-functions.ts, functions/src/auth, functions/src/users/accountCallables.ts, src/custom/sign-in.ts, src/app/core/sign-in, src/app/core/site/site-styles.ts, src/shared/utils/sign-in-strength.ts, functions/src/shared/sign-in-strength.ts, functions/src/sign-in-choice.ts, src/custom/sign-in-page.ts, src/shared/components/wait-line, src/shared/utils/wait-stage.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/sign-in.html">
@@ -97,6 +97,26 @@ export const CUSTOM_SIGN_IN_PAGE: SignInPageHooks = {
     signingUp: ({ warm }) =&gt; warm(['createWorkspace']),
 };</code></pre>
     <p>Each hook is called once per visit to the page. <code>warm</code> takes the names your functions are exported with in <code>functions/src/custom/index.ts</code>: it calls each <code>custom-</code> function with <code>{ warmUp: true }</code>, at most once every 5 minutes and only online, and never waits or fails. Each of those functions answers such a call first thing with <code>isWarmUp()</code> and <code>WARM</code> from the app kit (see <a href="functions.html#cold-starts">Keep cold starts short</a>). <code>channel</code> says <code>'email'</code> or <code>'phone'</code> once the page knows. A hook must return at once; one that throws is logged and the page goes on.</p>
+
+    <h3 id="warm-look">Load the sign-in page's look ahead</h3>
+    <p>When your app styles the sign-in page, the page waits for its stylesheet before it shows, for 2 seconds at most (see <a href="../website/sign-in-page.html#wait">While the stylesheet loads</a>). When one of your own pages usually leads there, such as a welcome or setup page, load the file from that page and the sign-in page opens with no wait:</p>
+    <pre><code>// src/custom/pages/welcome.page.ts
+import { Component, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { SiteStylesService } from '../../app/core/site/site-styles';
+
+@Component({
+    selector: 'app-welcome',
+    imports: [RouterLink],
+    template: `&lt;a routerLink="/signup"&gt;Sign in&lt;/a&gt;`,
+})
+export default class WelcomePage {
+    constructor() {
+        inject(SiteStylesService).warmSignIn();
+    }
+}</code></pre>
+    <p><code>warmSignIn()</code> returns at once. The file (your <code class="new">src/custom/site/sign-in.css</code>, else your <code class="new">src/custom/site/site.css</code>) loads in the background, with what it imports, and styles nothing until the sign-in page is shown. It does nothing when the file is already loaded, or your app has no styles for the page, and a failed load is tried again the next time.</p>
+    <p>To start your own functions from such a page as well, call <code>warm()</code> on <code>SignInService</code> (see <a href="functions.html#cold-starts">Keep cold starts short</a>). Arc CMS's own sign-in functions start when the sign-in page opens.</p>
 
     <h2>In your members' language</h2>
     <p>The sign-in page, with its codes, PINs and error messages, follows the member language: the one chosen on this device, else the browser's when the app declares it. When the app declares member languages, a picker at the top right lets people choose, and the brand panel follows it too (see <a href="member-languages.html#sign-in-page">The sign-in page</a>). The code emails follow it once you word them in your languages (see <a href="app-email.html#account-emails">Arc CMS's account emails in your languages</a>); until then they are in English. See <a href="member-languages.html">Member languages</a> for adding one, and for what stays in English.</p>

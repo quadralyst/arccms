@@ -123,6 +123,7 @@
         <tr><td><code class="new">src/custom/site/site.css</code></td><td>Every published page (content, home and static pages), and the app's website pages and sign-in page (the sign-in page loads <code class="new">src/custom/site/sign-in.css</code> instead when there is one, see <a href="sign-in-page.html">Brand the sign-in page</a>)</td><td>Site-wide styles, the header and the footer</td></tr>
       </tbody>
     </table>
+    <p>A published page has its stylesheets before it shows, like any web page. The website's pages the app draws (one not published yet, the search page, the live preview) wait for <code>main.css</code> and <code>site.css</code> in the same way, for 2 seconds at most, so they never show without your styles first.</p>
 
     <h2>Preview</h2>
     <p>Run <code>npm run dev</code>, open an item in the editor and press <strong>Live Preview</strong>. The preview window draws the entry with the same template and the same code as the content page, with your local template files, and changes as you type (see <a href="../features/content.html#live-preview">Live preview</a>). After editing the template's HTML, reload the preview window: it asks the editor for the draft again. The list page is at <code>/{type}</code>. Test with long titles, a missing cover image and empty fields.</p>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Brand the sign-in page | Arc CMS docs</title>
   <meta name="description" content="Give the sign-in page your site's name, logo, words, image, colours and whole look, from your site folder, the custom space and Settings, Site details.">
-  <meta name="docs:sources" content="src/app/core/brand/site-brand.ts, src/app/core/brand/app-brand-files.ts, src/app/pages/(auth)/(signup)/signup.page.html, src/app/pages/(auth)/(signup)/signup.page.scss, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/page.parts/sign-in-panel.component.ts, public/_site/sign-in.html, src/app/core/site/site-styles.ts, src/shared/components/code-input/code-input.component.ts, src/shared/components/phone-country/phone-country.component.ts, src/shared/components/member-language-picker/member-language-picker.component.ts, src/shared/components/legal-notice/legal-notice.component.ts, src/app/core/services/site-identity.service.ts, scripts/arc-site.mjs">
+  <meta name="docs:sources" content="src/app/core/brand/site-brand.ts, src/app/core/brand/app-brand-files.ts, src/app/pages/(auth)/(signup)/signup.page.html, src/app/pages/(auth)/(signup)/signup.page.scss, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/page.parts/sign-in-panel.component.ts, public/_site/sign-in.html, src/app/core/site/site-styles.ts, scripts/vite-sign-in-sheet.ts, src/shared/components/code-input/code-input.component.ts, src/shared/components/phone-country/phone-country.component.ts, src/shared/components/member-language-picker/member-language-picker.component.ts, src/shared/components/legal-notice/legal-notice.component.ts, src/app/core/services/site-identity.service.ts, scripts/arc-site.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/sign-in-page.html">
@@ -171,6 +171,17 @@
 }
 
 arc-sign-in-panel .auth-left-title { font-family: 'Raleway', sans-serif; }</code></pre>
+
+    <h2 id="wait">While the stylesheet loads</h2>
+    <p>On a first visit the file has to come from the network, and nobody should see Arc CMS's look before yours. So the page is not shown until its stylesheet is in: the screen stays plain, the "Opening…" state included, and the page then appears in your look at once, with nothing fading in. The wait always ends: if the file fails, or has not come after 2 seconds (<code>SITE_STYLES_WAIT_MS</code> in <code>src/app/core/site/site-styles.ts</code>), the page opens in Arc CMS's look and takes yours when the file arrives. A stylesheet never keeps anyone from signing in. A file that took too long is not waited for again on the same visit.</p>
+    <p>There is usually little or no wait:</p>
+    <ul>
+      <li>The page served for <code>/signup</code> asks for the stylesheet in its first lines, before the app's code (<code>scripts/vite-sign-in-sheet.ts</code>). Those lines are an inline script: a security policy of your own that refuses inline scripts costs the head start and nothing else.</li>
+      <li>Browsers keep the file for a year, and it stays loaded for the rest of a visit.</li>
+      <li>With no styles of your own, or with an empty file, there is nothing to wait for.</li>
+      <li>Your app can load it ahead from its own pages: see <a href="../app/sign-in.html#warm-look">Load the sign-in page's look ahead</a>.</li>
+    </ul>
+    <p>The wait includes what the stylesheet brings in with <code>@import</code>, such as a web font, so a slow font host can use up the 2 seconds on a first visit. Serve the font from your own site to avoid that.</p>
 
     <h2>Next</h2>
     <p>Set up images: <a href="media.html">Manage media</a>.</p>

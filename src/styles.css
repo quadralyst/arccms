@@ -19,6 +19,20 @@
 }
 
 /* ============================================================
+   WAITING FOR THE SITE'S STYLESHEETS
+   While a page of the website or the sign-in page waits for the site's
+   stylesheets (src/app/core/site/site-styles.ts, for 2 seconds at most),
+   it is not shown, so nobody sees Arc CMS's look before the app's.
+   Transitions are off meanwhile, so nothing fades in from that look.
+   ============================================================ */
+
+html.arc-site-styles-wait .arc-route-host,
+html.arc-site-styles-wait .arc-route-host * {
+  visibility: hidden !important;
+  transition: none !important;
+}
+
+/* ============================================================
    FULL-SCREEN ROUTES
    A route with data: { fullScreen: true } (docs/app/pages-and-routes.html)
    owns the whole screen: no page margin or padding, no page scroll and no

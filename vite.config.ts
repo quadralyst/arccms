@@ -23,6 +23,7 @@ import { appTitle } from './scripts/vite-app-title';
 import { languageRouteCheck } from './scripts/vite-language-routes';
 import { oneBuildAtATime } from './scripts/vite-build-order';
 import { arcSite } from './scripts/vite-arc-site';
+import { signInSheet } from './scripts/vite-sign-in-sheet';
 import { ENVIRONMENT_FILE, defaultEnvironment, environmentFor, environmentSwap, projectLine } from './scripts/arc-environment.mjs';
 import { routeCode } from './scripts/vite-route-code';
 import { pwaWorkbox } from './scripts/pwa-workbox';
@@ -204,6 +205,8 @@ export default defineConfig(async ({ mode }) => {
       appleLinks(),
       // The tab's text before the app starts: the app's name, never Arc CMS's (withAppTitle).
       appTitle(CUSTOM_BRAND.name),
+      // Asks for the sign-in page's stylesheet as /signup opens (scripts/vite-sign-in-sheet.ts).
+      signInSheet(),
       // Bootstrap's script, served with the app rather than from a CDN (scripts/vite-vendor-scripts.ts).
       vendorScripts(),
       // Warns when an app page's address is also a language code, such as /de (docs/features/languages.html).

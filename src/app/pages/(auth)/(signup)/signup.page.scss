@@ -436,7 +436,9 @@ input:focus {
     font-size: 0.95rem;
     background: var(--arc-sign-in-button-background, linear-gradient(135deg, #3C76F5, #24C6DC));
     border: none;
-    transition: all 0.3s;
+    // Not the background: a site's stylesheet that arrives late would fade the button in from
+    // no colour, its words unreadable meanwhile. Under the pointer it still fades (below).
+    transition: transform 0.3s, box-shadow 0.3s, opacity 0.3s;
     box-shadow: var(--arc-sign-in-button-shadow, 0 2px 5px rgba(60, 118, 245, 0.2));
     width: 100%;
     min-height: var(--arc-sign-in-button-height, auto);
@@ -450,6 +452,7 @@ input:focus {
 }
 
 .btn-primary:hover {
+    transition: all 0.3s;
     transform: translateY(-2px);
     box-shadow: var(--arc-sign-in-button-shadow, 0 4px 10px rgba(60, 118, 245, 0.3));
     background: var(--arc-sign-in-button-hover-background, linear-gradient(135deg, #2654BD, #20b2c7));

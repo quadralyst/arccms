@@ -173,6 +173,13 @@ describe('the sign-in page', () => {
         expect(page('signup.page.ts')).toContain('useSiteStyles([signInSheet()])');
     });
 
+    it('draws Continue in its colour at once: its background fades only under the pointer (F51)', () => {
+        const scss = page('signup.page.scss');
+        const rule = /\n\.btn-primary \{([^}]*)\}/.exec(scss)?.[1] ?? '';
+        expect(rule).toMatch(/transition: transform 0\.3s, box-shadow 0\.3s, opacity 0\.3s;/);
+        expect(scss).toMatch(/\n\.btn-primary:hover \{\s*transition: all 0\.3s;/);
+    });
+
     it('ships a neutral brand panel, translatable, that never advertises Arc CMS', () => {
         expect(signIn).toContain('data-arc-t="sign_in_title"');
         expect(signIn).not.toMatch(/Arc CMS|waitlist|founder/i);

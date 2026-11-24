@@ -299,6 +299,18 @@ export function readSiteFile(root, path) {
 }
 
 /**
+ * Where the sign-in page's stylesheet is served, with its version: sign-in.css when the
+ * app has one, else site.css; null when that file is empty, as Arc CMS ships site.css.
+ * The same choice as signInSheet() in src/app/core/site/site-styles.ts.
+ */
+export function signInSheetUrl(root = process.cwd()) {
+    const { contents } = siteContents(root);
+    const path = ['assets/css/sign-in.css', 'assets/css/site.css'].find((file) => contents.has(file));
+    const content = path ? contentOf(contents.get(path)) : Buffer.alloc(0);
+    return content.length ? `/${path}?v=${hash(content)}` : null;
+}
+
+/**
  * The `virtual:arc-site` module the browser app imports: the header, footer and
  * sign-in panel HTML, bundled so they are on screen with the first paint, and
  * the manifest.
