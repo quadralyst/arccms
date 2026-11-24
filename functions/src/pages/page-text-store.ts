@@ -61,14 +61,34 @@ export function publicPageTextValues(values: PageTextValues): PageTextValues {
 }
 
 /**
- * A mark of a page's published values that changes with every publish, '' when it
- * has none. Read before and after a page is built and released, it tells whether
+ * A mark of a page's published values that changes with every publish of them, and
+ * with nothing else (not with markPageTextLive), '' when it has none. Read before and after a page is built and released, it tells whether
  * words were published meanwhile (processPublishQueue).
  */
 export async function publishedPageTextStamp(pageId: string): Promise<string> {
     const snap = await db.collection(PAGE_TEXT_PUBLISHED).doc(pageId).get();
-    const time = snap.exists ? snap.updateTime : undefined;
-    return time ? `${time.seconds}.${time.nanoseconds}` : '';
+    return stampOf(snap.exists ? snap.data() : undefined);
+}
+
+function stampOf(data: Record<string, unknown> | undefined): string {
+    const time = data?.['publishedAt'] as { seconds?: number; nanoseconds?: number } | undefined;
+    return time && time.seconds !== undefined ? `${time.seconds}.${time.nanoseconds ?? 0}` : '';
+}
+
+/**
+ * The page went out: the words it was built with (`stamp`, publishedPageTextStamp
+ * read before the build) are what visitors see, so the admin says Published. Words
+ * published meanwhile are not on it; their own build marks them.
+ */
+export async function markPageTextLive(pageId: string, stamp: string): Promise<void> {
+    if (!stamp) return;
+    const ref = db.collection(PAGE_TEXT_PUBLISHED).doc(pageId);
+    await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const data = snap.exists ? snap.data() : undefined;
+        if (!data || data['liveAt'] !== null || stampOf(data) !== stamp) return;
+        tx.update(ref, { liveAt: FieldValue.serverTimestamp() });
+    });
 }
 
 /** What a page id names: the home page, the static page `/p/{name}`, or a type's list page `/{slug}`. */
@@ -122,7 +142,7 @@ export async function publishPageTextDraft(pageId: string, historyId?: string): 
             draftUpdatedAt: data?.['updatedAt'] ?? null,
         };
         // Anyone reads the published copy: the values alone, no account ids.
-        tx.set(ref, { ...publicPageTextValues(values), ...stamp });
+        tx.set(ref, { ...publicPageTextValues(values), ...stamp, liveAt: null });
         // History is for Restore (VE-D51): the whole draft, with who saved what and against which text.
         tx.set(historyRef, { ...values, ...stamp, publishedBy: typeof data?.['updatedBy'] === 'string' ? data['updatedBy'] : '' });
         if (data && 'editing' in data) tx.update(draftRef, { editing: FieldValue.delete() });

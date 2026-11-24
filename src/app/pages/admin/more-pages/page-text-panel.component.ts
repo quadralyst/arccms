@@ -6,7 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { ArcTimePipe } from '../../../core/time/arc-time.pipe';
 import { injectT } from '../../../core/i18n/inject-t';
 import {
-    PageTextService, type PageTextSession, type PageTextVersion, type PublishedPageText,
+    PageTextService, goingLive, type PageTextSession, type PageTextVersion, type PublishedPageText,
 } from '../../../core/site/page-text.service';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 import MediaManagerComponent from '../(media)/media.page';
@@ -125,7 +125,7 @@ const SAVE_DELAY_MS = 700;
         @if (tabShown() === 'history') {
             <div class="panel-body" role="tabpanel" data-testid="history">
                 <arc-kept-drafts [path]="session().path || ''" [locked]="locked()" [again]="lastPublished() + '/' + keptChanged()" (restore)="restoreKept($event)" />
-                @if (publishing()) {
+                @if (publishing() || goingLive()) {
                     <p class="text-muted small" role="status">{{ 'admin.edit_page.history_publishing' | transloco }}</p>
                 }
                 @if (historyError()) {
@@ -136,7 +136,7 @@ const SAVE_DELAY_MS = 700;
                     @for (version of history(); track version.id; let first = $first) {
                         <div class="version">
                             <div>
-                                <div>{{ millis(version.publishedAt) | arcTime }} @if (first) { <span class="badge text-bg-success ms-1">{{ 'admin.more_pages.editor.live' | transloco }}</span> }</div>
+                                <div>{{ millis(version.publishedAt) | arcTime }} @if (first && !goingLive()) { <span class="badge text-bg-success ms-1">{{ 'admin.more_pages.editor.live' | transloco }}</span> }</div>
                                 <div class="text-muted small">{{ 'admin.more_pages.editor.version_count' | transloco: { count: entryCount(version) } }}</div>
                             </div>
                             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restore(version)" [disabled]="locked()">{{ 'admin.more_pages.editor.restore' | transloco }}</button>
@@ -188,6 +188,8 @@ export class PageTextPanelComponent implements OnDestroy {
     readonly status = computed(() => morePageStatus(this.draft(), this.published()));
     readonly lastPublished = computed(() => this.published()?.publishedAt?.toMillis?.() ?? null);
     readonly publishing = signal(false);
+    /** Its words were copied and its page is not out yet, also when the screen opens meanwhile. */
+    readonly goingLive = computed(() => goingLive(this.published()));
     readonly publishError = signal('');
     readonly saveError = signal('');
     /** SEO words typed or being saved here. */
@@ -196,7 +198,7 @@ export class PageTextPanelComponent implements OnDestroy {
     readonly state = computed(() => editState({
         saving: this.busy() || this.seoSaving() > 0,
         failed: this.failed() || !!this.saveError() || !!this.session().error?.(),
-        publishing: this.publishing(),
+        publishing: this.publishing() || this.goingLive(),
         changed: this.status() === 'changes' || this.extraChanges() > 0,
         live: true,
     }));
@@ -375,7 +377,7 @@ export class PageTextPanelComponent implements OnDestroy {
         this.waitTimer = setTimeout(() => {
             if (this.publishedBefore === null) return;
             this.finishPublish();
-            if (this.status() === 'changes') this.publishError.set(this.t('admin.more_pages.editor.publish_slow'));
+            if (this.status() === 'changes' || this.goingLive()) this.publishError.set(this.t('admin.more_pages.editor.publish_slow'));
         }, PUBLISH_WAIT_MS);
         this.publishLanded();
     }
@@ -391,6 +393,8 @@ export class PageTextPanelComponent implements OnDestroy {
         const waiting = this.status() === 'changes';
         const landed = (published?.publishedAt?.toMillis?.() ?? 0) > this.publishedBefore;
         if (waiting && !landed) return;
+        // Copied is not live: the page itself is still on its way.
+        if (this.goingLive()) return;
         this.finishPublish();
         if (waiting && published?.draftUpdatedAt === null) this.publishError.set(this.t('admin.more_pages.editor.publish_not_live'));
     }
@@ -436,7 +440,8 @@ export class PageTextPanelComponent implements OnDestroy {
 
     entryCount(version: PageTextVersion): number {
         const words = Object.values(version.text || {}).reduce((n, byKey) => n + Object.keys(byKey || {}).length, 0);
-        return words + Object.keys(version.urls || {}).length;
+        const seo = Object.values(version.seo || {}).reduce((n, fields) => n + Object.keys(fields || {}).length, 0);
+        return words + Object.keys(version.urls || {}).length + seo + (version.shareImage ? 1 : 0);
     }
 
     millis(time: { toMillis?: () => number } | null | undefined): number | null {

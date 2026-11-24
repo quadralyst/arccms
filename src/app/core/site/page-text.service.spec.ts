@@ -16,6 +16,7 @@ vi.mock('@angular/fire/firestore', () => ({
     Firestore: class {},
     doc: (_fs: unknown, collection: string, id: string) => `${collection}/${id}`,
     getDoc: (...args: unknown[]) => fire.getDoc(...args),
+    getDocFromServer: (...args: unknown[]) => fire.getDoc(...args),
     updateDoc: (...args: unknown[]) => fire.updateDoc(...args),
     setDoc: (...args: unknown[]) => fire.setDoc(...args),
     onSnapshot: (...args: unknown[]) => fire.onSnapshot(...args),
@@ -29,7 +30,7 @@ vi.mock('../../pages/(auth)/auth.store', () => ({ AuthState: class {} }));
 import { Firestore } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { PublishQueueService } from '../../pages/admin/contents/publish-queue/publish-queue.service';
-import { PageTextService, hasUnpublishedChanges, type PageTextSession } from './page-text.service';
+import { PageTextService, goingLive, hasUnpublishedChanges, type PageTextSession } from './page-text.service';
 
 const auth = { currentUser: { uid: 'editor-uid' } as { uid: string } | null };
 const queue = { publishPageText: vi.fn(async (_id: string) => undefined) };
@@ -248,6 +249,18 @@ describe('PageTextService', () => {
     it('opens a session only on a page', () => {
         expect(() => service.session('about')).toThrow();
         expect(service.session('p-about-us').pageId).toBe('p-about-us');
+    });
+
+    it('tells words whose page is still on its way, and believes it only so long', () => {
+        const at = (ms: number) => ({ toMillis: () => ms });
+        const words = { publishedAt: at(1000), draftUpdatedAt: at(900) };
+        expect(goingLive({ ...words, liveAt: null }, 2000)).toBe(true);
+        expect(goingLive({ ...words, liveAt: at(1500) }, 2000)).toBe(false);
+        // A copy from before this was kept, one that did not go live, one too old to believe, none.
+        expect(goingLive(words, 2000)).toBe(false);
+        expect(goingLive({ ...words, draftUpdatedAt: null, liveAt: null }, 2000)).toBe(false);
+        expect(goingLive({ ...words, liveAt: null }, 1000 + 16 * 60_000)).toBe(false);
+        expect(goingLive(null)).toBe(false);
     });
 
     it('tells a draft with changes not published (VE-D48)', () => {

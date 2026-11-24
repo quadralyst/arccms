@@ -21,11 +21,13 @@ vi.mock('@angular/fire/firestore', () => {
         query: (ref: unknown) => ref,
         orderBy: () => null,
         limit: () => null,
-        getDoc: async (ref: { path: string }) => snap(ref.path),
-        getDocs: async (ref: { path: string }) => ({
+        // Reads beside a listener may answer from the browser's own older copy: only the server's count.
+        getDocFromServer: async (ref: { path: string }) => snap(ref.path),
+        getDocsFromServer: async (ref: { path: string }) => ({
             docs: Object.keys(fire.docs).filter((p) => p.startsWith(`${ref.path}/`) && !p.slice(ref.path.length + 1).includes('/'))
                 .map((p) => ({ id: p.split('/').pop(), data: () => fire.docs[p] })),
         }),
+        getDocs: async () => ({ docs: [] }),
         onSnapshot: vi.fn(),
         serverTimestamp: () => 'NOW',
         deleteField: () => 'DELETE',
@@ -77,6 +79,13 @@ describe('HoldService', () => {
         expect('translations' in kept.data).toBe(false);
         expect(last('set', `${kept.path}/translations/hi`)!.data).toEqual({ title: 'आधा', lang: 'hi' });
         expect(last('update', DRAFT)!.data).toEqual({ editing: { by: 'me', name: 'Asha', since: 'NOW', at: 'NOW', kept: kept.path.split('/').pop() } });
+    });
+
+    it('reads what a write just left from the server, never this browser\'s own copy (live check 2026-11-24)', async () => {
+        fire.docs[DRAFT] = { title: 'Now' };
+        expect(await holds.read(DRAFT)).toEqual({ title: 'Now' });
+        fire.docs[`${DRAFT}/translations/hi`] = { title: 'अब' };
+        expect(await holds.translations(DRAFT)).toEqual({ hi: { title: 'अब' } });
     });
 
     it('takes over nothing that nobody else holds', async () => {

@@ -1,6 +1,6 @@
 import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
-    Firestore, collection, deleteField, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, type DocumentReference, type Transaction,
+    Firestore, collection, deleteField, doc, getDocFromServer, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, type DocumentReference, type Transaction,
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { draftQueueEntry } from '../../../shared/services/search-queue';
@@ -78,13 +78,17 @@ export class HoldService {
     async translations(path: string): Promise<Record<string, Record<string, any>>> {
         const firestore = this.firestore;
         if (!firestore || !/^arc_/.test(path)) return {};
-        const snap = await runInInjectionContext(this.injector, () => getDocs(collection(firestore, path, 'translations')));
+        const snap = await runInInjectionContext(this.injector, () => getDocsFromServer(collection(firestore, path, 'translations')));
         return Object.fromEntries(snap.docs.map((d) => [d.id, d.data() as Record<string, any>]));
     }
 
+    /**
+     * A document as the server has it. Never this browser's own copy: beside a
+     * listener that one may still be from before the write that was just made.
+     */
     async read(path: string): Promise<Record<string, any> | null> {
         if (!this.firestore) return null;
-        const snap = await runInInjectionContext(this.injector, () => getDoc(this.ref(path)));
+        const snap = await runInInjectionContext(this.injector, () => getDocFromServer(this.ref(path)));
         return snap.exists() ? (snap.data() as Record<string, any>) : null;
     }
 

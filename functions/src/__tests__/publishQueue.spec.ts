@@ -160,7 +160,8 @@ vi.mock('../publishQueue/coalesced-items', async (importOriginal) => ({
 const requested = (action: string) => mockRequestCoalesced.mock.calls.filter(([a]) => a === action);
 
 // Page text (VE-D57): the draft's publish, as a spy.
-const { mockPublishPageTextDraft, mockMarkUnreleased, mockStamp } = vi.hoisted(() => ({
+const { mockPublishPageTextDraft, mockMarkUnreleased, mockMarkLive, mockStamp } = vi.hoisted(() => ({
+    mockMarkLive: vi.fn(async (_id: string, _stamp: string) => undefined),
     // A list page's published words, as a mark that changes with each publish of them.
     mockStamp: vi.fn(async (_id: string) => ''),
     mockPublishPageTextDraft: vi.fn(async (_id: string) => undefined), mockMarkUnreleased: vi.fn(async (_id: string) => undefined),
@@ -170,6 +171,7 @@ vi.mock('../pages/page-text-store', async (importOriginal) => ({
     publishedPageTextStamp: (id: string) => mockStamp(id),
     publishPageTextDraft: (id: string) => mockPublishPageTextDraft(id),
     markPageTextUnreleased: (id: string) => mockMarkUnreleased(id),
+    markPageTextLive: (id: string, stamp: string) => mockMarkLive(id, stamp),
 }));
 
 // The search index rebuild after a whole-site republish.
@@ -492,6 +494,25 @@ describe('processPublishQueue', () => {
             expect(mockDeployBatchToHosting.mock.calls[0][2]).toBe('');
             expect(mockSubmitBatchToIndexNow).toHaveBeenCalledWith(['/index.html'], expect.anything());
             expect(mockFinishCoalesced).toHaveBeenCalledWith('home-page');
+        });
+
+        it('says the words it was built with are live once the page is out, and not when it is not', async () => {
+            mockMarkLive.mockClear();
+            mockStamp.mockResolvedValueOnce('words-1');
+            mockGenerateHome.mockImplementation(async (batch: any) => {
+                batch.add('/index.html', '<html></html>');
+                // Published while this run builds: not on this page.
+                mockStamp.mockResolvedValue('words-2');
+            });
+            mockDeployBatchToHosting.mockResolvedValueOnce(true);
+            await handler(createEvent('home', '', '', 'home-page'));
+            expect(mockMarkLive).toHaveBeenCalledTimes(1);
+            expect(mockMarkLive).toHaveBeenCalledWith('home', 'words-1');
+            mockMarkLive.mockClear();
+            mockGenerateHome.mockRejectedValue(new Error('no home page'));
+            await handler(createEvent('home', '', '', 'home-page'));
+            expect(mockMarkLive).not.toHaveBeenCalled();
+            mockStamp.mockResolvedValue('');
         });
 
         it('finishes the item as failed when the home page cannot be built, so it runs again', async () => {

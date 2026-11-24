@@ -95,6 +95,26 @@ describe('PageTextPanelComponent with cards (VE-D53)', () => {
         expect(history).toHaveBeenCalledTimes(2);
     });
 
+    it('says Publishing until the page itself is out, not when its words are copied (live check 2026-11-24)', async () => {
+        const { fixture, session } = await make(0);
+        const panel = fixture.componentInstance;
+        const words = { text: { en: { hero: { value: 'A' } } } };
+        session.draft.set({ updatedAt: { toMillis: () => 5 }, ...words });
+        panel.awaitPublish();
+        const copied = { draftUpdatedAt: { toMillis: () => 5 }, publishedAt: { toMillis: () => Date.now() }, ...words };
+        push({ ...copied, liveAt: null });
+        expect(panel.publishing()).toBe(true);
+        expect(panel.state()).toBe('publishing');
+        push({ ...copied, liveAt: { toMillis: () => Date.now() } });
+        expect(panel.publishing()).toBe(false);
+        expect(panel.state()).toBe('published');
+        // A screen opened meanwhile says so too.
+        push({ ...copied, liveAt: null });
+        expect(panel.state()).toBe('publishing');
+        expect(panel.entryCount({ id: 'v', seo: { en: { title: { value: 'T' } } }, shareImage: { value: '/s' } } as any)).toBe(2);
+        fixture.destroy();
+    });
+
     it('says nothing and publishes nothing before the draft and the published copy are read (review M8)', async () => {
         const { fixture, session } = await make(1);
         const panel = fixture.componentInstance;

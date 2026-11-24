@@ -40,7 +40,7 @@ vi.mock('../init', () => ({
 }));
 vi.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => 'SERVER_TIME', delete: () => 'DELETED' } }));
 
-import { loadPublishedPageText, markPageTextUnreleased, pageOfPageTextId, pageTextValuesOf, publishPageTextDraft } from '../pages/page-text-store.js';
+import { loadPublishedPageText, markPageTextLive, markPageTextUnreleased, publishedPageTextStamp, pageOfPageTextId, pageTextValuesOf, publishPageTextDraft } from '../pages/page-text-store.js';
 
 describe('page text store', () => {
     beforeEach(() => {
@@ -58,6 +58,26 @@ describe('page text store', () => {
         expect(updates).toEqual([['SitePageText/p-about', { draftUpdatedAt: null }]]);
     });
 
+    it('marks words live only while they are the ones the page was built with', async () => {
+        const words = { publishedAt: { seconds: 7, nanoseconds: 5 }, liveAt: null };
+        docs.set('SitePageText/home', words);
+        const stamp = await publishedPageTextStamp('home');
+        expect(stamp).toBe('7.5');
+        await markPageTextLive('home', stamp);
+        expect(updates).toEqual([['SitePageText/home', { liveAt: 'SERVER_TIME' }]]);
+        updates.length = 0;
+        // The mark itself is not a publish: the stamp stays.
+        docs.set('SitePageText/home', { ...words, liveAt: 'T' });
+        expect(await publishedPageTextStamp('home')).toBe(stamp);
+        await markPageTextLive('home', stamp);
+        docs.set('SitePageText/home', { publishedAt: { seconds: 8, nanoseconds: 0 }, liveAt: null });
+        await markPageTextLive('home', stamp);
+        await markPageTextLive('home', '');
+        await markPageTextLive('p-none', stamp);
+        expect(updates).toEqual([]);
+        expect(await publishedPageTextStamp('p-none')).toBe('');
+    });
+
     it('publishes the draft\'s values, whole, with its history copy', async () => {
         docs.set('SitePageTextDrafts/home', {
             text: { en: { hero: { value: 'Hi' } } }, urls: { photo: { value: '/a.jpg' } }, seo: {}, shareImage: { value: '/s.jpg' },
@@ -68,7 +88,8 @@ describe('page text store', () => {
         expect(batchSets.map(([path]) => path)).toEqual(['SitePageText/home', 'SitePageText/home/History/auto']);
         expect(batchSets[0][1]).toEqual({
             text: { en: { hero: { value: 'Hi' } } }, urls: { photo: { value: '/a.jpg' } }, seo: {}, shareImage: { value: '/s.jpg' },
-            publishedAt: 'SERVER_TIME', draftUpdatedAt: 'T1',
+            // Copied, and not what visitors see until its page is out.
+            publishedAt: 'SERVER_TIME', draftUpdatedAt: 'T1', liveAt: null,
         });
         expect(batchSets[1][1]).toMatchObject({ publishedBy: 'editor-uid', draftUpdatedAt: 'T1' });
         expect(mockCommit).toHaveBeenCalledTimes(1);
@@ -125,7 +146,7 @@ describe('page text store', () => {
 
     it('publishes no values when there is no draft, which brings the page back to its file', async () => {
         await publishPageTextDraft('p-about-us');
-        expect(batchSets[0]).toEqual(['SitePageText/p-about-us', { publishedAt: 'SERVER_TIME', draftUpdatedAt: null }]);
+        expect(batchSets[0]).toEqual(['SitePageText/p-about-us', { publishedAt: 'SERVER_TIME', draftUpdatedAt: null, liveAt: null }]);
     });
 
     it('reads the published values, and fails when they cannot be read, so no page goes out without them', async () => {

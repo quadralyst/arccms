@@ -4303,7 +4303,7 @@
         "cards_newest": "{{ type }}: {{ count }} shown, newest first",
         "cards_own_order": "{{ type }}: {{ count }} shown, in your own order",
         "edit_cards": "Edit {{ type }}",
-        "nothing_marked": "This page marks nothing to change yet. Its SEO is in the panel.",
+        "nothing_marked": "This page marks nothing to change yet. Its title, cover image and summary are in the panel.",
         "gone_title": "No longer on the page",
         "gone_note": "Saved for parts the page's file no longer has. They show nowhere.",
         "remove": "Remove",

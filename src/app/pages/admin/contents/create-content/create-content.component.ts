@@ -2585,8 +2585,12 @@ export class CreateContentComponent extends BaseComponent {
   /** A change's name: the field's own label. */
   private changeLabel(change: Change): string {
     if (change.field.startsWith('cf:')) {
-      const field = this.currentFields.find((f) => f.key === change.field.slice(3));
-      return field ? this.fieldLabel(field) : change.field.slice(3);
+      const key = change.field.slice(3);
+      const field = this.currentFields.find((f) => f.key === key);
+      if (field) return this.fieldLabel(field);
+      // The heading above a repeating field's rows is stored beside it.
+      const rows = this.currentFields.find((f) => key === `${f.key}_heading`);
+      return rows ? this.t('admin.edit_page.heading_name', { field: this.fieldLabel(rows) }) : key;
     }
     if (change.field === 'urlSlug') return this.t('admin.contents.editor.address');
     if (change.field === 'updatedOn') return this.t('admin.contents.editor.updated_on');

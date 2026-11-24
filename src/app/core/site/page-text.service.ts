@@ -26,6 +26,20 @@ export const PAGE_TEXT_PUBLISHED = 'SitePageText';
 export interface PublishedPageText extends PageTextValues {
     publishedAt?: { toMillis?: () => number } | null;
     draftUpdatedAt?: { toMillis?: () => number } | null;
+    /** When its page went out with these words: null until then, absent on a copy from before this was kept. */
+    liveAt?: { toMillis?: () => number } | null;
+}
+
+function millis(time: { toMillis?: () => number } | null | undefined): number {
+    return time?.toMillis?.() ?? 0;
+}
+
+/** How long a published copy may wait for its page before the wait is no longer believed. */
+const GOING_LIVE_MS = 15 * 60_000;
+
+/** Words published whose page is still being built or released: not what visitors see yet (VE-D70). */
+export function goingLive(published: PublishedPageText | null | undefined, now = Date.now()): boolean {
+    return !!published && published.liveAt === null && !!published.draftUpdatedAt && now - millis(published.publishedAt) < GOING_LIVE_MS;
 }
 
 /** One publish of a page, as History keeps it: the whole draft, and who published it. */
@@ -51,7 +65,6 @@ export interface PageTextSaveContext {
     sourceText?: string;
 }
 
-const millis = (time: { toMillis?: () => number } | null | undefined): number => time?.toMillis?.() ?? 0;
 
 /** Whether a draft was saved after the draft the published copy was made from. */
 export function savedSincePublished(draft: PageTextDraft | null, published: PublishedPageText | null): boolean {
@@ -227,8 +240,9 @@ export class PageTextSession {
 
     /** A save refused: someone else took the page a moment ago, before this screen heard. */
     private async throwIfHeld(): Promise<void> {
-        const service = this.injector.get(PageTextService);
-        const [stored, published] = await Promise.all([service.draft(this.pageId).catch(() => null), service.published(this.pageId)]);
+        const [stored, published] = await Promise.all([
+            this.holds.read(this.path), this.holds.read(`${PAGE_TEXT_PUBLISHED}/${this.pageId}`),
+        ]).catch(() => [null, null]) as [PageTextDraft | null, PublishedPageText | null];
         const hold = pageHeldByOther(stored, published, this.injector.get(Auth).currentUser?.uid);
         if (hold) throw new HeldError(hold);
     }

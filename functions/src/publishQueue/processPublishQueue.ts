@@ -26,7 +26,7 @@ import { runReindex } from '../search/reindexSearch.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
 import { claimCoalesced, coalescedIdFor, finishCoalesced, requestCoalesced, rerunCoalesced } from './coalesced-items.js';
-import { markPageTextUnreleased, pageOfPageTextId, publishedPageTextStamp, publishPageTextDraft } from '../pages/page-text-store.js';
+import { markPageTextLive, markPageTextUnreleased, pageOfPageTextId, publishedPageTextStamp, publishPageTextDraft } from '../pages/page-text-store.js';
 import { pageTextId } from '../shared/page-text.js';
 import type { RebuildCursor } from '../pages/items-from-type-pages.js';
 import type { ItemsFromTypeCache } from '../pages/published-entries.js';
@@ -132,6 +132,11 @@ async function hasListPage(slug: string): Promise<boolean> {
  * queues one when words were published since this page was built.
  */
 export type ListBuilds = Map<string, string>;
+
+/** The page's words are out (markPageTextLive); a mark that fails costs only a later "Published". */
+async function wordsLive(pageId: string, stamp: string): Promise<void> {
+    await markPageTextLive(pageId, stamp).catch((error) => console.error(`Could not mark ${pageId} as live:`, error));
+}
 
 const listStamp = (slug: string): Promise<string> => publishedPageTextStamp(pageTextId.listPage(slug));
 
@@ -705,10 +710,12 @@ export const processPublishQueue = onDocumentCreated({
             } else if (page.kind === 'list') {
                 if (!(await queueListPage(page.slug, 'its words were published'))) throw new Error('the list page rebuild could not be queued');
             } else {
+                const words = await publishedPageTextStamp(docId);
                 await generateAndDeployStaticPage(page.name, batch);
                 const released = !batch.isEmpty
                     && await deployBatchToHosting(arcHostingSite(), batch, 'static_pages', page.name, itemRelease(runStart));
                 if (!released) throw new Error(`the page ${page.name} did not go live`);
+                await wordsLive(docId, words);
             }
         } catch (error) {
             console.error(`Publishing the page text of ${docId} failed:`, error);
@@ -742,7 +749,9 @@ export const processPublishQueue = onDocumentCreated({
         const claimed = await claimCoalesced(coalescedId);
         if (!claimed) return;
         let failure = '';
+        let words = '';
         try {
+            words = await publishedPageTextStamp('home');
             await generateAndDeployHomePage(batch);
             const run = await releaseRun(batch, runStart);
             failure = run.failure;
@@ -758,6 +767,7 @@ export const processPublishQueue = onDocumentCreated({
             // shown as not live, so the admin offers Publish again rather than saying Published (review M1).
             if (givenUp) await markPageTextUnreleased('home').catch((e) => console.error('Could not mark the home page text as not live:', e));
         } else {
+            await wordsLive('home', words);
             await finishCoalesced(coalescedId);
         }
         return;
@@ -770,8 +780,10 @@ export const processPublishQueue = onDocumentCreated({
         const claimed = await claimCoalesced(coalescedId);
         if (!claimed) return;
         let failure = '';
+        let words = '';
         try {
             if (await hasListPage(contentTypeSlug)) {
+                words = await listStamp(contentTypeSlug);
                 await generateAndDeployContentListPage(contentTypeSlug, batch);
                 const run = await releaseRun(batch, runStart);
                 failure = run.failure;
@@ -789,6 +801,7 @@ export const processPublishQueue = onDocumentCreated({
                     .catch((e) => console.error(`Could not mark the ${contentTypeSlug} list page text as not live:`, e));
             }
         } else {
+            await wordsLive(pageTextId.listPage(contentTypeSlug), words);
             await finishCoalesced(coalescedId);
         }
         return;
