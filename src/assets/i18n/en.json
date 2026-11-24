@@ -4229,6 +4229,8 @@
       "cards_not_read": "The changed cards could not be read, so nothing was published. Try again.",
       "card_problem": "{{ type }}: {{ field }} is needed first. Nothing was published.",
       "card_address": "Address",
+      "card_not_live": "\"{{ card }}\" did not reach the site. Republish website tries again.",
+      "cards_published_one": "Publishing 1 changed card.",
       "cards_published": "Publishing {{ count }} changed cards.",
       "cards_publish_failed": "These cards were not published: {{ cards }}. The rest went out. Publish again to try them.",
       "state": {
@@ -4381,6 +4383,7 @@
       "from_file": "the file's own",
       "cards": "Cards changed on this page",
       "cards_hint": "The ones ticked go with it. Each card is a whole entry.",
+      "own_cards_hint": "Publish sends these too, each with all its changes. To look through one or put it back, choose Show. Discard changes does not touch them.",
       "publish_these": "Publish these",
       "take_over": "Take over",
       "take_over_title": "Take over?",

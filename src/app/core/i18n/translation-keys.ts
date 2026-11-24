@@ -1222,6 +1222,7 @@ export type TranslationKey =
     | 'admin.edit_page.card_move_failed'
     | 'admin.edit_page.card_new_title'
     | 'admin.edit_page.card_newest'
+    | 'admin.edit_page.card_not_live'
     | 'admin.edit_page.card_not_saved'
     | 'admin.edit_page.card_open'
     | 'admin.edit_page.card_open_title'
@@ -1233,6 +1234,7 @@ export type TranslationKey =
     | 'admin.edit_page.cards_not_read'
     | 'admin.edit_page.cards_publish_failed'
     | 'admin.edit_page.cards_published'
+    | 'admin.edit_page.cards_published_one'
     | 'admin.edit_page.done'
     | 'admin.edit_page.done_title'
     | 'admin.edit_page.editing'
@@ -1731,6 +1733,7 @@ export type TranslationKey =
     | 'admin.hold.nothing'
     | 'admin.hold.now'
     | 'admin.hold.now_empty'
+    | 'admin.hold.own_cards_hint'
     | 'admin.hold.publish_these'
     | 'admin.hold.put_back'
     | 'admin.hold.put_back_failed'
@@ -5778,6 +5781,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.card_move_failed',
     'admin.edit_page.card_new_title',
     'admin.edit_page.card_newest',
+    'admin.edit_page.card_not_live',
     'admin.edit_page.card_not_saved',
     'admin.edit_page.card_open',
     'admin.edit_page.card_open_title',
@@ -5789,6 +5793,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.cards_not_read',
     'admin.edit_page.cards_publish_failed',
     'admin.edit_page.cards_published',
+    'admin.edit_page.cards_published_one',
     'admin.edit_page.done',
     'admin.edit_page.done_title',
     'admin.edit_page.editing',
@@ -6287,6 +6292,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.hold.nothing',
     'admin.hold.now',
     'admin.hold.now_empty',
+    'admin.hold.own_cards_hint',
     'admin.hold.publish_these',
     'admin.hold.put_back',
     'admin.hold.put_back_failed',

@@ -19,6 +19,12 @@ describe('cardsWithDraft (VE2.2)', () => {
         expect(shown.tookLastPlace).toBe(false);
     });
 
+    it('keeps its live copy\'s date and place, whatever its draft says', () => {
+        const shown = cardsWithDraft(published, entry('a', 1, { title: 'Edited' }), 'newest', 3);
+        expect(shown.cards.map((c) => c.id)).toEqual(['a', 'b', 'c']);
+        expect(shown.cards[0]).toEqual(entry('a', 3, { title: 'Edited' }));
+    });
+
     it('adds a draft never published where the type\'s order puts it', () => {
         const draft = entry('new', 9);
         expect(cardsWithDraft(published, draft, 'newest', 4).cards.map((c) => c.id)).toEqual(['new', 'a', 'b', 'c']);
@@ -54,6 +60,26 @@ describe('cardsWithDrafts (VE-D53, VE-D54)', () => {
         expect(ids(shown.cards)).toEqual(['a', 'b']);
         expect(shown.leaving).toEqual([]);
         expect(shown.changedIds.size).toBe(0);
+    });
+
+    it('a changed card, the one being edited and one being published keep their live date and place', () => {
+        const older = (id: string) => entry(id, 1, { title: 'Edited' });
+        for (const over of [{ changed: [older('a')] }, { focus: older('a') }, { publishing: [older('a')] }]) {
+            const shown = cardsWithDrafts(published, page(over), 'newest', 3);
+            expect(ids(shown.cards)).toEqual(['a', 'b', 'c']);
+            expect(shown.cards[0]).toEqual(entry('a', 3, { title: 'Edited' }));
+        }
+    });
+
+    it('draws a card being published from its draft, as no change any more; one changed again wins', () => {
+        const going = entry('b', 2, { title: 'Going' });
+        const shown = cardsWithDrafts(published, page({ publishing: [going] }), 'newest', 3);
+        expect(shown.cards[1]).toEqual(going);
+        expect(shown.changedIds.size).toBe(0);
+        // Added on the page, and not on the site yet: it does not vanish meanwhile.
+        expect(ids(cardsWithDrafts(published, page({ publishing: [entry('n', 9)] }), 'newest', 3).cards)).toEqual(['n', 'a', 'b']);
+        const again = entry('b', 2, { title: 'Again' });
+        expect(cardsWithDrafts(published, page({ publishing: [going], changed: [again] }), 'newest', 3).cards[1]).toEqual(again);
     });
 
     it('draws every changed card from its draft, and says which', () => {

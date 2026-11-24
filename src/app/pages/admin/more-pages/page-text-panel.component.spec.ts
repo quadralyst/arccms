@@ -66,6 +66,22 @@ describe('PageTextPanelComponent with cards (VE-D53)', () => {
         }
     });
 
+    it('offers Review when only a card changed, and shows no date for a page never published', async () => {
+        const { fixture } = await make(1);
+        push(null);
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+        expect(el.querySelector('[data-testid="review-changes"]')).not.toBeNull();
+        expect(el.querySelector('[data-testid="last-published"]')).toBeNull();
+        fixture.componentRef.setInput('extraChanges', 0);
+        fixture.detectChanges();
+        expect(el.querySelector('[data-testid="review-changes"]')).toBeNull();
+        expect(fixture.componentInstance.state()).toBe('published');
+        // A card it sent is not on the site yet.
+        fixture.componentRef.setInput('cardsGoing', true);
+        expect(fixture.componentInstance.state()).toBe('publishing');
+    });
+
     it('follows the published copy: another editor\'s publish, and a page that did not go live', async () => {
         const { fixture, session } = await make(0);
         const panel = fixture.componentInstance;

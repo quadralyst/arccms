@@ -1566,7 +1566,8 @@ export class CreateContentComponent extends BaseComponent {
       authorId: this.publishForm.get('authorId')?.value || null,
       references: this.references(),
       tags: this.selectedTags().map(t => t.label),
-      publishedOn: this.lastPublishedDate,
+      // The date the page shows: the first publish, whenever the last one was.
+      publishedOn: this.session.publishDate(),
       updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
       siteOrigin: this.domain,
       // As the page's FAQPage counts them: the first FAQ field's questions that are filled in.
@@ -2596,6 +2597,8 @@ export class CreateContentComponent extends BaseComponent {
     });
     if (!answer) return;
     if (answer.action === 'show') return this.showChange(answer.change);
+    // A page's review lists cards; an entry's has none.
+    if (answer.action === 'card') return;
     if (answer.action === 'discard') return this.discardChanges();
     // What was reviewed is what goes: someone else since, or another change, is looked at first.
     if (this.session.heldBy()?.by !== hold?.by || (hold && !sameChanges(await this.session.changes(), answer.seen))) {

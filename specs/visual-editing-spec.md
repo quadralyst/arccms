@@ -701,6 +701,35 @@ button, a type without pages, the site strip. Not checked: a formatted (rich) he
 Live Preview, a template with no marks, the functions themselves. Known: Review drops a literal tag
 from plain words (it shows them as words everywhere else).
 
+**Live check of D and E (2026-11-24),** dev a4484b39 on the live test site: More Pages, the strip, the
+entries button, heading and intro both ways, special characters through a real publish, a card typed
+and published with the words, the card marked as changed elsewhere, Put back, Discard, Live Preview and
+the classic editor all pass. Fixed after it (the seven points found, agreed the same day, and two more):
+- **An entry keeps its first publish date (agreed: "Keep the date").** The publish function stamped
+  `publishedOn` with the time of every publish, so an edited entry moved to the top of its lists and
+  changed its public date, while the editor drew its card with the draft's older date. Now the live
+  copy's date stays (an entry taken off the site keeps the one it had; one never live gets the publish's
+  time), unpublishing writes the live date on the draft,
+  `lastPublishedAt` on the copy says when it last went out and is what an open editor follows
+  (VE-D71), a History version keeps its own publish's time in `publishedOn`, and the draft follows the
+  live date. Dates changed before stay as they are.
+- A card drawn from its draft takes its live copy's date (`withLiveDate`), so it stays in its place.
+- Review of your own page lists the cards Publish sends (VE-D80 named them for someone else's only),
+  read after what is typed is saved; Review shows when only a card changed.
+- A card published from the page stays drawn from its draft (`PageCardsSource.followPublishing`), after it
+  lands too, since a block reads published translations once; a publish that never lands shows what is
+  live after 10 minutes. Switching the language within those seconds still shows the old words (low).
+- The strip says Saving, or Not saved, for the open card's form, and Publishing until each card sent has
+  ended its publish (`cardsGoing`, the wait an entry's own editor has).
+- **Found while checking these on two languages (high, since VE5.7):** a card's form could start from the
+  entry opened before it, still the store's `currentItem`; on a translated page the language switch then
+  kept that entry's words as the base of this one, and saved them into its draft. `isNewStoredItem` now
+  takes only this entry, `switchLanguage` takes the base again once the translation has loaded, and
+  `cardEditorFor` waits for `entryRead` instead of a title, which a translation not written yet lacks.
+- No "Last published: Never" on a page live from its file; "1 changed card"; Review in the page's order.
+
+Not checked live: moving a card, a second admin, two languages, a formatted heading, a static page.
+
 ## 3. Risks
 
 | Risk | Answer |

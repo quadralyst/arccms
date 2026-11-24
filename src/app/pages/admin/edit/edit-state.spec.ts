@@ -48,6 +48,12 @@ describe('the status and the preview', () => {
         expect(el.querySelector('[data-testid="last-published"]')?.textContent?.trim()).toBe('Never');
     });
 
+    it('a page live from its file has no "Never": only a date once it has one', () => {
+        expect(make(PageStatusComponent, { state: 'published', lastPublished: null, fromFile: true }).querySelector('[data-testid="last-published"]')).toBeNull();
+        TestBed.resetTestingModule();
+        expect(make(PageStatusComponent, { state: 'published', lastPublished: 1_700_000_000_000, fromFile: true }).querySelector('[data-testid="last-published"]')?.textContent).toContain('2023');
+    });
+
     it('is amber for saved changes, in both looks', () => {
         const el = make(EditStateComponent, { state: 'changes', dark: true });
         const badge = el.querySelector('[data-testid="edit-state"]')!;

@@ -327,13 +327,16 @@ export class EntryDraftSession implements OnDestroy {
   }
 
   /**
-   * Whether a stored item the store holds is one to show: not empty, and not
-   * the item as this session's own last save left it (a save refreshes the
-   * store, and showing that again would drop anything typed while it ran).
+   * Whether a stored item the store holds is one to show: this entry (the store
+   * keeps the entry opened before until this one is read, and its words must never
+   * be taken for this one's), and not the item as this session's own last save
+   * left it (a save refreshes the store, and showing that again would drop
+   * anything typed while it ran).
    */
   isNewStoredItem(item: unknown): boolean {
-    if (item === this.storedEcho) return false;
-    return !!item && Object.keys(item as object).length > 0;
+    if (item === this.storedEcho || !item || !Object.keys(item as object).length) return false;
+    const id = (item as { id?: unknown }).id;
+    return !this.contentId || !id || id === this.contentId;
   }
 
   /** A stored entry arrived or was replaced: the screen shows it and it is the clean state. */
@@ -681,12 +684,12 @@ export class EntryDraftSession implements OnDestroy {
       return;
     }
 
-    const captured = this.view.capture();
-    if (current === this.defaultLang()) {
-      this.baseStash = captured;
-    } else if (current) {
-      this.translationEdits.set(current, captured);
-    }
+    const keepOnScreen = () => {
+      const captured = this.view.capture();
+      if (current === this.defaultLang()) this.baseStash = captured;
+      else if (current) this.translationEdits.set(current, captured);
+    };
+    keepOnScreen();
 
     if (code === this.defaultLang()) {
       if (this.baseStash) this.applyTranslatableValues(this.baseStash);
@@ -716,6 +719,8 @@ export class EntryDraftSession implements OnDestroy {
       values = this.translationEdits.get(code);
       // A later switch was made while this one loaded: that one is on screen.
       if (turn !== this.switchTurn) return;
+      // What was typed, or the stored entry that arrived, meanwhile.
+      keepOnScreen();
     }
 
     this.activeLang.set(code);
@@ -1417,8 +1422,10 @@ export class EntryDraftSession implements OnDestroy {
       const before = this.publishedCopy();
       this.publishedCopy.set(data);
       // Someone else's publish: History and the date follow it (VE-D71). One pressed here answers when its page is live.
-      const at = toDate(data?.['publishedOn']);
-      if (before && at && at.getTime() !== toDate(before['publishedOn'])?.getTime() && this.deployStatus() !== 'pending') {
+      // The copy's own date stays with every publish; when it was published last tells one from the next.
+      const publishedAt = (copy: Record<string, any> | null) => toDate(copy?.['lastPublishedAt']) ?? toDate(copy?.['publishedOn']);
+      const at = publishedAt(data);
+      if (before && at && at.getTime() !== publishedAt(before)?.getTime() && this.deployStatus() !== 'pending') {
         this.lastPublishedDate = at;
         this.publishesLanded.update((n) => n + 1);
         this.view.refresh();
@@ -1636,6 +1643,12 @@ export class EntryDraftSession implements OnDestroy {
     this.keptChanged.update((n) => n + 1);
     await this.showStored();
     return done;
+  }
+
+  /** The date the entry's page shows: when it was first published, whenever it last was. */
+  publishDate(): Date | null {
+    const stored: any = this.draftContentStore.currentItem();
+    return toDate(this.publishedCopy()?.['publishedOn']) ?? toDate(stored && stored.id === this.contentId ? stored.publishedOn : null) ?? this.lastPublishedDate;
   }
 
   /** The entry's state in the words every editor uses (VE-D70). */
@@ -2070,7 +2083,8 @@ export class EntryDraftSession implements OnDestroy {
       ...this.buildDraftFormValues(),
       id: this.contentId || '',
       createdAt: ownStored?.createdAt ?? null,
-      publishedOn: ownStored?.publishedOn ?? null,
+      // The date the page keeps when this is published.
+      publishedOn: untracked(() => this.publishedCopy())?.['publishedOn'] ?? ownStored?.publishedOn ?? null,
     };
     let translation: IContentTranslation | null = null;
     const lang = this.isTranslating() ? this.activeLang() : '';

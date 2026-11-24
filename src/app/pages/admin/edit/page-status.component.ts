@@ -44,10 +44,12 @@ export class EditStateComponent {
             <span class="status-label">{{ 'admin.edit_page.status' | transloco }}</span>
             <arc-edit-state [state]="state()" />
         </div>
+        @if (lastPublished() || !fromFile()) {
         <div class="status-row">
             <span class="status-label">{{ 'admin.edit_page.last_published' | transloco }}</span>
             <span data-testid="last-published">@if (lastPublished()) { {{ lastPublished() | arcTime: 'dateTime' }} } @else { {{ 'admin.edit_page.never_published' | transloco }} }</span>
         </div>
+        }
     `,
     styles: [`
         :host { display: block; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--bs-border-color, #dee2e6); }
@@ -58,4 +60,6 @@ export class EditStateComponent {
 export class PageStatusComponent {
     readonly state = input.required<EditState>();
     readonly lastPublished = input<Date | number | null>(null);
+    /** A page that is live from its file: with no publish of its own yet, the date is left out rather than "Never". */
+    readonly fromFile = input(false);
 }

@@ -30,6 +30,14 @@ function toRfc822(date: any): string {
     return dateObj.toUTCString();
 }
 
+/** The latest of some dates, or null when there is none. */
+function latestDate(dates: any[]): Date | null {
+    const times = dates
+        .map((date) => (!date ? NaN : (date.seconds ? new Date(date.seconds * 1000) : new Date(date)).getTime()))
+        .filter((time) => !isNaN(time));
+    return times.length ? new Date(Math.max(...times)) : null;
+}
+
 /**
  * Generates a plain-text excerpt from HTML content.
  * Strips tags, collapses whitespace, and caps at 200 characters.
@@ -83,7 +91,8 @@ export async function generateAndDeployRssFeeds(batch?: HostingBatch): Promise<v
         const channelLink = `${baseUrl}/${slug}`;
         const channelTitle = `${siteName} - ${contentType.name}`;
         const channelDescription = contentType.description || `Latest ${contentType.name?.toLowerCase() || 'content'}`;
-        const lastBuildDate = items.length > 0 ? toRfc822(items[0].publishedOn) : toRfc822(null);
+        // The last publish of any of them: an entry published again keeps its own date.
+        const lastBuildDate = toRfc822(latestDate(items.flatMap((item) => [item.publishedOn, item.lastPublishedAt])));
 
         const rssItems = items
             .filter((item: any) => item.urlSlug)

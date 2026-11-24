@@ -32,6 +32,8 @@ export interface ReviewData {
     putBack?: (change: Change) => Promise<void>;
     /** Cards changed on the page by the person under review. */
     cards?: ReviewCard[];
+    /** This person's own cards, which Publish sends with the page: read after what is typed is saved. */
+    ownCards?: () => Promise<ReviewCard[]>;
     /** Whether Discard is offered: something is published to go back to. */
     canDiscard?: boolean;
 }
@@ -39,7 +41,8 @@ export interface ReviewData {
 export type ReviewAnswer =
     /** `seen`: the changes as they were listed. */
     | { action: 'publish' | 'takeover' | 'discard'; seen: Change[] }
-    | { action: 'show'; change: Change };
+    | { action: 'show'; change: Change }
+    | { action: 'card'; card: ReviewCard };
 
 /**
  * Review changes (specs/visual-editing-spec.md, VE-D80): what differs from what
@@ -107,9 +110,17 @@ export type ReviewAnswer =
             @if (cards().length) {
             <section class="change" data-testid="review-cards">
                 <b>{{ 'admin.hold.cards' | transloco }}</b>
-                <p class="small text-muted mb-1">{{ 'admin.hold.cards_hint' | transloco }}</p>
+                <p class="small text-muted mb-1">{{ (data.hold ? 'admin.hold.cards_hint' : 'admin.hold.own_cards_hint') | transloco }}</p>
                 @for (card of cards(); track card.type + '/' + card.id) {
+                @if (!data.hold) {
+                <div class="change-head" data-testid="review-own-card">
+                    <span class="card-name">{{ card.name }}</span>
+                    <span class="change-spacer"></span>
+                    <button type="button" class="btn btn-link btn-sm p-0" (click)="openCard(card)" [attr.aria-label]="('admin.hold.show' | transloco) + ': ' + card.name">{{ 'admin.hold.show' | transloco }}</button>
+                </div>
+                } @else {
                 <label class="d-block"><input type="checkbox" class="form-check-input me-2" [checked]="card.take" (change)="card.take = $any($event.target).checked"> {{ card.name }}</label>
+                }
                 }
             </section>
             }
@@ -135,6 +146,7 @@ export type ReviewAnswer =
         .change:first-of-type { border-top: 0; }
         .change-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
         .change-spacer { flex: 1 1 auto; }
+        .card-name { min-width: 0; overflow-wrap: anywhere; }
         .words { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; margin: 0; font-size: .92rem; }
         del { background: #fde2e1; color: #7a1c16; text-decoration: line-through; }
         ins { background: #d8f3df; color: #14532d; text-decoration: none; }
@@ -163,7 +175,9 @@ export class ReviewChangesDialogComponent {
     private async read(): Promise<void> {
         try {
             this.diffs.clear();
-            this.changes.set(await this.data.load());
+            const changes = await this.data.load();
+            if (this.data.ownCards) this.cards.set(await this.data.ownCards());
+            this.changes.set(changes);
         } catch (error) {
             console.error('[Review] Could not read the changes:', error);
             this.error.set(true);
@@ -189,6 +203,10 @@ export class ReviewChangesDialogComponent {
 
     show(change: Change): void {
         this.ref.close({ action: 'show', change });
+    }
+
+    openCard(card: ReviewCard): void {
+        this.ref.close({ action: 'card', card });
     }
 
     async putBack(change: Change): Promise<void> {

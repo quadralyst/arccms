@@ -11,6 +11,8 @@ import { timeOf } from '../../../core/utils/display-order';
 
 /** The draft status a save writes; a publish writes `publish`. */
 const DRAFT = 'draft';
+/** How long a card is drawn from its draft when its publish never lands: then what is live shows. */
+const PUBLISHING_WAIT_MS = 10 * 60_000;
 
 /**
  * What the Visual Editor's screen tells its frame: the card being edited (or
@@ -140,6 +142,8 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
     /** Each type's drafts as last read, sorted again when whose work is shown changes. */
     private readonly drafts = new Map<string, Record<string, any>[]>();
     private shows: string | null = null;
+    /** Cards of the page published from it, as last read, by `{type}/{id}`: they keep their new words. */
+    private readonly publishing = new Map<string, { type: string; draft: Record<string, any>; stop: () => void }>();
     /** Changes that arrived while words were typed on a card, applied when the typing ends. */
     private held: (() => void)[] | null = null;
 
@@ -189,7 +193,12 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
             (snap) => {
                 const drafts = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
                 this.apply(() => {
+                    const gone = (this.drafts.get(type) ?? []).filter((draft) => !drafts.some((each) => each.id === draft['id']));
+                    for (const draft of drafts) this.publishing.get(`${type}/${draft.id}`)?.stop();
                     this.drafts.set(type, drafts);
+                    for (const draft of gone) {
+                        if (this.byType()[type]?.changed.some((card) => card['id'] === draft['id'])) this.followPublishing(type, draft);
+                    }
                     this.sort(type);
                 });
             },
@@ -200,7 +209,56 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
 
     private sort(type: string): void {
         const cards = pageCardsOf(this.drafts.get(type) ?? [], this.pageId, { uid: this.holds.me()?.uid ?? null, shows: this.shows });
-        this.byType.update((all) => ({ ...all, [type]: cards }));
+        const publishing = [...this.publishing.values()].filter((each) => each.type === type)
+            .map((each) => draftAsCard({ content: each.draft, lang: '', translation: null }));
+        this.byType.update((all) => ({ ...all, [type]: { ...cards, publishing } }));
+    }
+
+    /**
+     * A changed card left the drafts: it was published (or put back to what is live), so its
+     * draft is what visitors see or soon will. It is drawn from its draft until it is changed
+     * again, taken off or deleted: once live too, as the block reads the published
+     * translations only once. A publish that never lands shows what is live after a while.
+     */
+    private followPublishing(type: string, draft: Record<string, any>): void {
+        const key = `${type}/${draft['id']}`;
+        this.publishing.get(key)?.stop();
+        let done = false;
+        let unsubscribe = () => {};
+        const stop = () => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            unsubscribe();
+            this.publishing.delete(key);
+        };
+        const end = () => this.apply(() => {
+            if (done) return;
+            stop();
+            this.sort(type);
+        });
+        const timer = setTimeout(end, PUBLISHING_WAIT_MS);
+        const before = timeOf(draft['lastPublishedAt']);
+        // Drawn as it was until the first answer, so its words never go back in between.
+        this.publishing.set(key, { type, draft, stop });
+        unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(
+            doc(this.firestore, `arc_${type}_drafts`, draft['id']),
+            (snap: any) => {
+                const now = snap.exists() ? { ...snap.data(), id: draft['id'] } : null;
+                if (!now || now['status'] !== 'publish' || now['publishedStatus'] !== true) return end();
+                if (timeOf(now['lastPublishedAt']) !== before) clearTimeout(timer);
+                this.apply(() => {
+                    if (done) return;
+                    this.publishing.set(key, { type, draft: now, stop });
+                    this.sort(type);
+                });
+            },
+            (error: unknown) => {
+                console.error(`[PageCards] Could not follow ${key}:`, error);
+                end();
+            },
+        ));
+        if (done) unsubscribe();
     }
 
     /** A Move was saved: the type's whole order is read once, so the block follows it at once. */
@@ -223,10 +281,11 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
         if (!cards) return null;
         const focus = this.focus();
         const order = this.orders()[type];
-        const changed = lang ? cards.changed.map((entry) => this.translated(type, entry, lang)) : cards.changed;
+        const inLang = (entries: readonly Record<string, any>[]) => (lang ? entries.map((entry) => this.translated(type, entry, lang)) : entries);
         return {
             ...cards,
-            changed,
+            changed: inLang(cards.changed),
+            publishing: inLang(cards.publishing ?? []),
             sortOrder: order ? { ...order, ...cards.sortOrder } : cards.sortOrder,
             focus: focus?.type === type ? focus.content : null,
         };
@@ -276,6 +335,7 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
 
     ngOnDestroy(): void {
         this.channel?.close();
+        for (const each of [...this.publishing.values()]) each.stop();
         for (const stop of this.stops) stop();
         for (const stop of this.translationStops.values()) stop();
     }

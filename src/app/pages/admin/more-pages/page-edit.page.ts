@@ -8,7 +8,7 @@ import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { firstValueFrom } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { injectT } from '../../../core/i18n/inject-t';
 import { safePageTextUrl } from '../../../core/utils/page-text-model';
 import { resolvePreviewField } from '../../../core/preview/preview-channel';
@@ -31,6 +31,7 @@ export { pageValuesHaveReplace };
 import { isPageChange, type PageCardsMessage } from './page-cards';
 import MediaManagerComponent from '../(media)/media.page';
 import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
+import { ContentsService } from '../contents/content-store/published-contents.service';
 import { PagePanel } from '../edit/page-panel';
 import { EditableReveal, readShowEditable, writeShowEditable } from '../edit/editable-reveal';
 import { PageEditorData } from './page-editor-data';
@@ -45,6 +46,8 @@ const DRAW_WAIT_MS = 20_000;
 const CARDS_DRAW_WAIT_MS = 5_000;
 /** How long the screen waits for a card's form to load the card. */
 const CARD_WAIT_MS = 10_000;
+/** How often the strip reads where the open card's form stands. */
+const CARD_STATE_MS = 250;
 /** About how wide the card bar is at most, so it never runs off the left edge. */
 const CARD_BAR_WIDTH = 300;
 
@@ -277,7 +280,7 @@ interface Box {
                 <div class="page-text-panel-box" [hidden]="!!card()">
                 @if (data.session; as session) {
                 <arc-page-text-panel #panelRef [session]="session" [lang]="data.lang()" [defaultLang]="data.defaultLang()" [seo]="data.seo()" [basics]="data.basics()"
-                    [busy]="saving() > 0" [failed]="!!saveError()" [url]="data.url()" [beforePublish]="beforePublish" [publishWith]="publishWith" [extraChanges]="changedCards().length"
+                    [busy]="saving() > 0" [failed]="!!saveError()" [url]="data.url()" [beforePublish]="beforePublish" [publishWith]="publishWith" [extraChanges]="changedCards().length" [cardsGoing]="cardsGoing().size > 0"
                     [locked]="!!data.heldBy()" (review)="review()" />
                 }
                 </div>
@@ -414,12 +417,17 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     /** The cards on the page, read from the frame's marks. */
     readonly cards = signal<PageCard[]>([]);
     readonly changedCards = computed(() => this.cards().filter((card) => card.changed));
+    /** Cards published from here whose publish has not ended, by `{type}/{id}`: the page is Publishing until it has. */
+    readonly cardsGoing = signal<ReadonlyMap<string, Subscription>>(new Map());
+    private injector = inject(Injector);
     /** The open card was changed elsewhere: its changes stay out of this page's Publish until it is included (VE-D72). */
     readonly cardAside = signal(false);
     private reviews = inject(PageReview);
     private holds = inject(HoldService);
     readonly cardBar = signal<CardBar | null>(null);
     readonly publishing = computed(() => this.panelRef()?.publishing() ?? false);
+    /** The open card's form is saving, or could not; null for anything else. */
+    readonly cardState = signal<'saving' | 'not_saved' | null>(null);
     /** The one Publish is saving and checking the cards (VE-D53). */
     readonly checking = signal(false);
     /** What the card form in page mode asks of the screen. */
@@ -449,7 +457,9 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     /** The panel says it, the same there and on the strip (VE-D70); until it is there the page is opening. */
     readonly status = computed<EditState>(() => {
         if (this.saveError() || this.data.session?.error()) return 'not_saved';
-        return this.checking() ? 'publishing' : this.panelRef()?.state() ?? 'published';
+        if (this.checking()) return 'publishing';
+        // The open card's words are on their way, or could not be saved.
+        return this.cardState() ?? this.panelRef()?.state() ?? 'published';
     });
     readonly frameUrl = computed<SafeResourceUrl | null>(() => {
         if (!isPlatformBrowser(this.platformId) || this.data.loading() || this.data.loadError()) return null;
@@ -474,6 +484,15 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
                     this.leaveSpot();
                     this.closeBox();
                 }
+            });
+        });
+        // The strip follows the open card's form, which says nothing of its own to a signal.
+        effect((onCleanup) => {
+            if (!this.card() || !isPlatformBrowser(this.platformId)) return;
+            const timer = setInterval(() => this.readCardState(), CARD_STATE_MS);
+            onCleanup(() => {
+                clearInterval(timer);
+                this.cardState.set(null);
             });
         });
         // The frame draws the open card from its form, as typed (VE-D54).
@@ -509,6 +528,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         this.inPlace?.detach();
         this.reveal?.detach();
         this.cardsObserver?.disconnect();
+        for (const going of this.cardsGoing().values()) going.unsubscribe();
         for (const timer of [this.scanTimer, this.barTimer, this.releaseTimer]) if (timer) clearTimeout(timer);
         if (this.drawTimer) clearTimeout(this.drawTimer);
         this.data.close();
@@ -850,22 +870,14 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         if (this.saveError()) return false;
         this.card.set(null);
 
-        // The cards shown with changes, and the card just saved, which the frame may not have marked yet.
-        const shown = this.cards().filter((card) => !card.leaving);
-        const candidates = [...this.changedCards()];
-        if (open && shown.some((card) => card.type === open.type && card.id === open.id) && !candidates.some((c) => c.type === open.type && c.id === open.id)) {
-            candidates.push({ ...open, changed: true, leaving: false });
-        }
-        let read: { card: CardRef; draft: Record<string, any> | null }[];
+        let toPublish: { card: CardRef; draft: Record<string, any> }[];
         try {
-            read = await Promise.all(candidates.map(async (card) => ({ card: { type: card.type, id: card.id }, draft: await this.actions.read(card) })));
+            toPublish = await this.cardsToPublish(open);
         } catch (error: any) {
             console.error('[PageEdit] Could not read the cards:', error);
             this.notify.error('admin.edit_page.cards_not_read');
             return false;
         }
-        const toPublish = read.filter((each): each is { card: CardRef; draft: Record<string, any> } =>
-            !!each.draft && isPageChange(each.draft, this.data.pageId, this.holds.me()?.uid ?? null));
 
         for (const each of toPublish) {
             const type = this.typeOf(each.card.type);
@@ -895,6 +907,18 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         return true;
     };
 
+    /** The cards Publish takes (VE-D72), read now: those shown with changes, and the open one just saved, which the frame may not have marked yet. */
+    private async cardsToPublish(open: CardRef | null): Promise<{ card: CardRef; draft: Record<string, any> }[]> {
+        const shown = this.cards().filter((card) => !card.leaving);
+        const candidates = [...this.changedCards()];
+        if (open && shown.some((card) => card.type === open.type && card.id === open.id) && !candidates.some((c) => c.type === open.type && c.id === open.id)) {
+            candidates.push({ ...open, changed: true, leaving: false });
+        }
+        const read = await Promise.all(candidates.map(async (card) => ({ card: { type: card.type, id: card.id }, draft: await this.actions.read(card) })));
+        return read.filter((each): each is { card: CardRef; draft: Record<string, any> } =>
+            !!each.draft && isPageChange(each.draft, this.data.pageId, this.holds.me()?.uid ?? null));
+    }
+
     /** The one Publish (VE-D53): the page's words and SEO when they changed, then each card checked. */
     readonly publishWith = async (): Promise<void> => {
         const session = this.data.session;
@@ -907,16 +931,46 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             try {
                 // False: saved or unpublished by someone since it was checked; Publish again checks it anew.
                 if (!(await this.actions.publish(each.card, each.draft, this.data.pageId))) failed.push(String(each.draft['title'] || each.card.id));
+                else this.followCard(each.card, String(each.draft['title'] || each.card.id));
             } catch (error) {
                 console.error('[PageEdit] Could not publish a card:', error);
                 failed.push(String(each.draft['title'] || each.card.id));
             }
         }
         const done = cards.length - failed.length;
-        if (done) this.notify.success('admin.edit_page.cards_published', { count: done });
+        if (done === 1) this.notify.success('admin.edit_page.cards_published_one');
+        else if (done) this.notify.success('admin.edit_page.cards_published', { count: done });
         // The panel shows it: the page's words (and the cards before) went out, these did not.
         if (failed.length) throw new Error(this.t('admin.edit_page.cards_publish_failed', { cards: failed.join(', ') }));
     };
+
+    /** The page says Publishing until the card's publish ends, as an entry's own editor does. */
+    private followCard(card: CardRef, name: string): void {
+        const key = `${card.type}/${card.id}`;
+        const going = new Subscription();
+        const end = () => {
+            going.unsubscribe();
+            if (this.cardsGoing().get(key) !== going) return;
+            this.cardsGoing.update((all) => new Map([...all].filter(([each]) => each !== key)));
+        };
+        this.cardsGoing().get(key)?.unsubscribe();
+        this.cardsGoing.update((all) => new Map(all).set(key, going));
+        going.add(this.injector.get(ContentsService).pollDeployStatus(card.id, card.type).subscribe({
+            next: (status) => {
+                if (!status.deployStatus && status.deployErrorCode !== 'TIMEOUT') return;
+                if (status.deployStatus !== 'deployed' && status.deployStatus !== 'skipped') {
+                    console.error('[PageEdit] A card\'s publish failed:', key, status.deployErrorCode, status.deployError);
+                    this.notify.error('admin.edit_page.card_not_live', { card: name });
+                }
+                end();
+            },
+            error: (error) => {
+                console.error('[PageEdit] Could not follow a card\'s publish:', key, error);
+                end();
+            },
+            complete: end,
+        }));
+    }
 
     async publish(): Promise<void> {
         const panel = this.panelRef();
@@ -1065,8 +1119,18 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             .map((card) => ({ type: card.type, id: card.id, name: this.cardName(card), take: true }));
         void this.reviews.open(this.data, this.pageTitle(), {
             cards,
+            ownCards: async () => (await this.cardsToPublish(this.card())).map(({ card, draft }) => ({
+                ...card, name: `${this.typeName(card.type)}: ${String(draft['title'] || '').trim() || card.id}`, take: true,
+            })),
+            showCard: (card) => {
+                this.openCard({ type: card.type, id: card.id }, null);
+                // The link the review was opened from is hidden now: the keyboard goes on in the card's panel.
+                setTimeout(() => this.panelBox?.nativeElement.querySelector<HTMLElement>('[data-testid="page-edit-back"]')?.focus(), 100);
+            },
             flush: async () => {
                 this.leaveSpot();
+                await Promise.all([...this.cardSaves]);
+                if (!(await this.saveCard())) return false;
                 await this.panelRef()?.flush();
                 while (this.saving() > 0) await new Promise((resolve) => setTimeout(resolve, 50));
                 return !this.saveError();
@@ -1114,6 +1178,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         for (const { card } of read) {
             try {
                 await this.actions.publishTheirs(card);
+                this.followCard({ type: card.type, id: card.id }, card.name);
             } catch (error) {
                 console.error('[PageEdit] Could not publish a card:', error);
                 failed.push(card.name);
@@ -1205,7 +1270,8 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             const editor = this.cardEditor();
             const open = this.card();
             if (!open || open.type !== card.type || open.id !== card.id) return null;
-            if (editor && editor.contentId === card.id && editor.publishForm && editor.pageTitle) return editor;
+            // Read, not "has a title": a translation not written yet has none.
+            if (editor && editor.contentId === card.id && editor.publishForm && editor.session.entryRead()) return editor;
             await new Promise((resolve) => setTimeout(resolve, 100));
         }
         return null;
@@ -1235,6 +1301,11 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         })();
         this.cardSaves.add(save);
         void save.finally(() => this.cardSaves.delete(save));
+    }
+
+    private readCardState(): void {
+        const state = this.cardEditor()?.session.editState();
+        this.cardState.set(this.cardSaves.size || state === 'saving' ? 'saving' : state === 'not_saved' ? 'not_saved' : null);
     }
 
     /** Saves the open card's form when it has anything to save; false when that did not land. */

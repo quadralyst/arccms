@@ -13,6 +13,8 @@ import { PageCardActions } from './page-card-actions';
 import { NotifyService } from '../../../../shared/services/notify.service';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
+import { ContentsService } from '../contents/content-store/published-contents.service';
+import { EMPTY, Subject } from 'rxjs';
 
 describe('pageCardsIn', () => {
     const doc = new DOMParser().parseFromString(`<body>
@@ -77,8 +79,11 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
     let confirm: { ask: ReturnType<typeof vi.fn> };
     const quotes = { slug: 'quotes', name: 'Quotes', hasPublicUrl: false, fields: [{ key: 'person', label: 'Person', type: 'text', required: true }] };
     const drafts: Record<string, Record<string, any>> = {};
+    let deploys: Record<string, Subject<any>> = {};
+    const pollDeployStatus = vi.fn((id: string, _type: string) => (deploys[id] = new Subject<any>()));
 
     beforeEach(() => {
+        deploys = {};
         for (const key of Object.keys(drafts)) delete drafts[key];
         actions = { read: vi.fn(async (card: { id: string }) => drafts[card.id] ?? null), publish: vi.fn(async () => true) };
         notify = { error: vi.fn(), success: vi.fn() };
@@ -93,6 +98,7 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
                 { provide: NotifyService, useValue: notify },
                 { provide: ConfirmService, useValue: confirm },
                 { provide: ContentTypesStore, useValue: { items: signal([quotes]), getAll: vi.fn() } },
+                { provide: ContentsService, useValue: { pollDeployStatus } },
             ],
         });
         TestBed.overrideComponent(PageEditPage, { set: { template: '', imports: [] } });
@@ -125,6 +131,136 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
         expect(actions.publish).toHaveBeenCalledTimes(2);
         expect(actions.publish).toHaveBeenCalledWith({ type: 'quotes', id: 'a' }, drafts['a'], expect.anything());
         expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published', { count: 2 });
+    });
+
+    describe('Review of your own changes (VE-D80)', () => {
+        const open = vi.fn(async (..._args: any[]) => undefined);
+        const screen = () => open.mock.calls[open.mock.calls.length - 1][2];
+        beforeEach(() => {
+            open.mockClear();
+            (page as any).reviews = { open };
+        });
+
+        it('lists exactly the cards Publish sends, with what is typed saved first', async () => {
+            drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'First' };
+            drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, changedOnPage: 'p-about', title: 'Elsewhere' };
+            drafts['c'] = { id: 'c', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'Just typed' };
+            page.cards.set(['a', 'b', 'c'].map((id) => ({ type: 'quotes', id, changed: id !== 'c', leaving: false })));
+            // The open card, saved by the review before the frame marks it.
+            page.card.set({ type: 'quotes', id: 'c' });
+            const editor = { hasUnsavedChanges: vi.fn(() => true), saveAsDraft: vi.fn(async () => { editor.hasUnsavedChanges.mockReturnValue(false); }) };
+            (page as any).cardEditor = () => editor;
+            (page as any).panelRef = () => ({ flush: async () => true });
+            page.review();
+            expect(await screen().flush()).toBe(true);
+            expect(editor.saveAsDraft).toHaveBeenCalled();
+            expect(await screen().ownCards()).toEqual([
+                { type: 'quotes', id: 'a', name: 'Quotes: First', take: true }, { type: 'quotes', id: 'c', name: 'Quotes: Just typed', take: true },
+            ]);
+            expect(screen().cards).toEqual([]);
+        });
+
+        it('reads nothing when a card\'s words could not be saved', async () => {
+            page.card.set({ type: 'quotes', id: 'a' });
+            (page as any).cardEditor = () => ({ hasUnsavedChanges: () => true, saveAsDraft: async () => undefined });
+            page.review();
+            expect(await screen().flush()).toBe(false);
+        });
+
+        it('waits for words still being put into a card\'s form', async () => {
+            (page as any).panelRef = () => ({ flush: async () => true });
+            let done: () => void = () => undefined;
+            (page as any).cardSaves.add(new Promise<void>((resolve) => (done = resolve)));
+            page.review();
+            let answered = false;
+            const flushed = screen().flush().then(() => (answered = true));
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            expect(answered).toBe(false);
+            done();
+            await flushed;
+        });
+
+        it('opens a card from the list', () => {
+            page.review();
+            const openCard = vi.spyOn(page, 'openCard').mockImplementation(() => undefined);
+            screen().showCard({ type: 'quotes', id: 'a', name: 'Quotes: First', take: true });
+            expect(openCard).toHaveBeenCalledWith({ type: 'quotes', id: 'a' }, null);
+        });
+    });
+
+    it('is Publishing until every card sent is on the site, and says which is not', async () => {
+        for (const id of ['a', 'b', 'c']) drafts[id] = { id, status: 'draft', publishedStatus: true, changedOnPage: 'home', title: `Card ${id}`, customFields: { person: 'Asha' } };
+        changed('a', 'b', 'c');
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        await page.beforePublish();
+        await page.publishWith();
+        expect([...page.cardsGoing().keys()]).toEqual(['quotes/a', 'quotes/b', 'quotes/c']);
+        // Still being built.
+        deploys['a'].next({ deployStatus: null });
+        expect(page.cardsGoing().size).toBe(3);
+        deploys['a'].next({ deployStatus: 'deployed' });
+        deploys['b'].next({ deployStatus: 'failed', deployErrorCode: 'X' });
+        expect(notify.error).toHaveBeenCalledWith('admin.edit_page.card_not_live', { card: 'Card b' });
+        expect([...page.cardsGoing().keys()]).toEqual(['quotes/c']);
+        // Published again meanwhile: the new one counts, and leaving the screen stops it.
+        const first = deploys['c'];
+        changed('c');
+        await page.beforePublish();
+        await page.publishWith();
+        expect(first.observed).toBe(false);
+        expect(page.cardsGoing().size).toBe(1);
+        deploys['c'].next({ deployStatus: null, deployErrorCode: 'TIMEOUT' });
+        expect(page.cardsGoing().size).toBe(0);
+        expect(notify.error).toHaveBeenLastCalledWith('admin.edit_page.card_not_live', { card: 'Card c' });
+        await page.beforePublish();
+        await page.publishWith();
+        page.ngOnDestroy();
+        expect(deploys['c'].observed).toBe(false);
+    });
+
+    it('puts words typed on a translated page into the card\'s form, which has no title in that language yet', async () => {
+        const editor = {
+            contentId: 'a', publishForm: {}, pageTitle: '', createSlag: vi.fn(), triggerAutoSave: vi.fn(),
+            session: { entryRead: vi.fn(() => false), activeLang: () => 'hi', editState: () => 'published' }, switchLanguage: vi.fn(),
+        };
+        (page as any).cardEditor = () => editor;
+        page.card.set({ type: 'quotes', id: 'a' });
+        page.saveCardText({ type: 'quotes', id: 'a' }, 'title', 'Hindi words');
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        // The stored entry is not read yet: the form may still hold the one opened before.
+        expect(editor.pageTitle).toBe('');
+        editor.session.entryRead.mockReturnValue(true);
+        await Promise.all([...(page as any).cardSaves]);
+        expect(editor.pageTitle).toBe('Hindi words');
+        expect(editor.triggerAutoSave).toHaveBeenCalled();
+        expect(notify.error).not.toHaveBeenCalled();
+    });
+
+    it('says Saving while a card\'s words are on their way, and Not saved when they could not be', () => {
+        let state = 'saving';
+        (page as any).cardEditor = () => ({ session: { editState: () => state } });
+        vi.useFakeTimers();
+        try {
+            page.card.set({ type: 'quotes', id: 'a' });
+            TestBed.flushEffects();
+            vi.advanceTimersByTime(300);
+            expect(page.status()).toBe('saving');
+            state = 'not_saved';
+            vi.advanceTimersByTime(300);
+            expect(page.status()).toBe('not_saved');
+            // The card's own changes waiting are the page's changes: the panel says those.
+            state = 'changes';
+            vi.advanceTimersByTime(300);
+            expect(page.status()).toBe('published');
+            state = 'saving';
+            vi.advanceTimersByTime(300);
+            page.card.set(null);
+            TestBed.flushEffects();
+            expect(page.status()).toBe('published');
+            expect(vi.getTimerCount()).toBe(0);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('publishes nothing when a card fails, and opens that card', async () => {
@@ -175,7 +311,7 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
         expect(await page.beforePublish()).toBe(true);
         await expect(page.publishWith()).rejects.toThrow(/First/);
         expect(actions.publish).toHaveBeenCalledTimes(2);
-        expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published', { count: 1 });
+        expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published_one');
     });
 
     it('names a card someone saved or unpublished after the check, and publishes the rest', async () => {
@@ -185,7 +321,7 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
         actions.publish.mockImplementation(async (card: { id: string }) => card.id !== 'a');
         expect(await page.beforePublish()).toBe(true);
         await expect(page.publishWith()).rejects.toThrow(/Changed since/);
-        expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published', { count: 1 });
+        expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published_one');
     });
 });
 
@@ -205,6 +341,7 @@ describe('PageEditPage, a list page (VE-D58, VE-D62, VE-D65)', () => {
                 { provide: NotifyService, useValue: { error: vi.fn(), success: vi.fn() } },
                 { provide: ConfirmService, useValue: { ask: vi.fn(async () => true) } },
                 { provide: ContentTypesStore, useValue: { items: signal([articles]), getAll: vi.fn() } },
+                { provide: ContentsService, useValue: { pollDeployStatus: () => EMPTY } },
             ],
         });
         TestBed.overrideComponent(PageEditPage, { set: { template: '', imports: [] } });

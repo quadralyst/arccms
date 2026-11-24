@@ -189,6 +189,13 @@ describe('EntryDraftSession', () => {
       expect(session.isNewStoredItem(store.currentItem())).toBe(false);
     });
 
+    it('the entry opened before, still in the store, is never taken for this one', () => {
+      const item = loadStored();
+      session.contentId = 'doc-2';
+      expect(session.isNewStoredItem(item)).toBe(false);
+      expect(session.isNewStoredItem({ ...item, id: 'doc-2' })).toBe(true);
+    });
+
     it('the body editor giving back its value settles the baseline, once', () => {
       loadStored();
       // The editor reserializes the body on its way back.
@@ -394,6 +401,21 @@ describe('EntryDraftSession', () => {
 
       await session.switchLanguage('en');
       expect(view.values.title).toBe('Guide');
+    });
+
+    it('the stored entry, or words typed, that arrive while the translation loads stay the default language\'s', async () => {
+      await session.initLanguages();
+      loadStored();
+      let land!: (value: unknown) => void;
+      drafts.getTranslation.mockImplementation(() => new Promise((resolve) => { land = resolve; }));
+      const toHindi = session.switchLanguage('hi');
+      view.values.title = 'Guide, read again';
+      land(null);
+      await toHindi;
+      expect(session.isTranslating()).toBe(true);
+      expect(session.baseValues().title).toBe('Guide, read again');
+      await session.switchLanguage('en');
+      expect(view.values.title).toBe('Guide, read again');
     });
 
     it('the last of two quick switches wins: a translation still loading is not put on screen (VE3.11)', async () => {
@@ -604,6 +626,26 @@ describe('EntryDraftSession', () => {
       loadStored({ publishedStatus: true, publishedOn: day(1), modifiedAt: day(8) });
       expect(session.lastPublishedDate).toEqual(new Date(day(1).seconds * 1000));
       expect(session.nothingToPublish()).toBe(false);
+    });
+
+    it('someone else\'s publish moves Last published by its own time: the entry\'s date stays', () => {
+      let published: (data: Record<string, any> | null) => void = () => undefined;
+      vi.spyOn((session as any).holds, 'follow').mockImplementation(((path: string, next: typeof published) => {
+        if (!path.includes('_drafts/')) published = next;
+        return () => undefined;
+      }) as never);
+      loadStored({ publishedStatus: true, publishedOn: day(1), lastPublishedAt: day(3), modifiedAt: day(2) });
+      (session as any).followedPath = '';
+      (session as any).follow(session.contentId);
+      published({ publishedOn: day(1), lastPublishedAt: day(3) });
+      expect(session.publishesLanded()).toBe(0);
+      published({ publishedOn: day(1), lastPublishedAt: day(9) });
+      expect(session.publishesLanded()).toBe(1);
+      expect(session.lastPublishedDate).toEqual(new Date(day(9).seconds * 1000));
+      // What the page shows, and what the checks and previews use, is the first publish.
+      expect(session.publishDate()).toEqual(new Date(day(1).seconds * 1000));
+      published({ publishedOn: day(4), lastPublishedAt: day(9) });
+      expect((session as any).buildPreviewState().draft.publishedOn).toEqual(day(4));
     });
 
     it('a saved change is waiting, and a landed publish is what visitors see', async () => {

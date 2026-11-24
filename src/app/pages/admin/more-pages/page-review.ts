@@ -4,7 +4,7 @@ import { NotifyService } from '../../../../shared/services/notify.service';
 import { plainText, type Change } from '../../../core/editing/compare';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 import { ReviewService, sameChanges } from '../hold/review.service';
-import { pageValuesHaveReplace } from './page-text-editor.model';
+import { LIST_PAGE_KEYS, pageValuesHaveReplace } from './page-text-editor.model';
 import type { ReviewCard } from '../hold/review-changes-dialog.component';
 import type { PageEditorData } from './page-editor-data';
 
@@ -18,6 +18,10 @@ export interface PageReviewScreen {
     /** Shows a change's place on the screen. */
     show: (change: Change) => void;
     cards?: ReviewCard[];
+    /** The cards this person's Publish sends with the page, once what is typed is saved. */
+    ownCards?: () => Promise<ReviewCard[]>;
+    /** Opens a card's own panel. */
+    showCard?: (card: ReviewCard) => void;
     /** A draft was kept: History reads them again. */
     kept?: () => void;
 }
@@ -35,11 +39,14 @@ export class PageReview {
         if (!session) return;
         const hold = data.heldBy();
         const cards = screen.cards ?? [];
+        const keys = (list: readonly ReviewCard[]) => list.map((card) => `${card.type}/${card.id}`).sort().join();
+        let own: ReviewCard[] = [];
         const answer = await this.review.open({
             title, hold, isNew: false, cards,
+            ownCards: hold || !screen.ownCards ? undefined : async () => (own = await screen.ownCards!()),
             load: async () => {
                 if (!hold && !(await screen.flush())) throw new Error('What is typed could not be saved.');
-                return session.changes().map((change) => this.withFileWords(data, change));
+                return this.listed(data);
             },
             label: (change) => this.label(data, change),
             language: (code) => data.languages().find((l) => l.code === code)?.label || code,
@@ -49,10 +56,13 @@ export class PageReview {
         });
         if (!answer) return;
         if (answer.action === 'show') return screen.show(answer.change);
+        if (answer.action === 'card') return screen.showCard?.(answer.card);
         if (answer.action !== 'discard') {
             // What was reviewed is what goes: someone else since, or another change, is looked at first.
-            const now = session.changes().map((change) => this.withFileWords(data, change));
-            if (data.heldBy()?.by !== hold?.by || !sameChanges(now, answer.seen)) {
+            const now = this.listed(data);
+            // Another card joined them meanwhile (from another tab): not what was looked at.
+            const others = !hold && screen.ownCards ? await screen.ownCards().then((list) => keys(list) !== keys(own), () => false) : false;
+            if (data.heldBy()?.by !== hold?.by || others || !sameChanges(now, answer.seen)) {
                 this.notify.info('admin.hold.changed_since');
                 return this.open(data, title, screen);
             }
@@ -90,6 +100,25 @@ export class PageReview {
             console.error('[PageReview] Could not discard:', error);
             this.notify.error('admin.hold.discard_failed');
         }
+    }
+
+    /** The changes as the list shows them: in the page's order, each area's languages together, then search and share. */
+    private listed(data: PageEditorData): Change[] {
+        const areas = data.sections().flatMap((section) => section.areas.map((view) => view.area.key));
+        const langs = [data.defaultLang(), ...data.languages().map((l) => l.code)];
+        const place = (change: Change): number[] => {
+            const key = /^(text|url):/.test(change.field) ? change.field.replace(/^(text|url):/, '') : null;
+            const lang = langs.indexOf(change.lang);
+            if (key === null) return [1, change.field === 'shareImage' ? 1 : 0, lang, 0];
+            // A list page's heading and intro come first, whether its file marks them or not (VE-D60).
+            const first = data.isList ? LIST_PAGE_KEYS.indexOf(key) : -1;
+            const at = areas.indexOf(key);
+            return [0, first >= 0 ? first : LIST_PAGE_KEYS.length + (at < 0 ? areas.length : at), change.field.startsWith('url:') ? 1 : 0, lang];
+        };
+        return (data.session?.changes() ?? [])
+            .map((change) => ({ change, place: place(change) }))
+            .sort((a, b) => a.place.reduce((found, n, i) => found || n - b.place[i], 0))
+            .map(({ change }) => this.withFileWords(data, change));
     }
 
     /** Where the page shows its file's own words, the list says them, not nothing. */

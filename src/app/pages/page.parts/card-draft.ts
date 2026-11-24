@@ -9,7 +9,7 @@
  * blocks draw published entries only.
  */
 import { Signal } from '@angular/core';
-import { sortForDisplay, EntryOrder } from '../../core/utils/display-order';
+import { sortForDisplay, timeOf, EntryOrder } from '../../core/utils/display-order';
 
 export interface CardDraftEntry {
     /** The draft's content type. */
@@ -34,6 +34,12 @@ export interface CardsWithDraft<T> {
     tookLastPlace: boolean;
 }
 
+/** A draft drawn as a card has its live copy's date, which it keeps when published: it stays in its place. */
+function withLiveDate<T extends Record<string, any>>(draft: T, published: readonly T[]): T {
+    const date = published.find((entry) => entry['id'] === draft['id'])?.['publishedOn'];
+    return date && timeOf(date) !== timeOf(draft['publishedOn']) ? { ...draft, publishedOn: date } : draft;
+}
+
 /**
  * The block's cards in the type's order with the draft swapped in for its
  * published copy (or added, never published), cut to `count`. When the cut
@@ -43,6 +49,7 @@ export function cardsWithDraft<T extends Record<string, any>>(
     published: readonly T[], draft: T | null, order: EntryOrder, count: number,
 ): CardsWithDraft<T> {
     if (!draft) return { cards: sortForDisplay(published, order).slice(0, count), draftIndex: -1, tookLastPlace: false };
+    draft = withLiveDate(draft, published);
     const others = published.filter((entry) => entry['id'] !== draft['id']);
     const sorted = sortForDisplay([...others, draft], order);
     const index = sorted.indexOf(draft);
@@ -69,6 +76,8 @@ export interface PageCardNote {
 export interface PageCardsOfType<T> {
     /** Drafts with unpublished changes the page shows (published-looking, see draftAsCard). */
     changed: readonly T[];
+    /** Drafts published from the page, drawn from the draft (the site may not have them yet), and no change any more. */
+    publishing?: readonly T[];
     /** Entries taken off the page (Remove, or unpublished elsewhere): never drawn. */
     hidden: ReadonlySet<string>;
     /** Each entry's place in the type's own order as the drafts have it now (a Move saved). */
@@ -123,8 +132,10 @@ export function cardsWithDrafts<T extends Record<string, any>>(
     };
     const live = published.filter((entry) => !page.hidden.has(entry['id'])).map(reordered);
     const changedIds = new Set(page.changed.map((entry) => entry['id'] as string));
-    const replacements = new Map<string, T>(page.changed.map((entry) => [entry['id'] as string, reordered(entry)]));
-    if (page.focus) replacements.set(page.focus['id'], reordered(page.focus));
+    const replacements = new Map<string, T>();
+    for (const entry of [...(page.publishing ?? []), ...page.changed, ...(page.focus ? [page.focus] : [])]) {
+        replacements.set(entry['id'], reordered(withLiveDate(entry, published)));
+    }
     const merged = [...live.filter((entry) => !replacements.has(entry['id'])), ...replacements.values()];
     const sorted = sortForDisplay(merged, order);
     const afterPublish = sorted.slice(0, count);

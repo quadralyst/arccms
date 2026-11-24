@@ -1815,7 +1815,7 @@ describe('processPublishQueue: an entry published at a new address (RF4 4.6)', (
 describe('processPublishQueue: who holds a draft (VE-D76, VE-D78)', () => {
     const at = (seconds: number) => ({ seconds, nanoseconds: 0 });
     const HOLD = { by: 'priya-uid', name: 'Priya', since: at(1), at: at(10) };
-    const DRAFT = { title: 'A', urlSlug: 'a', modifiedAt: at(10), editing: HOLD, changedOnPage: 'home' };
+    const DRAFT = { title: 'A', urlSlug: 'a', modifiedAt: at(10), publishedOn: at(1), editing: HOLD, changedOnPage: 'home' };
     const stamps = () => mockUpdate.mock.calls.map(([data]) => data).filter((data) => 'lastPublishedAt' in data);
     /** The draft as it was read to be copied, then as it is when it is stamped. */
     const stored = (copied: Record<string, unknown>, later: Record<string, unknown> | null = copied) => {
@@ -1911,6 +1911,97 @@ describe('processPublishQueue: who holds a draft (VE-D76, VE-D78)', () => {
         stored(DRAFT, { ...DRAFT, nextContent: { id: 'p2' }, modifiedAt: at(15), status: 'draft' });
         await handler(createEvent('publish', 'articles', 'doc1'));
         expect(stamps()).toEqual([{ lastPublishedAt: at(11) }]);
+    });
+
+    // A correction neither moves an entry to the top of its list nor changes the date visitors see.
+    describe('the date of an entry', () => {
+        const NOW = at(50);
+        const reads = (draft: Record<string, unknown>, live: Record<string, unknown> | null) => {
+            let n = 0;
+            mockGet.mockImplementation(async () => {
+                const data = n++ === 1 ? live : draft;
+                return { exists: !!data, data: () => data ?? undefined };
+            });
+        };
+        const { publishedOn: _first, ...NEW } = DRAFT;
+        const publishedCopy = () => Object.assign({}, ...[...mockBatchSet.mock.calls, ...mockBatchUpdate.mock.calls]
+            .map((call) => call[1]).filter((data) => data !== version()));
+        /** The version added to History: the last of what is set. */
+        const version = () => mockBatchSet.mock.calls[mockBatchSet.mock.calls.length - 1][1];
+
+        // Every clock read has its own time: what was read, this publish, the stamp after it.
+        beforeEach(() => clock(40, 50, 60));
+
+        it.each(['publish', 'update'])('%s keeps the date the live copy has, and dates the version and the last publish now', async (action) => {
+            reads({ ...DRAFT, publishedOn: at(2), lastPublishedAt: at(5) }, { title: 'Old', urlSlug: 'a', publishedOn: at(4), lastPublishedAt: at(5) });
+            await handler(createEvent(action, 'articles', 'doc1'));
+            if (action === 'publish') expect(publishedCopy().publishedOn).toEqual(at(4));
+            else expect(publishedCopy()).not.toHaveProperty('publishedOn');
+            expect(publishedCopy().lastPublishedAt).toEqual(NOW);
+            expect(version()).toMatchObject({ publishedOn: NOW, lastPublishedAt: NOW });
+            // The draft follows: what Arrange orders by and the previews draw.
+            expect(stamps()[0]).toMatchObject({ publishedOn: at(4) });
+        });
+
+        it.each(['publish', 'update'])('%s dates an entry published for the first time now, whatever a failed publish left on its draft', async (action) => {
+            reads({ ...DRAFT, publishedOn: at(2) }, null);
+            await handler(createEvent(action, 'articles', 'doc1'));
+            expect(publishedCopy().publishedOn).toEqual(NOW);
+            mockBatchSet.mockClear();
+            vi.restoreAllMocks();
+            await clock(40, 50, 60);
+            reads(NEW, null);
+            await handler(createEvent(action, 'articles', 'doc1'));
+            expect(publishedCopy().publishedOn).toEqual(NOW);
+        });
+
+        it.each(['publish', 'update'])('%s of an entry taken off the site keeps the date it had', async (action) => {
+            reads({ ...DRAFT, publishedOn: at(2), lastPublishedAt: at(5) }, null);
+            await handler(createEvent(action, 'articles', 'doc1'));
+            expect(publishedCopy().publishedOn).toEqual(at(2));
+        });
+
+        it('a date a script wrote as text becomes a date, and one nobody can read is none', async () => {
+            const { Timestamp } = await import('firebase-admin/firestore');
+            (Timestamp as any).fromMillis = (ms: number) => at(ms / 1000);
+            reads({ ...DRAFT, lastPublishedAt: at(5) }, { urlSlug: 'a', publishedOn: '2026-01-02T00:00:00Z' });
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(publishedCopy().publishedOn).toEqual(at(Date.parse('2026-01-02T00:00:00Z') / 1000));
+            mockBatchSet.mockClear();
+            reads({ ...DRAFT, lastPublishedAt: at(5) }, { urlSlug: 'a', publishedOn: 'soon' });
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(publishedCopy().publishedOn).toEqual(at(1));
+        });
+
+        it('taking it off the site keeps the date its page had on the draft, for the next publish', async () => {
+            const live = { urlSlug: 'a', publishedOn: at(30), lastPublishedAt: at(31) };
+            mockGet.mockReset();
+            mockGet.mockResolvedValueOnce({ exists: true, data: () => live }).mockResolvedValue({ exists: true, data: () => ({ ...DRAFT, publishedOn: at(2) }) });
+            await handler(createEvent('unpublish', 'articles', 'doc1'));
+            expect(mockUpdate).toHaveBeenCalledWith({ publishedOn: at(30), lastPublishedAt: at(31) });
+            // Already in step: nothing to write.
+            mockUpdate.mockClear();
+            mockGet.mockReset();
+            mockGet.mockResolvedValueOnce({ exists: true, data: () => live }).mockResolvedValue({ exists: true, data: () => ({ ...DRAFT, publishedOn: at(30), lastPublishedAt: at(31) }) });
+            await handler(createEvent('unpublish', 'articles', 'doc1'));
+            expect(mockUpdate.mock.calls.filter(([data]) => 'publishedOn' in data || 'lastPublishedAt' in data)).toEqual([]);
+        });
+
+        it('leaves the draft\'s date alone when it is the same, and publishes when the live copy cannot be read', async () => {
+            reads({ ...DRAFT, lastPublishedAt: at(5) }, { urlSlug: 'a', publishedOn: at(1) });
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(stamps()[0]).not.toHaveProperty('publishedOn');
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            mockBatchSet.mockClear();
+            let n = 0;
+            mockGet.mockImplementation(async () => {
+                if (n++ === 1) throw new Error('offline');
+                // Published before `lastPublishedAt` was kept: the date on its draft is still the page's.
+                return { exists: true, data: () => DRAFT };
+            });
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(publishedCopy().publishedOn).toEqual(at(1));
+        });
     });
 
     describe('translations saved meanwhile', () => {

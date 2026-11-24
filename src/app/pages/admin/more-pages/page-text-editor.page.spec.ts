@@ -363,6 +363,52 @@ describe('PageTextEditorPage', () => {
             expect(el.querySelector('[data-testid="gone"]')).toBeNull();
         });
 
+        describe('Review with cards (VE-D80)', () => {
+            const cardOf = (id: string) => ({ type: 'quotes', id, name: id, take: true });
+            const openReview = async (screen: Record<string, unknown>, answer: (data: any) => Promise<unknown>, hold: unknown = null) => {
+                await openList('articles');
+                const data = fixture.componentInstance.data;
+                (data as any).heldBy = () => hold;
+                (data as any).sessionRef.set({ ...data.session, changes: () => [] });
+                const review = TestBed.inject(PageReview) as any;
+                review.notify = { info: vi.fn() };
+                review.review = { open: vi.fn(answer) };
+                const all = { flush: async () => true, publish: vi.fn(), show: vi.fn(), showCard: vi.fn(), ...screen };
+                await review.open(data, 'Articles list', all);
+                return { review, all };
+            };
+
+            it('opens a card\'s panel', async () => {
+                const shown = await openReview({}, async () => ({ action: 'card', card: cardOf('a') }));
+                expect(shown.all.showCard).toHaveBeenCalledWith(cardOf('a'));
+            });
+
+            it('publishes when they are still the cards listed', async () => {
+                const same = await openReview({ ownCards: async () => [cardOf('a')] }, async (data) => {
+                    await data.ownCards();
+                    return { action: 'publish', seen: [] };
+                });
+                expect(same.all.publish).toHaveBeenCalledTimes(1);
+            });
+
+            it('opens again when another card joined meanwhile', async () => {
+                const ownCards = vi.fn().mockResolvedValueOnce([cardOf('a')]).mockResolvedValue([cardOf('a'), cardOf('b')]);
+                let opened = 0;
+                const { review, all } = await openReview({ ownCards }, async (data) => {
+                    await data.ownCards();
+                    return opened++ ? null : { action: 'publish', seen: [] };
+                });
+                expect(review.notify.info).toHaveBeenCalledWith('admin.hold.changed_since');
+                expect(opened).toBe(2);
+                expect(all.publish).not.toHaveBeenCalled();
+            });
+
+            it('lists only their cards while someone else holds the page', async () => {
+                const { review } = await openReview({ ownCards: async () => [cardOf('a')] }, async () => null, { by: 'p', name: 'Priya' });
+                expect(review.review.open.mock.calls[0][0].ownCards).toBeUndefined();
+            });
+        });
+
         it('names its changes as Basic and SEO do, with the file\'s own words beside them', async () => {
             await openList('articles');
             const data = fixture.componentInstance.data;
@@ -370,6 +416,9 @@ describe('PageTextEditorPage', () => {
             const change = (field: string) => ({ id: field, field, lang: 'hi', kind: 'text' as const, before: '', after: 'x' });
             expect(['text:title', 'text:intro', 'seo:title', 'seo:description', 'shareImage'].map((field) => review.label(data, change(field))))
                 .toEqual(['Title', 'Summary', 'SEO Title', 'Meta Description', 'Cover image']);
+            // In the page's order, whatever order they are stored in (review of the live check).
+            (data as any).sessionRef.set({ ...data.session, changes: () => ['shareImage', 'seo:title', 'text:other', 'text:intro', 'text:title'].map(change) });
+            expect((review as any).listed(data).map((c: { field: string }) => c.field)).toEqual(['text:title', 'text:intro', 'text:other', 'seo:title', 'shareImage']);
             const withFile = (field: string) => (review as any).withFileWords(data, change(field)).before;
             expect(withFile('text:title')).toBe('लेख');
             expect(withFile('seo:title')).toBe('');

@@ -87,6 +87,24 @@ describe('ReviewChangesDialogComponent', () => {
         expect(el.querySelector('[role="alert"]')?.textContent).toContain('could not be read');
     });
 
+    it('lists your own cards that Publish sends, read again after Put back, each opening its panel', async () => {
+        const cards = [{ type: 'quotes', id: 'a', name: 'Quotes: A', take: true }];
+        const order: string[] = [];
+        const ownCards = vi.fn(async () => { order.push('cards'); return cards; });
+        const { fixture, el } = await open({ load: async () => { order.push('load'); return []; }, ownCards, putBack: async () => undefined });
+        // What is typed is saved by load, so the cards come after it.
+        expect(order).toEqual(['load', 'cards']);
+        expect(el.querySelector('[data-testid="review-cards"]')?.textContent).toContain('Publish sends these too');
+        expect(el.querySelector('[data-testid="review-cards"] input')).toBeNull();
+        expect(el.textContent).not.toContain('Nothing differs');
+        // Only cards changed: there is still something to publish.
+        expect(el.querySelector<HTMLButtonElement>('[data-testid="review-publish"]')!.disabled).toBe(false);
+        await fixture.componentInstance.putBack(change('title', 'a', 'b'));
+        expect(ownCards).toHaveBeenCalledTimes(2);
+        el.querySelector<HTMLButtonElement>('[data-testid="review-own-card"] button')!.click();
+        expect(close).toHaveBeenCalledWith({ action: 'card', card: cards[0] });
+    });
+
     it('lets the cards that go with it be chosen', async () => {
         const cards = [{ type: 'quotes', id: 'a', name: 'Quotes: A', take: true }];
         const { el } = await open({ hold: { by: 'p', name: 'Priya' }, cards });

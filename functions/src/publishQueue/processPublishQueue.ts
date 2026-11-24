@@ -452,6 +452,56 @@ function millisOf(value: any): number {
     return value instanceof Date ? value.getTime() : 0;
 }
 
+/** A stored date as one text to compare, however it is stored. */
+function stableDate(value: any): string {
+    return String(millisOf(value) || value || '');
+}
+
+/**
+ * The date an entry's page shows and its lists are ordered by: when it was **first**
+ * published, and the same for every publish after (a correction neither moves it to
+ * the top nor changes the date visitors, feeds and search engines see). The live
+ * copy's date comes first; an entry taken off the site and published again keeps the
+ * date it had; one that never went live gets this publish's time, whatever a publish
+ * that failed left on its draft. A live copy that could not be read (undefined) counts
+ * as there. `lastPublishedAt` says when the last publish was.
+ */
+export function publishDate(live: Record<string, any> | null | undefined, draft: Record<string, any>, now: Timestamp): unknown {
+    const wasLive = live === undefined || !!draft['lastPublishedAt'];
+    return storedDate(live?.['publishedOn']) ?? (wasLive ? storedDate(draft['publishedOn']) : null) ?? now;
+}
+
+/** A stored date as Firestore orders dates: one written as text by a script becomes a date, anything else unreadable is none. */
+function storedDate(value: any): unknown {
+    if (millisOf(value)) return value;
+    const ms = typeof value === 'string' ? Date.parse(value) : NaN;
+    return isNaN(ms) ? null : Timestamp.fromMillis(ms);
+}
+
+/**
+ * An entry is taken off the site: its draft keeps the date its page had, so publishing
+ * it again gives it back (the draft of an entry published before dates were kept says an
+ * earlier one, or does not say it was ever live).
+ */
+async function keepPublishDate(draftCollection: string, docId: string, live: Record<string, any> | undefined): Promise<void> {
+    const publishedOn = storedDate(live?.['publishedOn']);
+    if (!publishedOn) return;
+    try {
+        const ref = db.collection(draftCollection).doc(docId);
+        await db.runTransaction(async (tx) => {
+            const now = (await tx.get(ref)).data();
+            if (!now) return;
+            const kept = {
+                ...(stableDate(now['publishedOn']) === stableDate(publishedOn) ? {} : { publishedOn }),
+                ...(now['lastPublishedAt'] ? {} : { lastPublishedAt: live?.['lastPublishedAt'] ?? publishedOn }),
+            };
+            if (Object.keys(kept).length) tx.update(ref, kept);
+        });
+    } catch (error) {
+        console.error(`Could not keep the publish date of ${draftCollection}/${docId}:`, error);
+    }
+}
+
 /**
  * Records on the draft that it has just been published, and lets go of it
  * (specs/visual-editing-spec.md, VE-D76): whoever held it has nothing unpublished
@@ -471,7 +521,7 @@ function millisOf(value: any): number {
  * `modifiedAt` is moved only when it would not), and whoever saved it keeps it.
  */
 async function stampLastPublishedAt(
-    draftCollection: string, docId: string, copied: Record<string, any>, readAt: Timestamp, translations: Map<string, string> | null,
+    draftCollection: string, docId: string, copied: Record<string, any>, readAt: Timestamp, translations: Map<string, string> | null, publishedOn: unknown,
 ): Promise<void> {
     try {
         const ref = db.collection(draftCollection).doc(docId);
@@ -480,12 +530,15 @@ async function stampLastPublishedAt(
             if (!now) throw new Error('the draft is gone');
             const stored = translationWords((await tx.get(ref.collection('translations'))).docs);
             const landed = !!translations && sameTranslations(translations, stored) && stableWords(now) === stableWords(copied);
+            // The date the page shows, also on the draft: what Arrange orders by and the previews draw.
+            const date = stableDate(now['publishedOn']) === stableDate(publishedOn) ? {} : { publishedOn };
             if (landed) {
-                tx.update(ref, { lastPublishedAt: Timestamp.now(), editing: FieldValue.delete(), changedOnPage: FieldValue.delete() });
+                tx.update(ref, { lastPublishedAt: Timestamp.now(), ...date, editing: FieldValue.delete(), changedOnPage: FieldValue.delete() });
                 return;
             }
             tx.update(ref, {
                 lastPublishedAt: readAt,
+                ...date,
                 ...(millisOf(now['modifiedAt']) > millisOf(readAt) ? {} : { modifiedAt: Timestamp.now() }),
                 ...(now['status'] === 'draft' ? {} : { status: 'draft' }),
             });
@@ -569,14 +622,14 @@ async function addDiscoverabilityFiles(batch: HostingBatch): Promise<void> {
     }
 }
 
-/** The address of an entry's live page, '' when it has none. */
-async function publishedSlug(publishedRef: DocumentReference): Promise<string> {
+/** What is live of an entry: null when nothing is, undefined when it could not be read (which holds back no publish). */
+async function publishedNow(publishedRef: DocumentReference): Promise<Record<string, any> | null | undefined> {
     try {
         const snap = await publishedRef.get();
-        return snap.exists ? String(snap.data()?.['urlSlug'] || '') : '';
+        return snap.exists ? snap.data() ?? null : null;
     } catch (error) {
-        console.error(`Could not read the live address of ${publishedRef.path}:`, error);
-        return '';
+        console.error(`Could not read the live copy of ${publishedRef.path}:`, error);
+        return undefined;
     }
 }
 
@@ -971,18 +1024,21 @@ export const processPublishQueue = onDocumentCreated({
                 }
                 const copied = draftDoc.data()!;
                 const { redirectOldAddress, data: draftData } = publishableDraft(copied);
-                draftData.publishedOn = Timestamp.now();
-                // The live page's address before this publish, to move it when it changed.
-                const liveSlug = await publishedSlug(publishedRef);
+                const publishedAt = Timestamp.now();
+                // What is live before this publish: its date stays, and its address moves when it changed.
+                const live = await publishedNow(publishedRef);
+                const liveSlug = String(live?.['urlSlug'] || '');
+                const publishedOn = publishDate(live, copied, publishedAt);
 
-                // Batch the publish + history writes for atomicity
+                // Batch the publish + history writes for atomicity. A version of History
+                // is dated with its own publish (its `publishedOn`), the entry with its first.
                 const publishBatch = db.batch();
-                publishBatch.set(publishedRef, { ...draftData, id: docId });
-                publishBatch.set(publishedRef.collection('PublishedHistory').doc(), draftData);
+                publishBatch.set(publishedRef, { ...draftData, publishedOn, lastPublishedAt: publishedAt, id: docId });
+                publishBatch.set(publishedRef.collection('PublishedHistory').doc(), { ...draftData, publishedOn: publishedAt, lastPublishedAt: publishedAt });
                 await publishBatch.commit();
                 console.log(`Published: ${publishedCollection}/${docId}`);
                 const translations = await syncTranslations(draftCollection, publishedCollection, docId);
-                await stampLastPublishedAt(draftCollection, docId, copied, readAt, translations);
+                await stampLastPublishedAt(draftCollection, docId, copied, readAt, translations, publishedOn);
                 await clearRedirectChoice(draftCollection, docId, redirectOldAddress);
                 await indexPublished(publishedCollection, docId);
 
@@ -1039,14 +1095,17 @@ export const processPublishQueue = onDocumentCreated({
 
                 const copied = draftSnap.data()!;
                 const { redirectOldAddress, data: draftFields } = publishableDraft(copied);
-                const liveSlug = publishedSnap.exists ? String(publishedSnap.data()?.urlSlug || '') : '';
+                const live = publishedSnap.exists ? publishedSnap.data() ?? null : null;
+                const liveSlug = String(live?.urlSlug || '');
+                const publishedAt = Timestamp.now();
+                draftFields.publishedOn = publishDate(live, copied, publishedAt);
+                draftFields.lastPublishedAt = publishedAt;
 
                 // Batch the update + history writes for atomicity
                 const updateBatch = db.batch();
 
                 if (!publishedSnap.exists) {
                     // Published doc doesn't exist yet — do a full publish
-                    draftFields.publishedOn = Timestamp.now();
                     updateBatch.set(publishedRef, { ...draftFields, id: docId });
                 } else {
                     // Compute changed fields
@@ -1066,10 +1125,10 @@ export const processPublishQueue = onDocumentCreated({
                 }
 
                 // Add to published history
-                updateBatch.set(publishedRef.collection('PublishedHistory').doc(), draftFields);
+                updateBatch.set(publishedRef.collection('PublishedHistory').doc(), { ...draftFields, publishedOn: publishedAt });
                 await updateBatch.commit();
                 const translations = await syncTranslations(draftCollection, publishedCollection, docId);
-                await stampLastPublishedAt(draftCollection, docId, copied, readAt, translations);
+                await stampLastPublishedAt(draftCollection, docId, copied, readAt, translations, draftFields.publishedOn);
                 await clearRedirectChoice(draftCollection, docId, redirectOldAddress);
                 await indexPublished(publishedCollection, docId);
 
@@ -1095,6 +1154,7 @@ export const processPublishQueue = onDocumentCreated({
                 const doc = await publishedRef.get();
                 const urlSlug = doc.exists ? doc.data()?.urlSlug : null;
                 if (doc.exists) {
+                    await keepPublishDate(draftCollection, docId, doc.data());
                     // Subcollections are not deleted with their parent.
                     await deleteTranslations(publishedCollection, docId);
                     await publishedRef.delete();

@@ -3113,13 +3113,15 @@ describe('CreateContentComponent', () => {
             expect(component.selectedTags().map(t => t.label)).toEqual(['picked']);
         });
 
-        it('refills the forms when the store emits a different item', () => {
+        it('refills the forms when the entry is read again, and never from another entry', () => {
             loadFromStore();
             editSeo();
 
             loadFromStore({ ...STORED, id: 'doc-2', seoTitle: 'Other SEO title' });
+            expect(component.seoForm.get('seoTitle')?.value).not.toBe('Other SEO title');
 
-            expect(component.seoForm.get('seoTitle')?.value).toBe('Other SEO title');
+            loadFromStore({ ...STORED, seoTitle: 'Read again' });
+            expect(component.seoForm.get('seoTitle')?.value).toBe('Read again');
         });
 
         it('keeps saved base edits when switching to a translation and back', async () => {

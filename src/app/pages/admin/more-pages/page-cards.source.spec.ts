@@ -83,6 +83,96 @@ describe('PageCardsSource', () => {
         expect(stopped).toContain('arc_quotes_drafts/a/translations/hi');
     });
 
+    describe('a card being published', () => {
+        const draft = (over: Record<string, unknown> = {}) => ({ id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'A2', modifiedAt: { seconds: 20 }, lastPublishedAt: { seconds: 10 }, ...over });
+        const going = draft({ status: 'publish', modifiedAt: { seconds: 21 } });
+        const one = (data: Record<string, unknown> | null) => ({ exists: () => !!data, data: () => data });
+        const titles = (lang = '') => source.cardsOf('quotes', lang)!.publishing!.map((c) => c['title']);
+
+        it('keeps its new words, once the site has them too, and is no change any more', () => {
+            snapshots[0](docs([draft()]));
+            snapshots[0](docs([]));
+            // At once, before the first answer: its words never go back in between.
+            expect(titles()).toEqual(['A2']);
+            expect(source.cardsOf('quotes')!.changed).toEqual([]);
+            const at = followed.indexOf('arc_quotes_drafts/a');
+            snapshots[at](one(going));
+            expect(titles()).toEqual(['A2']);
+            snapshots[at](one({ ...going, lastPublishedAt: { seconds: 30 } }));
+            expect(titles()).toEqual(['A2']);
+        });
+
+        it('keeps its own translation after it landed: the block reads the published one only once', () => {
+            snapshots[0](docs([draft()]));
+            source.cardsOf('quotes', 'hi');
+            snapshots[followed.indexOf('arc_quotes_drafts/a/translations/hi')]({ exists: () => true, data: () => ({ title: 'नया' }) });
+            snapshots[0](docs([]));
+            snapshots[followed.indexOf('arc_quotes_drafts/a')](one({ ...going, lastPublishedAt: { seconds: 30 } }));
+            expect(titles('hi')).toEqual(['नया']);
+        });
+
+        it('one put back to what is live is drawn with those words', () => {
+            snapshots[0](docs([draft()]));
+            snapshots[0](docs([]));
+            snapshots[followed.indexOf('arc_quotes_drafts/a')](one(draft({ status: 'publish', title: 'A', modifiedAt: { seconds: 9 } })));
+            expect(titles()).toEqual(['A']);
+        });
+
+        it.each([
+            ['deleted', null],
+            ['taken off the site', draft({ status: 'draft', publishedStatus: false })],
+        ])('one %s is let go', (_name, now) => {
+            snapshots[0](docs([draft()]));
+            snapshots[0](docs([]));
+            snapshots[followed.indexOf('arc_quotes_drafts/a')](one(now));
+            expect(titles()).toEqual([]);
+        });
+
+        it('one saved again is a change again, and one changed elsewhere is never followed', () => {
+            snapshots[0](docs([draft(), draft({ id: 'b', changedOnPage: 'p-about' })]));
+            snapshots[0](docs([]));
+            expect(followed).not.toContain('arc_quotes_drafts/b');
+            snapshots[0](docs([draft({ title: 'A3' })]));
+            expect(titles()).toEqual([]);
+            expect(source.cardsOf('quotes')!.changed.map((c) => c['title'])).toEqual(['A3']);
+        });
+
+        it('one whose publish never lands shows what is live after a while, and all stop with the source', () => {
+            vi.useFakeTimers();
+            try {
+                snapshots[0](docs([draft()]));
+                snapshots[0](docs([]));
+                snapshots[followed.indexOf('arc_quotes_drafts/a')](one(going));
+                vi.advanceTimersByTime(9 * 60_000);
+                expect(titles()).toEqual(['A2']);
+                vi.advanceTimersByTime(2 * 60_000);
+                expect(titles()).toEqual([]);
+                // One that landed stays, whatever the time.
+                snapshots[0](docs([draft()]));
+                snapshots[0](docs([]));
+                snapshots[followed.lastIndexOf('arc_quotes_drafts/a')](one({ ...going, lastPublishedAt: { seconds: 30 } }));
+                vi.advanceTimersByTime(20 * 60_000);
+                expect(titles()).toEqual(['A2']);
+                stopped.length = 0;
+                source.ngOnDestroy();
+                expect(stopped).toContain('arc_quotes_drafts/a');
+                expect(vi.getTimerCount()).toBe(0);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('waits while words are typed on a card', () => {
+            snapshots[0](docs([draft()]));
+            snapshots[0](docs([]));
+            send({ arcPageCards: 'hold', on: true });
+            snapshots[followed.indexOf('arc_quotes_drafts/a')](one(null));
+            expect(titles()).toEqual(['A2']);
+            send({ arcPageCards: 'hold', on: false });
+            expect(titles()).toEqual([]);
+        });
+    });
+
     it('reads the type\'s whole order again after a Move', async () => {
         snapshots[0](docs([]));
         getDocsMock.mockResolvedValue(docs([{ id: 'a', sortOrder: 2 }, { id: 'b', sortOrder: 1 }]));

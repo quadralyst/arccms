@@ -53,14 +53,14 @@ const SAVE_DELAY_MS = 700;
         @if (tabShown() === 'basic') {
             <div class="panel-body" role="tabpanel">
                 @if (known()) {
-                <arc-page-status [state]="state()" [lastPublished]="lastPublished()" />
+                <arc-page-status [state]="state()" [lastPublished]="lastPublished()" [fromFile]="true" />
                 }
-                @if (locked() || status() === 'changes') {
+                @if (locked() || status() === 'changes' || extraChanges() > 0) {
                     <button type="button" class="btn btn-link btn-sm p-0 mb-2" (click)="review.emit()" data-testid="review-changes">{{ 'admin.hold.review' | transloco }}</button>
                 }
                 @if (publishError()) {
                     <p class="text-danger small" role="alert">{{ publishError() }}</p>
-                } @else if (status() === 'changes' && !publishing()) {
+                } @else if (!locked() && (status() === 'changes' || extraChanges() > 0) && !publishing()) {
                     <p class="text-muted small">{{ 'admin.more_pages.editor.publish_note' | transloco }}</p>
                 }
                 @if (seo(); as seo) {
@@ -230,6 +230,8 @@ export class PageTextPanelComponent implements OnDestroy {
     readonly publishWith = input<(() => Promise<void>) | null>(null);
     /** Cards with unpublished changes the Visual Editor's one Publish also takes (VE-D53). */
     readonly extraChanges = input(0);
+    /** Cards published with the page that the site does not have yet. */
+    readonly cardsGoing = input(false);
     /** The page's public address, shown and copied (VE-D74). */
     readonly url = input('');
     /** Someone else holds the page's words: they are looked at, not changed (VE-D79). */
@@ -258,7 +260,7 @@ export class PageTextPanelComponent implements OnDestroy {
     readonly state = computed(() => editState({
         saving: this.busy() || this.seoSaving() > 0,
         failed: this.failed() || !!this.saveError() || !!this.session().error?.(),
-        publishing: this.publishing() || this.goingLive(),
+        publishing: this.publishing() || this.goingLive() || this.cardsGoing(),
         changed: this.status() === 'changes' || this.extraChanges() > 0,
         live: true,
     }));
