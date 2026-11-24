@@ -8,7 +8,8 @@ const stored: Record<string, Record<string, unknown> | null> = {};
 vi.mock('@angular/fire/firestore', () => ({
     Firestore: class {},
     doc: (_db: unknown, ...path: string[]) => ({ path: path.join('/') }),
-    getDoc: async (ref: { path: string }) => ({ exists: () => !!stored[ref.path], data: () => stored[ref.path], id: ref.path.split('/').pop() }),
+    // An open form listens to its card: a plain read may answer from before its save.
+    getDoc: async () => { throw new Error('read in a transaction'); },
     updateDoc: async (ref: { path: string }, data: Record<string, unknown>) => {
         updates.push({ path: ref.path, data });
     },

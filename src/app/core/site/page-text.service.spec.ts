@@ -16,7 +16,7 @@ vi.mock('@angular/fire/firestore', () => ({
     Firestore: class {},
     doc: (_fs: unknown, collection: string, id: string) => `${collection}/${id}`,
     getDoc: (...args: unknown[]) => fire.getDoc(...args),
-    getDocFromServer: (...args: unknown[]) => fire.getDoc(...args),
+    runTransaction: async (_fs: unknown, run: (tx: unknown) => unknown) => run({ get: (ref: unknown) => fire.getDoc(ref) }),
     updateDoc: (...args: unknown[]) => fire.updateDoc(...args),
     setDoc: (...args: unknown[]) => fire.setDoc(...args),
     onSnapshot: (...args: unknown[]) => fire.onSnapshot(...args),

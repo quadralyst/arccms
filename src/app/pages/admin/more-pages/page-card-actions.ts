@@ -1,5 +1,5 @@
 import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '@angular/core';
-import { Firestore, deleteField, doc, getDoc, runTransaction, updateDoc } from '@angular/fire/firestore';
+import { Firestore, deleteField, doc, runTransaction, updateDoc } from '@angular/fire/firestore';
 import { firstValueFrom } from 'rxjs';
 import type { ContentType } from '../contents/content-types/content-types.model';
 import { DraftContentsStore } from '../contents/draft-content-store/draft-contents.store';
@@ -95,10 +95,13 @@ export class PageCardActions {
         return runInInjectionContext(this.injector, () => doc(this.firestore, `arc_${card.type}_drafts`, card.id));
     }
 
-    /** The card's draft as stored, or null. */
+    /**
+     * The card's draft as stored, or null: after the save just made, so in a
+     * transaction (its open form listens to it, and any other read would answer from that).
+     */
     async read(card: CardRef): Promise<Record<string, any> | null> {
-        const snap = await runInInjectionContext(this.injector, () => getDoc(this.ref(card)));
-        return snap.exists() ? { ...snap.data(), id: snap.id } : null;
+        const snap = await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (tx) => tx.get(this.ref(card))));
+        return snap.exists() ? { ...snap.data(), id: card.id } : null;
     }
 
     private update(card: CardRef, data: Record<string, unknown>): Promise<void> {

@@ -1,6 +1,6 @@
 import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
-    Firestore, collection, deleteField, doc, getDocFromServer, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, type DocumentReference, type Transaction,
+    Firestore, collection, deleteField, doc, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, type DocumentReference, type Transaction,
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { draftQueueEntry } from '../../../shared/services/search-queue';
@@ -83,13 +83,17 @@ export class HoldService {
     }
 
     /**
-     * A document as the server has it. Never this browser's own copy: beside a
-     * listener that one may still be from before the write that was just made.
+     * A document as the server has it, after any write just made. In a transaction,
+     * because every other read (getDocFromServer too) joins an open listener on the
+     * document and answers from its copy, which may be from before that write.
      */
     async read(path: string): Promise<Record<string, any> | null> {
-        if (!this.firestore) return null;
-        const snap = await runInInjectionContext(this.injector, () => getDocFromServer(this.ref(path)));
-        return snap.exists() ? (snap.data() as Record<string, any>) : null;
+        const firestore = this.firestore;
+        if (!firestore) return null;
+        return runInInjectionContext(this.injector, () => runTransaction(firestore, async (tx) => {
+            const snap = await tx.get(this.ref(path));
+            return snap.exists() ? (snap.data() as Record<string, any>) : null;
+        }));
     }
 
     /**

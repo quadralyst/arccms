@@ -615,7 +615,8 @@ drafts, letting go on undo, the two card badges and Publish with this page, the 
 Deployed to the dev project 2026-11-24 and checked live: an entry's publish with History open, the home
 page's first save, its publish, letting go, Discard and Restore. Found there and fixed: reads after a
 write came from the browser's own copy (an entry was shown one step behind after Discard and Restore),
-so `HoldService` reads from the server; a page said Published about 30 seconds before it was live, so
+so `HoldService.read` and `PageCardActions.read` read inside a transaction (`getDocFromServer` joins an
+open listener on the document and answers from its copy, so it was not enough); a page said Published about 30 seconds before it was live, so
 the published copy keeps `liveAt` (`markPageTextLive`, matched by the words' `publishedAt`).
 Not checked in a browser on the emulators: the functions themselves, the notification, a static page, two languages,
 list pages with words, Restore of a kept draft, Publish these.

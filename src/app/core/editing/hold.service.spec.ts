@@ -21,8 +21,9 @@ vi.mock('@angular/fire/firestore', () => {
         query: (ref: unknown) => ref,
         orderBy: () => null,
         limit: () => null,
-        // Reads beside a listener may answer from the browser's own older copy: only the server's count.
-        getDocFromServer: async (ref: { path: string }) => snap(ref.path),
+        // Both may answer from an open listener's copy, from before the write just made: never read with them.
+        getDoc: async () => ({ exists: () => true, data: () => ({ title: 'Stale' }) }),
+        getDocFromServer: async () => ({ exists: () => true, data: () => ({ title: 'Stale' }) }),
         getDocsFromServer: async (ref: { path: string }) => ({
             docs: Object.keys(fire.docs).filter((p) => p.startsWith(`${ref.path}/`) && !p.slice(ref.path.length + 1).includes('/'))
                 .map((p) => ({ id: p.split('/').pop(), data: () => fire.docs[p] })),
@@ -81,7 +82,7 @@ describe('HoldService', () => {
         expect(last('update', DRAFT)!.data).toEqual({ editing: { by: 'me', name: 'Asha', since: 'NOW', at: 'NOW', kept: kept.path.split('/').pop() } });
     });
 
-    it('reads what a write just left from the server, never this browser\'s own copy (live check 2026-11-24)', async () => {
+    it('reads what a write just left, never an open listener\'s copy (live check 2026-11-24)', async () => {
         fire.docs[DRAFT] = { title: 'Now' };
         expect(await holds.read(DRAFT)).toEqual({ title: 'Now' });
         fire.docs[`${DRAFT}/translations/hi`] = { title: 'अब' };
