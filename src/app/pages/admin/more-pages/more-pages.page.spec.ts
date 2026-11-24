@@ -45,6 +45,21 @@ describe('MorePagesPage', () => {
         expect(el.textContent).not.toContain('Other pages show here');
     });
 
+    it('lists the list pages with their type\'s name and their own editors (VE-D65)', async () => {
+        const el = await open(vi.fn().mockResolvedValue([
+            { pageId: 'home', kind: 'home', name: '', title: '', address: '/', status: 'file', lastPublished: null },
+            { pageId: 'list-articles', kind: 'list', name: 'articles', title: 'Articles', address: '/articles', status: 'changes', lastPublished: null, heldBy: 'Priya' },
+        ]));
+        const row = el.querySelector('[data-page="list-articles"]')!;
+        expect(row.querySelector('.page-name')?.textContent?.trim()).toBe('Articles list');
+        expect(row.textContent).toContain('/articles');
+        expect(row.textContent).toContain('Priya is editing');
+        expect(row.querySelector('a.btn-outline-primary')?.getAttribute('href')).toBe('/admin/more-pages/list/articles');
+        expect(row.querySelector('[data-testid="visual-editor"]')?.getAttribute('href')).toBe('/admin/edit-page/list/articles');
+        // No static page is listed yet: it says how they get here.
+        expect(el.textContent).toContain('Other pages show here');
+    });
+
     it('says how other pages get here when only the home page is listed', async () => {
         const el = await open(vi.fn().mockResolvedValue([{ pageId: 'home', kind: 'home', name: '', title: '', address: '/', status: 'file', lastPublished: null }]));
         expect(el.textContent).toContain('Other pages show here');

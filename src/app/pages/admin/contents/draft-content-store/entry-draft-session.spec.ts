@@ -123,7 +123,7 @@ describe('EntryDraftSession', () => {
       entryChanges: vi.fn().mockResolvedValue([]),
       takeOver: vi.fn().mockResolvedValue(true), keep: vi.fn().mockResolvedValue(undefined),
       restorePublished: vi.fn().mockResolvedValue(undefined), markPublished: vi.fn().mockResolvedValue(undefined),
-      restoreKept: vi.fn().mockResolvedValue(undefined), read: vi.fn().mockResolvedValue(null), letGo: vi.fn().mockResolvedValue(null),
+      restoreKept: vi.fn().mockResolvedValue({ addressTaken: false }), read: vi.fn().mockResolvedValue(null), letGo: vi.fn().mockResolvedValue(null),
     };
     TestBed.configureTestingModule({
       providers: [

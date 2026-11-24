@@ -90,6 +90,7 @@ vi.mock('../pages/page-text-store', async (importOriginal) => ({
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { load } from 'cheerio';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
 
 // ─── Test Data ──────────────────────────────────────────────────────────────
@@ -691,6 +692,21 @@ describe('deployContentListPage', () => {
             expect(page).toContain('<meta name="description" content="All of them">');
             expect(page).toContain('Our stories</h1>');
             expect(page).not.toContain('Stories | Test</h1>');
+        });
+
+        it('a rich heading\'s words reach the head, the shares and the JSON-LD as words, the page as they were written', async () => {
+            // As Basic stores "Tom & Jerry's <3" for a rich area (page-text-panel.component.spec.ts).
+            mockPageText.mockResolvedValue(words('en', { title: 'Tom &amp; Jerry\'s &lt;3', intro: 'All &amp; <b>more</b>' }));
+            const page = (await build('<div class="arc-cms-template"><h1 data-arc-edit="title" data-arc-edit-kind="rich">{{ contentType }}</h1><p data-arc-edit="intro" data-arc-edit-kind="rich">x</p></div>'))['/articles/index.html'];
+            const $ = load(page);
+            const meta = (key: string) => $(`meta[property="${key}"], meta[name="${key}"]`).attr('content');
+            expect($('head > title').text()).toBe('Tom & Jerry\'s <3');
+            expect([meta('og:title'), meta('twitter:title')]).toEqual(['Tom & Jerry\'s <3', 'Tom & Jerry\'s <3']);
+            expect([meta('description'), meta('og:description')]).toEqual(['All & more', 'All & more']);
+            expect($('h1').text()).toBe('Tom & Jerry\'s <3');
+            const jsonLd = $('script[type="application/ld+json"]').map((_, s) => $(s).text()).get().join('');
+            expect(jsonLd).toContain('"All & more"');
+            expect(jsonLd).not.toContain('&amp;');
         });
 
         it('a template with no marks still takes the browser title and description', async () => {

@@ -20,7 +20,7 @@
                     }
                 </div>
             }
-            <a class="btn btn-outline-secondary btn-sm" [routerLink]="visualEditorLink()" data-testid="to-visual-editor">
+            <a class="btn btn-outline-secondary btn-sm" [routerLink]="visualEditorLink()" [state]="openedFrom" data-testid="to-visual-editor">
                 <i class="fa-solid fa-pen-ruler me-1" aria-hidden="true"></i>{{ 'admin.more_pages.visual_editor' | transloco }}
             </a>
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openPreview()" [disabled]="loading() || !!loadError()">
@@ -207,7 +207,7 @@
 
             <aside class="panel">
                 @if (session; as session) {
-                    <arc-page-text-panel #panelRef [session]="session" [lang]="lang()" [defaultLang]="defaultLang()" [seo]="seo()"
+                    <arc-page-text-panel #panelRef [session]="session" [lang]="lang()" [defaultLang]="defaultLang()" [seo]="seo()" [basics]="data.basics()"
                         [busy]="saving() > 0" [failed]="!!saveError()" [url]="data.url()" [beforePublish]="flushAll"
                         [locked]="!!data.heldBy()" (review)="review()" />
                 }

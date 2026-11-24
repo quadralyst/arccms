@@ -1,14 +1,16 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { ArcTimePipe } from '../../../core/time/arc-time.pipe';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { MorePagesService, type MorePageRow } from './more-pages.service';
+import { classicEditorLink, visualEditorLink } from './page-ref';
 
 /**
- * Content, More Pages (specs/visual-editing-spec.md, VE-D48): the home page, then
- * every static page whose file marks something editors can change, each with its
- * address, where it stands and when it was last published.
+ * Content, More Pages (specs/visual-editing-spec.md, VE-D48, VE-D65): the home page,
+ * then the list page of every type with public pages, then every static page whose file
+ * marks something editors can change, each with its address, where it stands and when it
+ * was last published.
  */
 @Component({
     selector: 'arc-more-pages',
@@ -33,8 +35,8 @@ import { MorePagesService, type MorePageRow } from './more-pages.service';
                         <li class="page-row" [attr.data-page]="row.pageId">
                             <div class="page-main">
                                 <a class="page-name" [routerLink]="editLink(row)">
-                                    <i class="fa-solid me-2" [class.fa-house]="row.kind === 'home'" [class.fa-file-lines]="row.kind === 'static'" aria-hidden="true"></i>
-                                    {{ row.kind === 'home' ? ('admin.more_pages.home_page' | transloco) : row.title }}
+                                    <i class="fa-solid me-2" [class.fa-house]="row.kind === 'home'" [class.fa-list]="row.kind === 'list'" [class.fa-file-lines]="row.kind === 'static'" aria-hidden="true"></i>
+                                    {{ row.kind === 'home' ? ('admin.more_pages.home_page' | transloco) : row.kind === 'list' ? ('admin.more_pages.list_page' | transloco: { type: row.title }) : row.title }}
                                 </a>
                                 <code class="page-address">{{ row.address }}</code>
                             </div>
@@ -55,7 +57,7 @@ import { MorePagesService, type MorePageRow } from './more-pages.service';
                         </li>
                     }
                 </ul>
-                @if (rows().length === 1) {
+                @if (!hasStatic()) {
                     <p class="text-muted small mt-3">{{ 'admin.more_pages.no_static_pages' | transloco }}</p>
                 }
             }
@@ -66,6 +68,7 @@ export default class MorePagesPage implements OnInit {
     private service = inject(MorePagesService);
 
     readonly rows = signal<MorePageRow[]>([]);
+    readonly hasStatic = computed(() => this.rows().some((row) => row.kind === 'static'));
     readonly loading = signal(true);
     readonly error = signal(false);
 
@@ -88,11 +91,11 @@ export default class MorePagesPage implements OnInit {
 
     /** The Visual Editor of a page (VE-D49). */
     visualLink(row: MorePageRow): string[] {
-        return row.kind === 'home' ? ['/admin/edit-page/home'] : ['/admin/edit-page/p', row.name];
+        return visualEditorLink(row);
     }
 
     /** The classic editor of a page (VE-D49). */
     editLink(row: MorePageRow): string[] {
-        return row.kind === 'home' ? ['/admin/more-pages/home'] : ['/admin/more-pages/p', row.name];
+        return classicEditorLink(row);
     }
 }

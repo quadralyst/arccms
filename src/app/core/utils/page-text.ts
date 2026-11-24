@@ -254,7 +254,7 @@ export function applyPageText(html: string, values: PageTextValues | null | unde
 // fillListPage runs on the page they made.
 
 /** Repeated elements: what is inside shows entries, or the site's details, never page text. */
-const LIST_LOOPS = '[data-arc-loop], [data-arc-site-loop], [data-arc-repeat]';
+export const LIST_LOOPS = '[data-arc-loop], [data-arc-site-loop], [data-arc-repeat]';
 
 /** A list template with its marks put by, and the name they were put by under ('' when it has none). */
 export interface HeldListMarks {
@@ -284,6 +284,23 @@ function areaOptions(options: ListPageTextOptions): PageTextOptions {
         lang: options.lang, defaultLang: options.defaultLang, ownFile: options.lang === options.defaultLang,
         strings: options.strings, keepMarks: options.keepMarks,
     };
+}
+
+/** Whether a list template marks its heading and intro as rich text: their values are HTML (listPageWords). */
+export function listRichAreas(html: string): { title: boolean; intro: boolean } {
+    const rich = { title: false, intro: false };
+    if (!hasPageTextMarks(html)) return rich;
+    const $ = cheerio.load(html, { xmlMode: false });
+    $(LIST_LOOPS).find('[data-arc-edit]').removeAttr('data-arc-edit');
+    const isRich = (key: string): boolean => {
+        const element: any = $(`[data-arc-edit="${key}"]`).get(0);
+        // Words marked over a loop are no area (holdListMarks).
+        return !!element && !$(element).is(LIST_LOOPS) && !$(element).find(LIST_LOOPS).length
+            && pageTextKind(element.tagName || '', $(element).attr('data-arc-edit-kind'), $(element).attr('name')) === 'rich';
+    };
+    rich.title = isRich(LIST_TITLE_KEY);
+    rich.intro = isRich(LIST_INTRO_KEY);
+    return rich;
 }
 
 /**

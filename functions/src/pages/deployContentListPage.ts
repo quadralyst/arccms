@@ -35,7 +35,7 @@ import { siteChrome } from './card-blocks.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { arcHostingSite } from '../arc-config.js';
 import { withImageAttributes } from './image-attributes.js';
-import { fillListPage, holdListMarks, listPageWords, pageTextId, PAGE_TEXT_ID, type ListPageTextOptions } from '../shared/page-text.js';
+import { fillListPage, holdListMarks, listPageWords, listRichAreas, pageTextId, PAGE_TEXT_ID, type ListPageTextOptions } from '../shared/page-text.js';
 import { loadPublishedPageText } from './page-text-store.js';
 
 // ─── Exported Functions ─────────────────────────────────────────────────────
@@ -160,6 +160,7 @@ export async function generateAndDeployContentListPage(
         languages.map(l => [l.code, l.nativeLabel || l.label]),
     );
 
+    const rich = listRichAreas(templateHtml);
     for (const language of languages) {
         const lang = language.code;
         const prefix = langPrefix(lang, defaultLang);
@@ -187,7 +188,7 @@ export async function generateAndDeployContentListPage(
         const siteInfo = await siteInfoFor(lang, defaultLang);
         // The marks of the areas editors change are put by first, and filled once the
         // bindings are in, so an editor's words are never read as one (VE-D61).
-        const textOptions: ListPageTextOptions = { lang, defaultLang, named: contentTypeNamedIn(contentType, lang), strings: uiStrings };
+        const textOptions: ListPageTextOptions = { lang, defaultLang, named: contentTypeNamedIn(contentType, lang), strings: uiStrings, rich };
         const words = listPageWords(pageText, textOptions);
         const held = holdListMarks(templateHtml, pageText, textOptions);
         const localizedTemplate = TemplateHydrationService.applySiteInfo(

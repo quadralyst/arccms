@@ -1,6 +1,6 @@
 import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
-    Firestore, collection, deleteField, doc, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, type DocumentReference, type Transaction,
+    Firestore, collection, deleteField, doc, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, where, type DocumentReference, type Transaction,
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { draftQueueEntry } from '../../../shared/services/search-queue';
@@ -287,12 +287,21 @@ export class HoldService {
         }));
     }
 
-    /** A kept draft becomes the draft again (VE-D84); what was there is kept first. */
-    async restoreKept(type: string, id: string, kept: KeptDraft): Promise<void> {
+    /**
+     * A kept draft becomes the draft again (VE-D84); what was there is kept first. An
+     * address another entry of the type uses by now is not taken back: the entry keeps
+     * the one it has, and `addressTaken` says so.
+     */
+    async restoreKept(type: string, id: string, kept: KeptDraft): Promise<{ addressTaken: boolean }> {
         const me = this.me();
         const firestore = this.firestore;
-        if (!me || !firestore) return;
+        if (!me || !firestore) return { addressTaken: false };
         const path = `arc_${type}_drafts/${id}`;
+        const address = String((kept.data as Record<string, unknown>)['urlSlug'] ?? '').trim();
+        const using = !address ? [] : (await runInInjectionContext(this.injector, () =>
+            getDocsFromServer(query(collection(firestore, `arc_${type}_drafts`), where('urlSlug', '==', address), limit(2))))).docs;
+        const taken = using.some((other) => other.id !== id);
+        let addressTaken = false;
         const then = await this.translations(`${path}/Kept/${kept.id}`);
         await this.keep(path, 'discard');
         const now = await this.translations(path);
@@ -312,6 +321,11 @@ export class HoldService {
             }
             delete values['editing'];
             delete values['changedOnPage'];
+            addressTaken = taken && draft['urlSlug'] !== address;
+            if (addressTaken) {
+                if (draft['urlSlug'] === undefined) delete values['urlSlug'];
+                else values['urlSlug'] = draft['urlSlug'];
+            }
             tx.set(ref, { ...values, status: 'draft', modifiedAt: new Date(), modifiedBy: me.uid, ...this.stamp(me, draft, false) });
             for (const lang of new Set([...Object.keys(now), ...Object.keys(then)])) {
                 const at = doc(firestore, path, 'translations', lang);
@@ -320,6 +334,7 @@ export class HoldService {
             }
             this.queueSearch(tx, firestore, ref.path);
         }));
+        return { addressTaken };
     }
 
     /** What a save writes into `editing`: the hold, or its removal when the draft is what is live again. */

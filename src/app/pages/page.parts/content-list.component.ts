@@ -9,7 +9,7 @@ import { SiteBrandService } from '../../core/brand/site-brand';
 import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
@@ -40,7 +40,9 @@ import {
 import { ArcZones } from '../../core/time/arc-zones.service';
 import { PageTextService } from '../../core/site/page-text.service';
 import { PAGE_TEXT_PREVIEW } from '../../core/site/page-text-preview';
-import { fillListPage, holdListMarks, listPageWords, pageTextId, type ListPageTextOptions, type PageTextValues } from '../../core/utils/page-text';
+import { fillListPage, holdListMarks, listPageWords, listRichAreas, pageTextId, type ListPageTextOptions, type PageTextValues } from '../../core/utils/page-text';
+import { LIST_LIMIT, listLimit, listPageData, listPageNamed, showEveryArea, withoutListLimit } from '../../core/site/list-page-file';
+import { PageCardDrafts, cardsWithDrafts, markPageCards } from './card-draft';
 
 /**
  * Dynamic Content List Component
@@ -75,7 +77,7 @@ import { fillListPage, holdListMarks, listPageWords, pageTextId, type ListPageTe
         </div>
     } @else if(templateHtml()) {
         <!-- The type's list template (its folder's, else the default), hydrated -->
-        <div [innerHTML]="templateHtml() | safeHtml"></div>
+        <div [innerHTML]="templateHtml() | safeHtml" [attr.data-arc-list-drawn]="textPreview?.editing ? '' : null"></div>
     } @else {
         <!-- The template is on its way -->
         <div class="loading-container">
@@ -135,13 +137,24 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private gaTracking = inject(GaTrackingService);
     private trackedContentTypes = new Set<string>();
     /** Live Preview and the Visual Editor of the list page (VE-D58): the draft's words, and no admin strip. */
-    private textPreview = inject(PAGE_TEXT_PREVIEW, { optional: true });
+    protected textPreview = inject(PAGE_TEXT_PREVIEW, { optional: true });
+    /** On the list page's Visual Editor, and Live Preview from it: its cards with unpublished changes, drawn from their drafts (VE-D62). */
+    private pageCards = inject(PageCardDrafts, { optional: true });
+    private host = inject<ElementRef<HTMLElement>>(ElementRef);
+    /** On the Visual Editor (not its Live Preview, which shows the list as Publish leaves it). */
+    private get pageEditing(): boolean {
+        return !!this.pageCards?.editing;
+    }
+    /** How many cards are drawn: 100, as published, the template cutting them to its own limit; on a page's Visual Editor that limit, once it is read. */
+    private shownLimit = signal(LIST_LIMIT);
     /**
      * What editors changed on the page (specs/visual-editing-spec.md, VE-D64), as
      * published or, on a preview, as drafted; undefined until it was read. The page
      * is drawn once it is, so the type's name never shows first.
      */
-    private pageText = signal<PageTextValues | null | undefined>(this.textPreview ? this.textPreview.values() : undefined);
+    private pageText = signal<PageTextValues | null | undefined>(undefined);
+    /** Whether the template marks its heading and intro as rich text, once it is read: the browser title and description follow. */
+    private richAreas = signal({ title: false, intro: false }, { equal: (a, b) => a.title === b.title && a.intro === b.intro });
     /** The share picture put on the page's head, taken off when it is left. */
     private shareImageSet = false;
 
@@ -189,17 +202,20 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         return types.find((ct: ContentType) => ct.slug === slug) || null;
     });
 
+    /** The language the page is in, the default one too: a type may have a name of its own there, as published. */
+    private contentLang = computed(() => this.pageLang() || this.localization.defaultLanguage());
+
     /** The content type's name in the page's language (M-D19). */
     typeName = computed(() => {
         const type = this.currentContentType();
-        return type ? contentTypeName(type, this.pageLang()) : '';
+        return type ? contentTypeName(type, this.contentLang()) : '';
     });
 
     /**
      * The type's description in the page's language — the subtitle under the
      * heading, and the most visible English left if it goes untranslated.
      */
-    typeDescription = computed(() => contentTypeDescription(this.currentContentType(), this.pageLang()));
+    typeDescription = computed(() => contentTypeDescription(this.currentContentType(), this.contentLang()));
 
     /** Language prefix of the current URL — '' on the default-language route. */
     pageLang = signal<string>('');
@@ -209,12 +225,13 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     /** The type whose entries were all read, for its own order (SS2). */
     private readAllFor = '';
 
-    filteredContents = computed(() => {
+    /** The type's published entries, in the page's language. */
+    private publishedContents = computed(() => {
         const contentType = this.currentContentType();
         if (!contentType) return [];
         const translations = this.translations();
         const lang = this.pageLang();
-        const items = this.contentsStore.items()
+        return this.contentsStore.items()
             .filter((content: IContents) =>
                 content.type === contentType.slug && content.publishedStatus
             )
@@ -224,11 +241,28 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             .map((content: IContents): IContents =>
                 lang ? mergeTranslation(content, translations[content.id] ?? null) : content
             );
+    });
 
+    /** On the list page's Visual Editor: the list after Publish, and the cards it pushes out (VE-D62, VE-D72). */
+    private pageShown = computed(() => {
+        const contentType = this.currentContentType();
+        // A changed card in another language shows its draft's own translation (PageCardDrafts).
+        const page = contentType ? this.pageCards?.cardsOf(contentType.slug, this.pageLang()) : null;
+        if (!contentType || !page) return null;
+        const shown = cardsWithDrafts(this.publishedContents() as unknown as Record<string, any>[], page,
+            entryOrderOf(contentType), this.shownLimit());
+        return { ...shown, notes: page.notes ?? {}, cards: shown.cards as unknown as IContents[], leaving: shown.leaving as unknown as IContents[] };
+    });
+
+    filteredContents = computed(() => {
+        const contentType = this.currentContentType();
+        if (!contentType) return [];
+        const page = this.pageShown();
+        if (page) return [...page.cards, ...(this.pageEditing ? page.leaving : [])];
         // In the type's entry order (newest first, or the order an admin
         // arranged), as when published (core/utils/display-order.ts).
-        return sortForDisplay(items as unknown as Record<string, any>[], entryOrderOf(contentType))
-            .slice(0, 100) as unknown as IContents[];
+        return sortForDisplay(this.publishedContents() as unknown as Record<string, any>[], entryOrderOf(contentType))
+            .slice(0, this.shownLimit()) as unknown as IContents[];
     });
 
     constructor() {
@@ -333,6 +367,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         }
 
 
+        this.pageCards?.watch(slug);
+
         // Subscribe to stores to load data
         // Only the type this page is for. One equality query on `slug`
         // (ordered by the same field, so no composite index is needed) instead
@@ -371,6 +407,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     }
 
     ngOnDestroy(): void {
+        for (const timer of [this.laterTimer, this.scriptsTimer]) if (timer) clearTimeout(timer);
         this.liveScript?.remove();
         setArcEntry(this.metaService, null);
         if (this.shareImageSet) {
@@ -408,7 +445,12 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
     /** Reads the list page's published words, and which language is the default one they are kept under. */
     private loadPageText(slug: string): void {
-        if (this.textPreview) return;
+        const preview = this.textPreview;
+        if (preview) {
+            // The draft is kept by language: it is read once the site's default one is known.
+            void this.localization.load().catch(() => null).then(() => this.pageText.set(preview.values()));
+            return;
+        }
         // The server draws no template; the browser reads them.
         if (!slug || !isPlatformBrowser(this.platformId)) {
             this.pageText.set(null);
@@ -429,10 +471,9 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private textOptions(contentType: ContentType): ListPageTextOptions {
         const defaultLang = this.localization.defaultLanguage();
         const lang = this.pageLang() || defaultLang;
-        const own = contentType.nameTranslations?.[lang];
         return {
-            lang, defaultLang, named: { title: !!own?.name?.trim(), intro: !!own?.description?.trim() },
-            strings: this.uiStrings.strings(), keepMarks: !!this.textPreview?.editing,
+            lang, defaultLang, named: listPageNamed(contentType, lang),
+            strings: this.uiStrings.strings(), keepMarks: !!this.textPreview?.editing, rich: this.richAreas(),
         };
     }
 
@@ -498,23 +539,18 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
      */
     private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, contents: IContents[], runScripts = true): void {
         this.lastTemplate = { html: templateHtml, contentType };
+        this.richAreas.set(listRichAreas(templateHtml));
+        if (this.pageCards) untracked(() => this.shownLimit.set(listLimit(templateHtml)));
+        // Nothing is drawn again under the words being typed on the page: once they are done.
+        if (this.drawLater()) return;
         // Prepare data for template hydration
         const lang = this.pageLang();
-        const typeDescription = contentTypeDescription(contentType, lang);
-        const templateData = {
-            contentType: contentTypeName(contentType, lang),
-            contentTypeSlug: contentType.slug,
-            contentTypeDescription: typeDescription,
-            description: typeDescription, // Keep for backward compatibility
-            // The page's language and URL prefix, as when published.
-            lang: lang || this.localization.defaultLanguage(),
-            langPrefix: lang ? `/${lang}` : '',
-        };
+        const templateData = listPageData(contentType, lang, this.localization.defaultLanguage());
 
         // The same cards as the published list (core/utils/content-cards.ts), in
         // the page's language: links, dates and the type's name.
         const prefix = lang ? `/${lang}` : '';
-        const typeName = contentTypeName(contentType, lang);
+        const typeName = contentTypeName(contentType, this.contentLang());
         const listData = contents.map(content =>
             cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', prefix, true, this.zones.site()));
 
@@ -523,16 +559,30 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
         // The marks of the areas editors change are put by first and filled after the bindings (VE-D61).
         const textOptions = this.textOptions(contentType);
-        const held = holdListMarks(templateHtml, this.pageText(), textOptions);
+        // On a preview the draft as it is now: the cards are drawn again after the page's words changed.
+        const values = this.textPreview ? untracked(() => this.textPreview!.values()) : this.pageText();
+        // On the Visual Editor every area shows, and the cards are cut here, those leaving after the others.
+        const template = this.pageEditing ? withoutListLimit(showEveryArea(templateHtml)) : templateHtml;
+        const held = holdListMarks(template, values, textOptions);
         const localizedTemplate = TemplateHydrationService.applySiteInfo(
             TemplateHydrationService.applyStrings(held.html, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
-        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
+        // On the Visual Editor each card and its values are marked, to be edited in place (VE-D62).
+        const editRows = (loop: string) => (loop === 'items' ? { keepEmpty: () => false } : null);
+        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData }, this.pageEditing ? { markFields: true, editRows } : {});
 
         // Then hydrate with page-level data
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
-        hydratedHtml = fillListPage(hydratedHtml, held.token, this.pageText(), textOptions);
+        hydratedHtml = fillListPage(hydratedHtml, held.token, values, textOptions);
 
         this.templateHtml.set(hydratedHtml);
+        if (this.pageEditing && isPlatformBrowser(this.platformId)) {
+            // The cards as they are drawn here: by then others may have arrived, to be drawn next.
+            const page = untracked(() => this.pageShown());
+            setTimeout(() => {
+                const list = (this.host.nativeElement as HTMLElement).querySelector('[data-arc-list-drawn]');
+                if (page && list) markPageCards(list, contentType.slug, page);
+            }, 0);
+        }
 
         // On the Visual Editor the page's scripts do not run and the page shows at rest (VE-D55).
         if (this.textPreview?.editing) {
@@ -540,11 +590,31 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             return;
         }
         // Execute scripts after template is rendered (browser only)
-        if (runScripts && isPlatformBrowser(this.platformId)) {
-            setTimeout(() => this.runTemplateScripts(), 100);
+        // In Live Preview with the cards' drafts, after every draw: the cards arrive after the first one.
+        if ((runScripts || this.pageCards) && isPlatformBrowser(this.platformId)) {
+            if (this.scriptsTimer) clearTimeout(this.scriptsTimer);
+            this.scriptsTimer = setTimeout(() => this.runTemplateScripts(), 100);
         }
         // Forms on the page work as when published (SS5), after every draw.
         if (isPlatformBrowser(this.platformId)) setTimeout(() => this.refreshLiveParts(), 100);
+    }
+
+    private scriptsTimer: ReturnType<typeof setTimeout> | null = null;
+    private laterTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /**
+     * On the Visual Editor, while words are typed in an area of the page: the list is
+     * drawn again when they are done, with what it shows by then.
+     */
+    private drawLater(): boolean {
+        if (!this.textPreview?.editing || !untracked(() => this.templateHtml())) return false;
+        if (!this.host.nativeElement.querySelector?.('[data-arc-editing]')) return false;
+        this.laterTimer ??= setTimeout(() => {
+            this.laterTimer = null;
+            const last = this.lastTemplate;
+            if (last) this.hydrateAndSetTemplate(last.html, last.contentType, this.filteredContents(), false);
+        }, 300);
+        return true;
     }
 
     /** The live parts' script for this draw's forms; removed and added again on each draw. */
@@ -577,8 +647,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private updateSeoMeta(contentType: ContentType): void {
         // Title and description follow the page's language, like the heading
         // and subtitle they describe.
-        const lang = this.pageLang();
-        const typeName = contentTypeName(contentType, lang);
+        const typeName = contentTypeName(contentType, this.contentLang());
         // What editors changed on the page, as published (VE-D64), else what the type says.
         const words = listPageWords(this.pageText(), this.textOptions(contentType));
         const pageTitle = words.seoTitle || typeName;
@@ -587,7 +656,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         }
 
         // Set meta description from content type description or generate one
-        const description = words.seoDescription || contentTypeDescription(contentType, lang)
+        const description = words.seoDescription || contentTypeDescription(contentType, this.contentLang())
             || `Browse all ${typeName?.toLowerCase() || 'content'}`;
         this.metaService.updateTag({ name: 'description', content: description });
 

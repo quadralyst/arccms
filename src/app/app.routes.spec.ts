@@ -157,6 +157,21 @@ describe('App Routes', () => {
             expect((page as { name: string }).name).toContain('EntryEditPage');
         });
 
+        it('lists every screen of the page editors, the list pages\' too, for the same people (VE-D65)', () => {
+            const full = ['admin/preview-page/home', 'admin/preview-page/home/:lang', 'admin/preview-page/p/:fileName', 'admin/preview-page/list/:contentTypeSlug',
+                'admin/preview-page/list/:contentTypeSlug/:lang', 'admin/edit-page/home', 'admin/edit-page/p/:name', 'admin/edit-page/list/:type'];
+            const inShell = ['more-pages', 'more-pages/home', 'more-pages/p/:name', 'more-pages/list/:type'];
+            const shell = routes.find(r => r.path === 'admin' && r.children?.some(child => child.path === 'more-pages'))!;
+            const found = [...full.map(path => routes.find(r => r.path === path)), ...inShell.map(path => shell.children!.find(child => child.path === path))];
+            for (const route of found) {
+                expect(route, 'listed explicitly: a page found by its file alone would be drawn as the public page').toBeDefined();
+                expect(route!.canActivate).toEqual([roleGuard]);
+                expect(route!.data!['allowedRoles']).toEqual(['admin']);
+            }
+            // The Visual Editor asks before a card's unsaved words are left, and is full screen.
+            expect(routes.find(r => r.path === 'admin/edit-page/list/:type')).toMatchObject({ canDeactivate: [expect.any(Function)], data: { fullScreen: true } });
+        });
+
         it('should have admin/waitlists route with correct layout', async () => {
             const adminRoute = adminChild('waitlists');
             expect(adminRoute, 'Admin waitlists route should exist').toBeDefined();

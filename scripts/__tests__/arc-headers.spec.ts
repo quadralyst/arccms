@@ -85,6 +85,16 @@ describe('headerProblems', () => {
     });
 });
 
+describe('the admin\'s page', () => {
+    it('is asked for again on every visit, so a new version shows at once; the site\'s pages keep their own times', () => {
+        const rule = (committedFirebase as any).hosting.headers.find((h: any) => h.regex === '^/admin(/.*)?$');
+        expect(rule.headers).toEqual([{ key: 'Cache-Control', value: 'no-cache' }]);
+        const admin = new RegExp(rule.regex);
+        for (const path of ['/admin', '/admin/', '/admin/edit/articles/a1']) expect(admin.test(path), path).toBe(true);
+        for (const path of ['/', '/administration', '/articles/admin', '/assets/index-x.js']) expect(admin.test(path), path).toBe(false);
+    });
+});
+
 describe('the app\'s headers file', () => {
     let dir: string;
     const put = (text: string) => {

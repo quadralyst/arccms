@@ -7,7 +7,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import type { PageTextSession } from '../../../core/site/page-text.service';
-import { safePageTextUrl, sanitizeRichText } from '../../../core/utils/page-text-model';
+import { safePageTextUrl, sanitizeRichText, LIST_TITLE_KEY, LIST_INTRO_KEY } from '../../../core/utils/page-text-model';
 import { injectT } from '../../../core/i18n/inject-t';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 import { escapeHtml } from '../../../../shared/utils/escape-html';
@@ -18,14 +18,15 @@ import { HoldBarComponent } from '../hold/hold-bar.component';
 import { PageReview } from './page-review';
 import { PageTextPanelComponent } from './page-text-panel.component';
 import { PageEditorData } from './page-editor-data';
-import type { AreaView, SectionView } from './page-text-editor.model';
+import { LIST_PAGE_KEYS, type AreaView, type SectionView } from './page-text-editor.model';
+import { pagePreviewPath, pageRefFrom, visualEditorLink } from './page-ref';
 
 /** How long after the last key a field saves (VE-D52: each field saves on its own). */
 const SAVE_DELAY_MS = 700;
 
 /**
- * The classic editor of the home page or a static page
- * (specs/visual-editing-spec.md, VE-D50 to VE-D52): one field per marked area,
+ * The classic editor of the home page, a static page or a list page
+ * (specs/visual-editing-spec.md, VE-D50 to VE-D52, VE-D65): one field per marked area,
  * grouped by section, the page's card blocks as short boxes, the keys the file no
  * longer has, and a panel with Basic, SEO and History. Every field saves on its
  * own, so two editors on different fields never overwrite each other.
@@ -45,8 +46,8 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
     private t = injectT();
 
     /** The page's languages, files and draft, shared with the Visual Editor. */
-    readonly data = new PageEditorData(inject(Injector), this.route.snapshot.paramMap.get('name') || '');
-    readonly isHome = this.data.isHome;
+    readonly data = new PageEditorData(inject(Injector), pageRefFrom(this.route.snapshot.paramMap));
+    readonly isList = this.data.isList;
     readonly pageId = this.data.pageId;
     readonly loading = this.data.loading;
     readonly loadError = this.data.loadError;
@@ -62,7 +63,10 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
     get session(): PageTextSession | null {
         return this.data.session;
     }
-    readonly pageTitle = computed(() => (this.isHome ? this.t('admin.more_pages.home_page') : this.data.fileTitle()));
+    readonly pageTitle = computed(() => {
+        if (this.data.isHome) return this.t('admin.more_pages.home_page');
+        return this.isList ? this.t('admin.more_pages.list_page', { type: this.data.fileTitle() }) : this.data.fileTitle();
+    });
 
     /** Saves under way, and the last save that failed. */
     readonly saving = signal(0);
@@ -100,7 +104,14 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
         });
     }
 
+    /** Where the Visual Editor was opened from, handed back to it: its Close goes there. */
+    openedFrom: Record<string, string> = {};
+
     ngOnInit(): void {
+        const state = typeof window === 'undefined' ? null : window.history.state;
+        for (const key of ['arcFrom', 'arcOpenedFrom']) {
+            if (typeof state?.[key] === 'string') this.openedFrom = { ...this.openedFrom, [key]: state[key] };
+        }
         void this.data.load();
     }
 
@@ -353,10 +364,15 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
             kept: () => this.panelRef()?.keptChanged.update((n) => n + 1),
             show: (change) => {
                 if (change.lang && change.lang !== this.lang()) this.chooseLanguage(change.lang);
-                // Title, summary and cover image are in the panel.
-                if (!/^(text|url):/.test(change.field)) {
-                    this.panelRef()?.showTab('basic');
-                    const id = change.field === 'seo:title' ? 'page-title' : change.field === 'seo:description' ? 'page-summary' : '';
+                const areaKey = change.field.replace(/^(text|url):/, '');
+                const shown = this.sections().some((section) => section.areas.some((view) => view.area.key === areaKey));
+                // Title, summary and cover image are in the panel; a list page's SEO words on its SEO tab, and its
+                // title and summary in Basic when its file marks no heading or intro (VE-D60).
+                if (!/^(text|url):/.test(change.field) || (this.isList && LIST_PAGE_KEYS.includes(areaKey) && !shown)) {
+                    const search = this.isList && change.field.startsWith('seo:');
+                    this.panelRef()?.showTab(search ? 'seo' : 'basic');
+                    const title = /title$/.test(change.field);
+                    const id = change.field === 'shareImage' ? '' : `${search ? 'seo' : 'page'}-${title ? 'title' : 'summary'}`;
                     setTimeout(() => document.getElementById(id)?.focus());
                     return;
                 }
@@ -372,16 +388,12 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
 
     /** The Visual Editor of the same page (VE-D49): the same draft. */
     visualEditorLink(): string[] {
-        return this.isHome ? ['/admin/edit-page/home'] : ['/admin/edit-page/p', this.data.name];
+        return visualEditorLink(this.data.page);
     }
 
     /** Live Preview (VE-D50): the page drawn with the draft, following each save. */
     openPreview(): void {
-        const lang = this.lang();
-        const path = this.isHome
-            ? `/admin/preview-page/home${lang !== this.defaultLang() ? `/${lang}` : ''}`
-            : `/admin/preview-page/p/${this.data.name}`;
-        const win = window.open(path, `arc-page-preview-${this.pageId}`);
+        const win = window.open(pagePreviewPath(this.data.page, this.lang(), this.defaultLang()), `arc-page-preview-${this.pageId}`);
         win?.focus();
     }
 
@@ -392,6 +404,9 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
 
     /** An area's name: its label, else its section's, else its key made readable. */
     areaName(view: AreaView): string {
+        // A list page's heading and intro are its Title and Summary, under those names everywhere (VE-D60).
+        if (this.isList && view.area.key === LIST_TITLE_KEY) return this.t('admin.contents.editor.title_label');
+        if (this.isList && view.area.key === LIST_INTRO_KEY) return this.t('admin.contents.editor.summary');
         return view.area.label || view.area.key.replace(/[-_]+/g, ' ').replace(/^./, (c) => c.toUpperCase());
     }
 

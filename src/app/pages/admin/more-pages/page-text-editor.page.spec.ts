@@ -13,7 +13,10 @@ import { setSiteManifestForTesting } from '../../../core/site/site';
 import { LocalizationService } from '../../../core/services/localization.service';
 import { UiStringsService } from '../../../core/services/ui-strings.service';
 import { PageTextService, type PageTextDraft } from '../../../core/site/page-text.service';
+import { SitePagesService } from '../../../core/site/site-pages.service';
+import { SiteIdentityService } from '../../../core/services/site-identity.service';
 import { MorePagesService } from './more-pages.service';
+import { PageReview } from './page-review';
 import PageTextEditorPage from './page-text-editor.page';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 
@@ -27,26 +30,37 @@ const HOME = `<html><head><title>Bakery</title><meta name="description" content=
 <section><h2>Kind words</h2><arc-content-partials content-type="testimonials" count="3"></arc-content-partials></section>
 </body></html>`;
 
+const TYPES = [
+    { id: 't1', slug: 'articles', name: 'Articles', description: 'All our news', nameTranslations: { hi: { name: 'लेख', description: 'सारी खबरें' } } },
+    { id: 't2', slug: 'quotes', name: 'Quotes', hasPublicUrl: false },
+];
+const LIST = `<section data-arc-label="Top"><h1 data-arc-edit="title">{{ contentType }}</h1><p data-arc-edit="intro">{{ contentTypeDescription }}</p></section>
+<div data-arc-loop="items" data-limit="12"><h2 data-arc-edit="inside">{{ title }}</h2></div>`;
+
 describe('PageTextEditorPage', () => {
+    const listTemplate = vi.fn(async () => LIST);
     let fixture: ComponentFixture<PageTextEditorPage>;
     let session: Record<string, any>;
     let draft: ReturnType<typeof signal<PageTextDraft | null>>;
     let published: ReturnType<typeof vi.fn>;
     let pushPublished: (value: unknown) => void;
 
-    async function open(name = '', languages = [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' }]): Promise<HTMLElement> {
+    async function open(name = '', languages = [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' }], type = ''): Promise<HTMLElement> {
         await TestBed.configureTestingModule({
             imports: [PageTextEditorPage, translocoTestingModule()],
             providers: [
                 provideRouter([]),
-                { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => (k === 'name' ? name || null : null) } } } },
+                { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => (k === 'name' ? name || null : k === 'type' ? type || null : null) } } } },
                 { provide: LocalizationService, useValue: { load: vi.fn().mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: languages }) } },
                 { provide: UiStringsService, useValue: { load: vi.fn().mockResolvedValue({ hero_t: 'स्वागत' }) } },
                 { provide: PageTextService, useValue: { session: vi.fn(() => session), published, followPublished: (_id: string, next: (value: unknown) => void) => { pushPublished = next; next(null); return () => undefined; }, history: vi.fn().mockResolvedValue([]) } },
                 { provide: MorePagesService, useValue: {
                     file: vi.fn(async (path: string) => (path.includes('home') || path.includes('about') ? HOME : '')),
-                    cardTypes: vi.fn().mockResolvedValue(new Map([['testimonials', { name: 'Testimonials', ownOrder: false }]])),
+                    cardTypes: vi.fn().mockResolvedValue(new Map([['testimonials', { name: 'Testimonials', ownOrder: false }], ['articles', { name: 'Articles', ownOrder: false }]])),
+                    contentTypes: vi.fn(async () => TYPES), listTemplate,
                 } },
+                { provide: SitePagesService, useValue: { load: vi.fn().mockResolvedValue([]) } },
+                { provide: SiteIdentityService, useValue: { load: vi.fn().mockResolvedValue({ finalUrl: 'https://site.test' }) } },
                 { provide: ConfirmService, useValue: { ask: vi.fn().mockResolvedValue(true) } },
                 { provide: MatDialog, useValue: { open: vi.fn(() => ({ afterClosed: () => of({ type: 'submit', mediaUrl: '/media/new.jpg' }) })) } },
             ],
@@ -92,7 +106,7 @@ describe('PageTextEditorPage', () => {
         expect(input(el, 'w-photo').placeholder).toBe('A loaf');
         expect(input(el, 'u-cta').placeholder).toBe('/menu');
         expect(el.querySelector('#w-intro')?.getAttribute('contenteditable')).toBe('true');
-        expect(el.querySelector('[data-testid="card-block"]')?.textContent).toContain('Testimonials: 3 shown, newest first');
+        expect(el.querySelector('[data-testid="card-block"]')?.textContent).toContain('Testimonials: up to 3 shown, newest first');
         expect(el.querySelector('[data-testid="languages"]')).not.toBeNull();
         expect(session['open']).toHaveBeenCalled();
     });
@@ -262,5 +276,103 @@ describe('PageTextEditorPage', () => {
         const el = await open('about-us');
         expect(el.querySelector('[data-testid="languages"]')).toBeNull();
         expect(TestBed.inject(PageTextService).session).toHaveBeenCalledWith('p-about-us');
+    });
+
+    describe('a list page (VE-D60, VE-D65)', () => {
+        /** The bound file is read with a parser loaded for a list page only. */
+        async function openList(type: string): Promise<HTMLElement> {
+            const el = await open('', undefined, type);
+            await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
+            fixture.detectChanges();
+            return el;
+        }
+
+        it('shows the bound words of its areas, in each language, never a mark inside the loop', async () => {
+            const el = await openList('articles');
+            expect(TestBed.inject(PageTextService).session).toHaveBeenCalledWith('list-articles');
+            expect(el.querySelector('.page-title')?.textContent).toContain('Articles list');
+            expect(input(el, 'w-title').placeholder).toBe('Articles');
+            expect(input(el, 'w-intro').placeholder).toBe('All our news');
+            expect(el.querySelector('#w-inside')).toBeNull();
+            expect(el.querySelector('[data-testid="card-block"]')?.textContent).toContain('Articles: up to 12 shown, newest first');
+            fixture.componentInstance.chooseLanguage('hi');
+            fixture.detectChanges();
+            expect(input(el, 'w-title').placeholder).toBe('लेख');
+            expect(input(el, 'w-intro').placeholder).toBe('सारी खबरें');
+        });
+
+        it('edits one value in the field and in Basic', async () => {
+            const el = await openList('articles');
+            draft.set({ text: { en: { title: { value: 'Our stories' } } } });
+            fixture.detectChanges();
+            expect(input(el, 'w-title').value).toBe('Our stories');
+            expect(input(el, 'page-title').value).toBe('Our stories');
+            type(input(el, 'page-title'), 'Stories');
+            vi.advanceTimersByTime(800);
+            expect(session['saveText']).toHaveBeenCalledWith('en', 'title', 'Stories', { fileText: 'Articles' });
+            expect(session['saveSeo']).not.toHaveBeenCalled();
+        });
+
+        it('has its own Visual Editor, Live Preview and address, in the language chosen', async () => {
+            await openList('articles');
+            const page = fixture.componentInstance;
+            expect(page.visualEditorLink()).toEqual(['/admin/edit-page/list', 'articles']);
+            const win = vi.spyOn(window, 'open').mockReturnValue(null);
+            page.openPreview();
+            expect(win).toHaveBeenLastCalledWith('/admin/preview-page/list/articles', 'arc-page-preview-list-articles');
+            await vi.waitFor(() => expect(page.data.url()).toBe('https://site.test/articles'));
+            page.chooseLanguage('hi');
+            page.openPreview();
+            expect(win).toHaveBeenLastCalledWith('/admin/preview-page/list/articles/hi', 'arc-page-preview-list-articles');
+            expect(page.data.url()).toBe('https://site.test/hi/articles');
+            win.mockRestore();
+        });
+
+        it('hands the Visual Editor back where it was opened from (review L6)', async () => {
+            history.replaceState({ arcFrom: 'entries', arcOpenedFrom: '/articles', other: 'x' }, '');
+            try {
+                await openList('articles');
+                expect(fixture.componentInstance.openedFrom).toEqual({ arcFrom: 'entries', arcOpenedFrom: '/articles' });
+            } finally {
+                history.replaceState(null, '');
+            }
+        });
+
+        it('says plainly when there is no list page to edit', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            expect((await openList('gone')).querySelector('[role="alert"]')?.textContent).toContain('There is no content type with this address.');
+            TestBed.resetTestingModule();
+            expect((await openList('quotes')).querySelector('[role="alert"]')?.textContent).toContain('no public pages');
+            TestBed.resetTestingModule();
+            listTemplate.mockResolvedValueOnce('');
+            expect((await openList('articles')).querySelector('[role="alert"]')?.textContent).toContain('template of this list page');
+        });
+
+        it('edits its Title and Summary in Basic when its template marks nothing', async () => {
+            listTemplate.mockResolvedValueOnce('<h1>{{ contentType }}</h1>');
+            const el = await openList('articles');
+            expect(el.querySelector('#w-title')).toBeNull();
+            expect(input(el, 'page-title').placeholder).toBe('Articles');
+            expect(el.textContent).toContain('The heading on the page is set by your developer.');
+            type(input(el, 'page-title'), 'Stories');
+            vi.advanceTimersByTime(800);
+            expect(session['saveText']).toHaveBeenCalledWith('en', 'title', 'Stories', { fileText: 'Articles' });
+            // Never "No longer on the page": they are its Title and Summary.
+            draft.set({ text: { en: { title: { value: 'Stories' } } } });
+            fixture.detectChanges();
+            expect(el.querySelector('[data-testid="gone"]')).toBeNull();
+        });
+
+        it('names its changes as Basic and SEO do, with the file\'s own words beside them', async () => {
+            await openList('articles');
+            const data = fixture.componentInstance.data;
+            const review = TestBed.inject(PageReview);
+            const change = (field: string) => ({ id: field, field, lang: 'hi', kind: 'text' as const, before: '', after: 'x' });
+            expect(['text:title', 'text:intro', 'seo:title', 'seo:description', 'shareImage'].map((field) => review.label(data, change(field))))
+                .toEqual(['Title', 'Summary', 'SEO Title', 'Meta Description', 'Cover image']);
+            const withFile = (field: string) => (review as any).withFileWords(data, change(field)).before;
+            expect(withFile('text:title')).toBe('लेख');
+            expect(withFile('seo:title')).toBe('');
+        });
     });
 });

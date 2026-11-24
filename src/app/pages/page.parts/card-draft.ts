@@ -141,3 +141,34 @@ export function cardsWithDrafts<T extends Record<string, any>>(
     const leaving = sortForDisplay(live, order).slice(0, count).filter((entry) => !staying.has(entry['id']) && !shownIds.has(entry['id']));
     return { cards, changedIds: new Set([...changedIds].filter((id) => shownIds.has(id))), leaving, tookLastPlace };
 }
+
+/**
+ * Marks each card a page's Visual Editor drew (VE-D54) with its entry
+ * (`data-arc-card-id`, `data-arc-card-type`), a card with unpublished changes
+ * (`data-arc-changed`), the card being edited when it took the last place
+ * (`data-arc-draft="last"`, as VE2) and one Publish would push out
+ * (`data-arc-leaving`), for the screen's card bar. The cards are `host`'s rows of
+ * the `items` loop, in order: a card block's, or a list page's.
+ */
+export function markPageCards(
+    host: ParentNode, type: string,
+    shown: CardsWithDrafts<{ id: string }> & { notes: Readonly<Record<string, PageCardNote>> },
+): void {
+    const { cards, leaving, changedIds, tookLastPlace, notes } = shown;
+    [...cards, ...leaving].forEach((entry, index) => {
+        const card = host.querySelector(`[data-arc-field="items"][data-arc-row="${index}"]`);
+        if (!card) return;
+        card.setAttribute('data-arc-card-id', entry.id);
+        card.setAttribute('data-arc-card-type', type);
+        card.toggleAttribute('data-arc-leaving', index >= cards.length);
+        const note = notes[entry.id];
+        // Only this person's own changes on the page are Publish's to take (VE-D72).
+        card.toggleAttribute('data-arc-changed', changedIds.has(entry.id) && !note);
+        card.toggleAttribute('data-arc-theirs', !!note?.theirs);
+        card.toggleAttribute('data-arc-elsewhere', !!note?.elsewhere);
+        if (note?.held) card.setAttribute('data-arc-held', note.held);
+        else card.removeAttribute('data-arc-held');
+        if (tookLastPlace && index === cards.length - 1) card.setAttribute('data-arc-draft', 'last');
+        else card.removeAttribute('data-arc-draft');
+    });
+}

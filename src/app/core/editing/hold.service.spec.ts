@@ -18,14 +18,16 @@ vi.mock('@angular/fire/firestore', () => {
             return parts.length === 1 ? { path: `${path}/auto${++fire.auto}`, id: `auto${fire.auto}` } : { path, id: path.split('/').pop() };
         },
         collection: (...parts: unknown[]) => ({ path: at(parts) }),
-        query: (ref: unknown) => ref,
+        query: (ref: object, ...parts: any[]) => ({ ...ref, only: parts.find((part) => part?.field) }),
+        where: (field: string, _op: string, value: unknown) => ({ field, value }),
         orderBy: () => null,
         limit: () => null,
         // Both may answer from an open listener's copy, from before the write just made: never read with them.
         getDoc: async () => ({ exists: () => true, data: () => ({ title: 'Stale' }) }),
         getDocFromServer: async () => ({ exists: () => true, data: () => ({ title: 'Stale' }) }),
-        getDocsFromServer: async (ref: { path: string }) => ({
+        getDocsFromServer: async (ref: { path: string; only?: { field: string; value: unknown } }) => ({
             docs: Object.keys(fire.docs).filter((p) => p.startsWith(`${ref.path}/`) && !p.slice(ref.path.length + 1).includes('/'))
+                .filter((p) => !ref.only || fire.docs[p][ref.only.field] === ref.only.value)
                 .map((p) => ({ id: p.split('/').pop(), data: () => fire.docs[p] })),
         }),
         getDocs: async () => ({ docs: [] }),
@@ -159,6 +161,17 @@ describe('HoldService', () => {
         expect('changedOnPage' in data).toBe(false);
         expect(last('delete', `${DRAFT}/translations/hi`)).toBeTruthy();
         expect(last('set', `${DRAFT}/translations/ta`)!.data.title).toBe('அன்று');
+    });
+
+    it('a kept draft takes its address back only when no other entry of the type uses it', async () => {
+        const kept = { id: 'k1', by: 'me', name: 'Asha', why: 'discard' as const, data: { title: 'Then', urlSlug: 'our-story' } };
+        fire.docs[DRAFT] = { title: 'Now', urlSlug: 'our-new-story' };
+        fire.docs['arc_blog_drafts/d2'] = { title: 'Other', urlSlug: 'our-story' };
+        expect(await holds.restoreKept('blog', 'd1', kept)).toEqual({ addressTaken: true });
+        expect(last('set', DRAFT)!.data).toMatchObject({ title: 'Then', urlSlug: 'our-new-story' });
+        delete fire.docs['arc_blog_drafts/d2'];
+        expect(await holds.restoreKept('blog', 'd1', kept)).toEqual({ addressTaken: false });
+        expect(last('set', DRAFT)!.data).toMatchObject({ title: 'Then', urlSlug: 'our-story' });
     });
 
     describe('letting go (VE-D76)', () => {

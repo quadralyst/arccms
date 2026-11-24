@@ -102,19 +102,23 @@ export class PageReview {
     private fileWords(data: PageEditorData, change: Change): string {
         const file = data.files()[change.lang || data.defaultLang()] ?? data.files()[data.defaultLang()];
         if (!file) return '';
-        if (change.field === 'seo:title') return file.title;
-        if (change.field === 'seo:description') return file.description;
+        // A list page's SEO words have none of their own: its title and summary show (VE-D69).
+        if (change.field === 'seo:title') return data.isList ? '' : file.title;
+        if (change.field === 'seo:description') return data.isList ? '' : file.description;
         const key = change.field.replace(/^(text|url):/, '');
         const area = file.areas.find((a) => a.key === key);
-        if (!area) return '';
+        if (!area) return data.isList && change.field === 'text:title' ? file.title : data.isList && change.field === 'text:intro' ? file.description : '';
         return change.field.startsWith('url:') ? area.fileUrl : plainText(area.fileText);
     }
 
     /** A change's name: the area's label, or the panel's own word for it. */
     label(data: PageEditorData, change: Change): string {
         if (change.field === 'shareImage') return this.t('admin.contents.editor.cover_image');
-        if (change.field === 'seo:title') return this.t('admin.contents.editor.title_label');
-        if (change.field === 'seo:description') return this.t('admin.contents.editor.summary');
+        if (change.field === 'seo:title') return this.t(data.isList ? 'admin.contents.editor.seo_title' : 'admin.contents.editor.title_label');
+        if (change.field === 'seo:description') return this.t(data.isList ? 'admin.contents.editor.meta_description' : 'admin.contents.editor.summary');
+        // A list page's heading and intro are its Title and Summary (VE-D60).
+        if (data.isList && change.field === 'text:title') return this.t('admin.contents.editor.title_label');
+        if (data.isList && change.field === 'text:intro') return this.t('admin.contents.editor.summary');
         const key = change.field.replace(/^(text|url):/, '');
         const area = data.sections().flatMap((section) => section.areas).find((view) => view.area.key === key)?.area;
         return area?.label || key.replace(/[-_]+/g, ' ').replace(/^./, (c) => c.toUpperCase());

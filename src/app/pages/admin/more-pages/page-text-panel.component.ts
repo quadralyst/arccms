@@ -19,16 +19,19 @@ import type { KeptDraft } from '../../../core/editing/hold.service';
 import { editState } from '../edit/edit-state';
 import { PageStatusComponent } from '../edit/page-status.component';
 import { SharePreviewComponent } from '../edit/share-preview.component';
-import type { SeoView } from './page-text-editor.model';
+import { hasFormatting, plainAreaWords, type AreaView, type ListBasics, type SeoView } from './page-text-editor.model';
 
 /** How long Publish waits for the published copy before saying it is slow. */
 const PUBLISH_WAIT_MS = 120_000;
+/** A field of the panel: the SEO words, and a list page's Title and Summary. */
+type PanelField = 'title' | 'description' | 'words:title' | 'words:intro';
+
 /** How long after the last key an SEO field saves. */
 const SAVE_DELAY_MS = 700;
 
 /**
- * A page's panel (specs/visual-editing-spec.md, VE-D51, VE-D67): **Basic** (where the
- * page stands, its title, cover image, summary and address, as an entry's), **SEO**
+ * A page's panel (specs/visual-editing-spec.md, VE-D51, VE-D67; a list page's too, with
+ * `basics`, VE-D60): **Basic** (where the page stands, its title, cover image, summary and address, as an entry's), **SEO**
  * (how it looks in search and when shared) and **History** (every publish, Restore).
  * The classic editor shows it beside its fields; the Visual Editor shows it as Page
  * settings. Publish is on the screen's own bar, and runs through `publish()` here.
@@ -62,6 +65,21 @@ const SAVE_DELAY_MS = 700;
                 }
                 @if (seo(); as seo) {
                 <div [attr.inert]="locked() ? '' : null">
+                @if (basics(); as basics) {
+                <!-- A list page's heading: its Title (VE-D60). -->
+                <div class="panel-field">
+                    <label class="panel-label" for="page-title">{{ 'admin.contents.editor.title_label' | transloco }}</label>
+                    <input id="page-title" class="form-control form-control-sm" type="text" [value]="shown('words:title', words(basics.title))" [placeholder]="fallback(basics.title)"
+                        (input)="wordsInput('words:title', basics.title, $any($event.target).value)" (blur)="seoLeft('words:title')" [readOnly]="formatted(basics.title)">
+                    @if (formatted(basics.title)) {
+                    <small class="d-block" data-testid="formatted-title">{{ 'admin.edit_page.list_formatted' | transloco }}</small>
+                    }
+                    @if (seo.title) {
+                    <small class="text-muted d-block">{{ 'admin.edit_page.seo_title_wins' | transloco }}</small>
+                    }
+                    <small class="text-muted d-block">{{ (basics.titleMarked ? 'admin.edit_page.list_title_hint' : 'admin.edit_page.list_title_fixed') | transloco }}</small>
+                </div>
+                } @else {
                 <div class="panel-field">
                     <label class="panel-label" for="page-title">{{ 'admin.contents.editor.title_label' | transloco }}</label>
                     <input id="page-title" class="form-control form-control-sm" type="text" [value]="shown('title', seo.title)" [placeholder]="seo.titleFallback"
@@ -69,21 +87,37 @@ const SAVE_DELAY_MS = 700;
                     <div class="counter" [class.over]="length('title') > 60">{{ 'admin.more_pages.editor.title_count' | transloco: { count: length('title') } }}</div>
                     <small class="text-muted d-block">{{ 'admin.edit_page.page_title_hint' | transloco }}</small>
                 </div>
+                }
                 <div class="panel-field">
                     <span class="panel-label d-block">{{ 'admin.contents.editor.cover_image' | transloco }}</span>
                     @if (seo.shareImage) {
                         <img class="share-image" [src]="seo.shareImage" alt="">
                     } @else {
-                        <p class="text-muted small mb-1">{{ 'admin.more_pages.editor.share_image_default' | transloco }}</p>
+                        <p class="text-muted small mb-1">{{ (basics() ? 'admin.edit_page.no_share_image' : 'admin.more_pages.editor.share_image_default') | transloco }}</p>
                     }
                     <div class="d-flex gap-2 flex-wrap">
                         <button type="button" class="btn btn-outline-primary btn-sm" (click)="chooseShareImage()">{{ 'admin.more_pages.editor.choose_picture' | transloco }}</button>
                         @if (seo.shareImage) {
-                            <button type="button" class="btn btn-link btn-sm" (click)="useFileShareImage()">{{ 'admin.more_pages.editor.use_file_picture' | transloco }}</button>
+                            <button type="button" class="btn btn-link btn-sm" (click)="useFileShareImage()">{{ (basics() ? 'common.actions.remove' : 'admin.more_pages.editor.use_file_picture') | transloco }}</button>
                         }
                     </div>
                     <small class="text-muted d-block">{{ 'admin.edit_page.page_cover_hint' | transloco }}</small>
                 </div>
+                @if (basics(); as basics) {
+                <!-- A list page's intro: its Summary (VE-D60). -->
+                <div class="panel-field">
+                    <label class="panel-label" for="page-summary">{{ 'admin.contents.editor.summary' | transloco }}</label>
+                    <textarea id="page-summary" class="form-control form-control-sm" rows="4" [value]="shown('words:intro', words(basics.intro))" [placeholder]="fallback(basics.intro)"
+                        (input)="wordsInput('words:intro', basics.intro, $any($event.target).value)" (blur)="seoLeft('words:intro')" [readOnly]="formatted(basics.intro)"></textarea>
+                    @if (formatted(basics.intro)) {
+                    <small class="d-block" data-testid="formatted-summary">{{ 'admin.edit_page.list_formatted' | transloco }}</small>
+                    }
+                    @if (seo.description) {
+                    <small class="text-muted d-block">{{ 'admin.edit_page.seo_summary_wins' | transloco }}</small>
+                    }
+                    <small class="text-muted d-block">{{ (basics.introMarked ? 'admin.edit_page.list_summary_hint' : 'admin.edit_page.list_summary_fixed') | transloco }}</small>
+                </div>
+                } @else {
                 <div class="panel-field">
                     <label class="panel-label" for="page-summary">{{ 'admin.contents.editor.summary' | transloco }}</label>
                     <textarea id="page-summary" class="form-control form-control-sm" rows="4" [value]="shown('description', seo.description)" [placeholder]="seo.descriptionFallback"
@@ -91,6 +125,7 @@ const SAVE_DELAY_MS = 700;
                     <div class="counter" [class.over]="length('description') > 160">{{ 'admin.more_pages.editor.description_count' | transloco: { count: length('description') } }}</div>
                     <small class="text-muted d-block">{{ (length('description') ? 'admin.edit_page.page_summary_hint' : 'admin.edit_page.no_summary') | transloco }}</small>
                 </div>
+                }
                 </div>
                 }
                 @if (url()) {
@@ -101,7 +136,7 @@ const SAVE_DELAY_MS = 700;
                         <button type="button" class="btn btn-link btn-sm p-0" (click)="copyAddress()" [title]="'admin.contents.editor.copy_address' | transloco"
                             [attr.aria-label]="'admin.contents.editor.copy_address' | transloco" data-testid="copy-address"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
                     </div>
-                    <small class="text-muted d-block">{{ 'admin.edit_page.address_by_developer' | transloco }}</small>
+                    <small class="text-muted d-block">{{ (basics() ? 'admin.edit_page.address_by_type' : 'admin.edit_page.address_by_developer') | transloco }}</small>
                 </div>
                 }
                 @if (lang() !== defaultLang()) {
@@ -116,7 +151,26 @@ const SAVE_DELAY_MS = 700;
 
         @if (tabShown() === 'seo' && seo(); as seo) {
             <div class="panel-body" role="tabpanel" data-testid="seo-panel">
+                @if (basics()) {
+                <!-- A list page's own search words, over its title and summary (VE-D69). -->
+                <div [attr.inert]="locked() ? '' : null">
+                <p class="text-muted small">{{ 'admin.edit_page.list_seo_hint' | transloco }}</p>
+                <div class="panel-field">
+                    <label class="panel-label" for="seo-title">{{ 'admin.contents.editor.seo_title' | transloco }}</label>
+                    <input id="seo-title" class="form-control form-control-sm" type="text" [value]="shown('title', seo.title)" [placeholder]="seo.titleFallback"
+                        (input)="seoInput('title', $any($event.target).value)" (blur)="seoLeft('title')">
+                    <div class="counter" [class.over]="length('title') > 60">{{ 'admin.more_pages.editor.title_count' | transloco: { count: length('title') } }}</div>
+                </div>
+                <div class="panel-field">
+                    <label class="panel-label" for="seo-summary">{{ 'admin.contents.editor.meta_description' | transloco }}</label>
+                    <textarea id="seo-summary" class="form-control form-control-sm" rows="4" [value]="shown('description', seo.description)" [placeholder]="seo.descriptionFallback"
+                        (input)="seoInput('description', $any($event.target).value)" (blur)="seoLeft('description')"></textarea>
+                    <div class="counter" [class.over]="length('description') > 160">{{ 'admin.more_pages.editor.description_count' | transloco: { count: length('description') } }}</div>
+                </div>
+                </div>
+                } @else {
                 <p class="text-muted small mb-0">{{ 'admin.edit_page.seo_from_basic' | transloco }}</p>
+                }
                 <arc-share-preview [title]="shown('title', seo.title) || seo.titleFallback" [description]="shown('description', seo.description) || seo.descriptionFallback"
                     [image]="seo.shareImage" [url]="url()" />
             </div>
@@ -162,6 +216,12 @@ export class PageTextPanelComponent implements OnDestroy {
     readonly lang = input.required<string>();
     readonly defaultLang = input.required<string>();
     readonly seo = input<SeoView | null>(null);
+    /**
+     * A list page's Title and Summary (VE-D60): its heading and intro, changed here or on
+     * the page, with its own SEO words in the SEO tab (VE-D69). Null for the other pages,
+     * whose title and summary are their SEO words (VE-D68).
+     */
+    readonly basics = input<ListBasics | null>(null);
     /** Edits elsewhere on the screen still saving: Publish waits for them. */
     readonly busy = input(false);
     /** Run before Publish: saves what is still waiting; false stops the publish (a save failed). */
@@ -250,11 +310,11 @@ export class PageTextPanelComponent implements OnDestroy {
 
     // ── SEO ────────────────────────────────────────────────────────────────
 
-    private id(field: 'title' | 'description'): string {
+    private id(field: PanelField): string {
         return `${this.lang()}:${field}`;
     }
 
-    shown(field: 'title' | 'description', saved: string): string {
+    shown(field: PanelField, saved: string): string {
         const typed = this.typing()[this.id(field)];
         return typed !== undefined ? typed : saved;
     }
@@ -288,20 +348,53 @@ export class PageTextPanelComponent implements OnDestroy {
     }
 
     seoInput(field: 'title' | 'description', value: string): void {
-        const id = this.id(field);
         const lang = this.lang();
         const session = this.session();
+        this.later(this.id(field), value, () => (value.trim() ? session.saveSeo(lang, field, value.trim()) : session.useFileSeo(lang, field)));
+    }
+
+    /** A list page's Title or Summary: the same value as its area on the page (VE-D60). */
+    wordsInput(field: 'words:title' | 'words:intro', view: AreaView, value: string): void {
+        const lang = this.lang();
+        const session = this.session();
+        // Spaces tidied as words typed on the page are, so a click there finds nothing to save.
+        const text = value.replace(/\s+/g, ' ').trim();
+        // Plain words in an area of formatted text stay plain words, written as the page reads them back.
+        const stored = view.area.kind === 'rich' ? text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : text;
+        this.later(this.id(field), value, () => {
+            if (!text) return session.useFileText(lang, view.area.key);
+            return session.saveText(lang, view.area.key, stored, {
+                fileText: view.fileWords, ...(lang !== this.defaultLang() ? { sourceText: view.defaultWords } : {}),
+            });
+        });
+    }
+
+    /** The words saved, as a plain field shows them. */
+    words(view: AreaView): string {
+        return plainAreaWords(view, view.words);
+    }
+
+    /** What shows when nothing is saved, as a plain field's placeholder. */
+    fallback(view: AreaView): string {
+        return plainAreaWords(view, view.wordsFallback);
+    }
+
+    /** Formatted words are changed on the page: a plain field would drop the formatting (VE-D60). */
+    readonly formatted = hasFormatting;
+
+    /** Saves a field once typing stops. */
+    private later(id: string, value: string, write: () => Promise<void>): void {
         this.typing.update((t) => ({ ...t, [id]: value }));
         const pending = this.timers.get(id);
         if (pending) clearTimeout(pending.timer);
         const save = async () => {
             this.timers.delete(id);
-            await this.run(() => (value.trim() ? session.saveSeo(lang, field, value.trim()) : session.useFileSeo(lang, field)));
+            await this.run(write);
         };
         this.timers.set(id, { timer: setTimeout(save, SAVE_DELAY_MS), save });
     }
 
-    seoLeft(field: 'title' | 'description'): void {
+    seoLeft(field: PanelField): void {
         const id = this.id(field);
         const pending = this.timers.get(id);
         const done = () => this.typing.update(({ [id]: _, ...rest }) => rest);

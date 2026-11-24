@@ -602,10 +602,11 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         expect(document.body.firstElementChild).toBe(strip());
     });
 
-    it('offers Add new on a list page', () => {
+    it('offers Edit this page and Add new on a list page, and goes back to the type\'s entries (VE-D65)', () => {
         page('<p>List</p>', '', entry('articles'));
         expect(links()).toEqual([
             ['admin', '/admin/contents/articles', 'Back to admin'],
+            ['edit', '/admin/edit-page/list/articles', 'Edit this page'],
             ['add', '/admin/edit/articles/new', 'Add new'],
         ]);
     });
@@ -645,13 +646,13 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         const names = (e: string, path: string) => stripLinks(e, path).map((l) => `${l.name} ${l.href}`);
         expect(names('home', '/')).toEqual(['edit /admin/edit-page/home', 'admin /admin/more-pages']);
         expect(names('home', '/hi')).toEqual(['edit /admin/edit-page/home', 'admin /admin/more-pages']);
-        expect(names('home', '/home')).toEqual(['add /admin/edit/home/new', 'admin /admin/contents/home']);
-        expect(names('home', '/hi/home.html')).toEqual(['add /admin/edit/home/new', 'admin /admin/contents/home']);
+        expect(names('home', '/home')).toEqual(['edit /admin/edit-page/list/home', 'add /admin/edit/home/new', 'admin /admin/contents/home']);
+        expect(names('home', '/hi/home.html')).toEqual(['edit /admin/edit-page/list/home', 'add /admin/edit/home/new', 'admin /admin/contents/home']);
         expect(names('p/privacy-policy', '/p/privacy-policy')).toEqual(['admin /admin/more-pages']);
         expect(names('p/privacy-policy', '/p/privacy-policy.html')).toEqual(['admin /admin/more-pages']);
         expect(stripLinks('p/about-us', '/p/about-us', true).map((l) => l.href)).toEqual(['/admin/edit-page/p/about-us', '/admin/more-pages']);
         expect(names('p/doc1', '/p/my-first-entry')).toEqual(['edit /admin/edit/p/doc1', 'admin /admin/contents/p']);
-        expect(names('p', '/p')).toEqual(['add /admin/edit/p/new', 'admin /admin/contents/p']);
+        expect(names('p', '/p')).toEqual(['edit /admin/edit-page/list/p', 'add /admin/edit/p/new', 'admin /admin/contents/p']);
     });
 
     it('says its links in the strings the app hands it, over the script tag\'s (VE3.11)', () => {
@@ -775,7 +776,7 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         const site = (window as unknown as { arcSite: { drawEditorStrip: () => void } }).arcSite;
         document.head.innerHTML = entry('articles');
         site.drawEditorStrip();
-        expect(links()[1]).toEqual(['add', '/admin/edit/articles/new', 'Add new']);
+        expect(links()[2]).toEqual(['add', '/admin/edit/articles/new', 'Add new']);
         document.head.innerHTML = '';
         site.drawEditorStrip();
         expect(strip()).toBeNull();

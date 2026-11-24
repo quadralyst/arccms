@@ -11,6 +11,9 @@ import { MatDialog } from '@angular/material/dialog';
 import { translocoTestingModule } from '../../../../test/transloco-test-providers';
 import { PageTextService } from '../../../core/site/page-text.service';
 import { PageTextPanelComponent } from './page-text-panel.component';
+import { areaView, type ListBasics, type SeoView } from './page-text-editor.model';
+import { readPageFile } from '../../../core/utils/page-text-areas';
+import { listPageWords } from '../../../core/utils/page-text-model';
 
 describe('PageTextPanelComponent with cards (VE-D53)', () => {
     let push: (value: unknown) => void = () => undefined;
@@ -152,5 +155,105 @@ describe('PageTextPanelComponent with cards (VE-D53)', () => {
         fixture.componentRef.setInput('busy', true);
         expect(fixture.componentInstance.state()).toBe('saving');
         expect(fixture.componentInstance.canPublish()).toBe(false);
+    });
+});
+
+describe('PageTextPanelComponent on a list page (VE-D60, VE-D69)', () => {
+    const FILE = readPageFile('<h1 data-arc-edit="title">Articles</h1><p data-arc-edit="intro" data-arc-edit-kind="rich">All <b>news</b></p>');
+    const SEO: SeoView = { title: '', titleFallback: 'Articles', description: '', descriptionFallback: 'All news', shareImage: '' };
+    const basicsOf = (draft: any, over: Partial<ListBasics> = {}): ListBasics => {
+        const ctx = { lang: 'en', defaultLang: 'en', ownFile: true, file: FILE, defaultFile: FILE, strings: {}, draft };
+        return { title: areaView(FILE.areas[0], ctx), intro: areaView(FILE.areas[1], ctx), titleMarked: true, introMarked: true, ...over };
+    };
+
+    async function make(basics: ListBasics | null, seo: SeoView = SEO) {
+        const session = {
+            pageId: 'list-articles', draft: signal<any>(null), publish: vi.fn(),
+            saveText: vi.fn().mockResolvedValue(undefined), useFileText: vi.fn().mockResolvedValue(undefined),
+            saveSeo: vi.fn().mockResolvedValue(undefined), useFileSeo: vi.fn().mockResolvedValue(undefined),
+        };
+        await TestBed.configureTestingModule({
+            imports: [PageTextPanelComponent, translocoTestingModule()],
+            providers: [
+                { provide: MatDialog, useValue: {} },
+                { provide: PageTextService, useValue: {
+                    history: vi.fn().mockResolvedValue([]), followPublished: (_id: string, next: (value: unknown) => void) => { next(null); return () => undefined; },
+                } },
+            ],
+        }).compileComponents();
+        const fixture = TestBed.createComponent(PageTextPanelComponent);
+        for (const [name, value] of Object.entries({ session, lang: 'en', defaultLang: 'en', seo, basics, url: 'https://site.test/articles' })) fixture.componentRef.setInput(name, value);
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+        const field = <T extends HTMLElement = HTMLInputElement>(id: string) => el.querySelector<T>(`#${id}`)!;
+        const typeIn = async (id: string, value: string) => {
+            const input = field<HTMLInputElement>(id);
+            input.value = value;
+            input.dispatchEvent(new Event('input'));
+            input.dispatchEvent(new Event('blur'));
+            await fixture.whenStable();
+        };
+        return { fixture, el, session, field, typeIn };
+    }
+
+    it('its Title and Summary are its heading and intro, with the file\'s words as placeholders, and nothing is stored twice', async () => {
+        const { el, session, field, typeIn } = await make(basicsOf(null));
+        expect(field('page-title').placeholder).toBe('Articles');
+        expect(field<HTMLTextAreaElement>('page-summary').placeholder).toBe('All news');
+        expect(el.textContent).toContain('The heading of the page.');
+        expect(el.textContent).toContain('Set under Content types.');
+        // Spaces tidied as words typed on the page are, so a click there finds nothing to save.
+        await typeIn('page-title', '  Our   stories ');
+        expect(session.saveText).toHaveBeenCalledWith('en', 'title', 'Our stories', { fileText: 'Articles' });
+        // Plain words in an area of formatted text stay plain words.
+        // "Tom & Jerry's <3" is followed to the published head in deployContentListPage.spec.ts.
+        await typeIn('page-summary', 'Tom & Jerry\'s <3');
+        expect(session.saveText).toHaveBeenCalledWith('en', 'intro', 'Tom &amp; Jerry\'s &lt;3', { fileText: 'All <b>news</b>' });
+        const options = { lang: 'en', defaultLang: 'en', named: { title: false, intro: false }, rich: { title: false, intro: true } };
+        expect(listPageWords({ text: { en: { intro: { value: session.saveText.mock.calls.at(-1)![2] } } } }, options).seoDescription).toBe('Tom & Jerry\'s <3');
+        expect(session.saveSeo).not.toHaveBeenCalled();
+    });
+
+    it('shows the area\'s own value, and emptying it goes back to the file\'s', async () => {
+        const { el, session, field, typeIn } = await make(basicsOf({ text: { en: { title: { value: 'Our stories' }, intro: { value: 'Told &amp; <b>by</b> us' } } } }));
+        expect(field('page-title').value).toBe('Our stories');
+        expect(field('page-title').readOnly).toBe(false);
+        // Formatted words are changed on the page: a plain field would drop the formatting.
+        expect(field<HTMLTextAreaElement>('page-summary').value).toBe('Told & by us');
+        expect(field<HTMLTextAreaElement>('page-summary').readOnly).toBe(true);
+        expect(el.querySelector('[data-testid="formatted-summary"]')?.textContent).toContain('It has formatting: change it on the page.');
+        expect(el.querySelector('[data-testid="formatted-title"]')).toBeNull();
+        await typeIn('page-title', ' ');
+        expect(session.useFileText).toHaveBeenCalledWith('en', 'title');
+    });
+
+    it('says the developer sets what the page shows when nothing is marked, and that the SEO words win', async () => {
+        const { el } = await make(basicsOf(null, { titleMarked: false, introMarked: false }), { ...SEO, title: 'Search title', description: 'Search words' });
+        expect(el.textContent).toContain('The heading on the page is set by your developer.');
+        expect(el.textContent).toContain('The words on the page are set by your developer.');
+        expect(el.textContent).toContain('Search engines and shares show the SEO title instead');
+        expect(el.textContent).toContain('Search engines and shares show the meta description instead');
+    });
+
+    it('the SEO tab has an SEO title and meta description over them, empty until wanted, and what goes out', async () => {
+        const { fixture, el, session, field, typeIn } = await make(basicsOf(null));
+        fixture.componentInstance.showTab('seo');
+        fixture.detectChanges();
+        expect(field('seo-title').value).toBe('');
+        expect(field('seo-title').placeholder).toBe('Articles');
+        expect(el.querySelector('arc-share-preview')?.textContent).toContain('All news');
+        await typeIn('seo-title', 'Stories, searched');
+        await typeIn('seo-summary', 'Words for search');
+        expect(session.saveSeo.mock.calls).toEqual([['en', 'title', 'Stories, searched'], ['en', 'description', 'Words for search']]);
+        expect(session.saveText).not.toHaveBeenCalled();
+    });
+
+    it('on any other page the SEO tab is the preview alone, and Basic edits the SEO words (VE-D68)', async () => {
+        const { fixture, session, field, typeIn } = await make(null);
+        await typeIn('page-title', 'About us');
+        expect(session.saveSeo).toHaveBeenCalledWith('en', 'title', 'About us');
+        fixture.componentInstance.showTab('seo');
+        fixture.detectChanges();
+        expect(field('seo-title')).toBeNull();
     });
 });

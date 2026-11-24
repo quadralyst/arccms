@@ -1630,11 +1630,12 @@ export class EntryDraftSession implements OnDestroy {
   }
 
   /** Restores a kept draft (VE-D84): it becomes the draft, which then needs Publish. */
-  async restoreKept(kept: KeptDraft): Promise<void> {
+  async restoreKept(kept: KeptDraft): Promise<{ addressTaken: boolean }> {
     await this.storeScreen();
-    await this.holds.restoreKept(this.typeSlug(), this.contentId, kept);
+    const done = await this.holds.restoreKept(this.typeSlug(), this.contentId, kept);
     this.keptChanged.update((n) => n + 1);
     await this.showStored();
+    return done;
   }
 
   /** The entry's state in the words every editor uses (VE-D70). */

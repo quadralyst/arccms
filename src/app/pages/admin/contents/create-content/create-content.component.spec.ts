@@ -389,6 +389,60 @@ describe('CreateContentComponent', () => {
             expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledWith('my-pricing-guide', expect.anything(), undefined);
         });
 
+        describe('the SEO title follows the title until it is changed', () => {
+            const type = (title: string) => {
+                component.pageTitle = title;
+                component.createSlag();
+            };
+            const seo = () => component.seoForm.get('seoTitle')?.value;
+
+            it('on a published entry too, which keeps its address', () => {
+                mockDraftContentsStore.currentItem.set({ id: 'e1', title: 'Old', seoTitle: 'Old', urlSlug: 'old', publishedStatus: true });
+                fixture.detectChanges();
+                type('Old an');
+                type('Old and new');
+                expect(seo()).toBe('Old and new');
+            });
+
+            it('on a published entry whose title is emptied and typed again, until one of them is made its own', () => {
+                mockDraftContentsStore.currentItem.set({ id: 'e1', title: 'Old', seoTitle: 'Old', urlSlug: 'old', publishedStatus: true });
+                fixture.detectChanges();
+                type('');
+                expect(seo()).toBe('');
+                type('');
+                type('N');
+                type('New');
+                expect(seo()).toBe('New');
+                // Emptied with the title, then written by hand: its own.
+                type('');
+                component.seoForm.get('seoTitle')?.setValue('For search');
+                type('Newer');
+                expect(seo()).toBe('For search');
+                // A blank one on a stored entry stays blank.
+                component.seoForm.get('seoTitle')?.setValue('');
+                type('Newest');
+                expect(seo()).toBe('');
+            });
+
+            it('never over an SEO title of its own, on a new entry or a stored one', () => {
+                type('My Article');
+                component.seoForm.get('seoTitle')?.setValue('Best article ever');
+                type('My Article 2');
+                expect(seo()).toBe('Best article ever');
+                mockDraftContentsStore.currentItem.set({ id: 'e1', title: 'Old', seoTitle: 'For search', urlSlug: 'old', publishedStatus: true });
+                fixture.detectChanges();
+                type('New');
+                expect(seo()).toBe('For search');
+            });
+
+            it('stays blank on a stored entry, where the title is used', () => {
+                mockDraftContentsStore.currentItem.set({ id: 'e1', title: 'Old', seoTitle: '', urlSlug: 'old', publishedStatus: true });
+                fixture.detectChanges();
+                type('New');
+                expect(seo()).toBe('');
+            });
+        });
+
         it('should set SEO title when creating slug', async () => {
             component.pageTitle = 'My Article';
             component.createSlag();

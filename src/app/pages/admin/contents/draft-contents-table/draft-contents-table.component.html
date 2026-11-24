@@ -43,6 +43,12 @@
         <button mat-raised-button color="primary" (click)="openContent('')">
             <mat-icon>add</mat-icon> {{ 'admin.contents.list.add_item' | transloco: { type: getContentTypeSingularName() } }}
         </button>
+        @if (hasPages()) {
+        <!-- The type's list page in the Visual Editor (VE-D65); a type without pages has none. -->
+        <button mat-stroked-button class="ms-2" (click)="openListPage()" [title]="'admin.contents.list.visual_editor_list_title' | transloco" data-testid="list-page-button">
+            <mat-icon>web</mat-icon> {{ 'admin.contents.list.visual_editor_list' | transloco }}
+        </button>
+        }
         @if (isOwnOrder()) {
         <!-- SS2: the type is kept in its own order; put its entries in place. -->
         <button mat-stroked-button class="ms-2" (click)="openArrange()" data-testid="arrange-button">

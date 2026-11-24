@@ -209,6 +209,11 @@ export class DraftContentsTableComponent
     if (this.contentTypeSlug && contentId) this.router.navigate(['/admin/edit', this.contentTypeSlug, contentId]);
   }
 
+  /** The type's list page in the Visual Editor (VE-D65); its Close comes back here. */
+  openListPage(): void {
+    if (this.contentTypeSlug) this.router.navigate(['/admin/edit-page/list', this.contentTypeSlug], { state: { arcFrom: 'entries' } });
+  }
+
   /** The type is kept in its own order (SS2): the list offers Arrange. */
   isOwnOrder = computed(() => entryOrderOf(this.currentContentType()) === 'manual');
 

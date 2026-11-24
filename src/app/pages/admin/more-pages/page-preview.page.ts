@@ -2,11 +2,12 @@ import { ChangeDetectionStrategy, Component, OnDestroy, effect, inject, signal }
 import { ActivatedRoute } from '@angular/router';
 import { PageTextService, type PageTextSession } from '../../../core/site/page-text.service';
 import { PAGE_TEXT_PREVIEW, type PageTextPreview } from '../../../core/site/page-text-preview';
-import { pageTextId } from '../../../core/utils/page-text-model';
 import HomeComponent from '../../index.page';
 import { PublicPageRendererComponent } from '../../public-page-renderer/public-page-renderer.component';
 import { PageCardDrafts } from '../../page.parts/card-draft';
+import { ContentListComponent } from '../../page.parts/content-list.component';
 import { PageCardsSource } from './page-cards';
+import { pageIdOf, type PageRef } from './page-ref';
 
 /**
  * The Visual Editor's frame (`?edit=1`) draws each card with unpublished changes from
@@ -22,9 +23,17 @@ function pageCardsWithDrafts(): PageCardDrafts | null {
     return source;
 }
 
+/** The page the preview's address names: the parameters are the ones each page's own renderer reads. */
+function previewedPage(params: { get(key: string): string | null }): PageRef {
+    const type = params.get('contentTypeSlug');
+    if (type) return { kind: 'list', name: type };
+    const name = params.get('fileName');
+    return name ? { kind: 'static', name } : { kind: 'home', name: '' };
+}
+
 /**
- * Live Preview of the home page or a static page (specs/visual-editing-spec.md,
- * VE-D50): the page as the site draws it, filled with the draft's values. Every
+ * Live Preview of the home page, a static page or a list page (specs/visual-editing-spec.md,
+ * VE-D50, VE-D65): the page as the site draws it, filled with the draft's values. Every
  * field of the classic editor saves on its own, so the window follows the draft
  * in Firestore and draws the page again after each save.
  *
@@ -35,7 +44,7 @@ function pageCardsWithDrafts(): PageCardDrafts | null {
 @Component({
     selector: 'arc-page-preview',
     standalone: true,
-    imports: [HomeComponent, PublicPageRendererComponent],
+    imports: [HomeComponent, PublicPageRendererComponent, ContentListComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     providers: [
         { provide: PAGE_TEXT_PREVIEW, useExisting: PagePreviewPage },
@@ -44,17 +53,21 @@ function pageCardsWithDrafts(): PageCardDrafts | null {
     ],
     template: `
         @for (drawn of drawing(); track drawn) {
-            @if (isHome) { <arc-home></arc-home> } @else { <app-public-page-renderer></app-public-page-renderer> }
+            @switch (page.kind) {
+                @case ('home') { <arc-home></arc-home> }
+                @case ('list') { <arc-content-list></arc-content-list> }
+                @default { <app-public-page-renderer></app-public-page-renderer> }
+            }
         }
     `,
 })
 export default class PagePreviewPage implements PageTextPreview, OnDestroy {
     private route = inject(ActivatedRoute);
     private pageText = inject(PageTextService);
-    readonly isHome = !this.route.snapshot.paramMap.get('fileName');
+    readonly page = previewedPage(this.route.snapshot.paramMap);
     /** The Visual Editor's frame (`?edit=1`): drawn once; the screen then changes the page in place. */
     readonly editing = this.route.snapshot.queryParamMap?.get('edit') === '1';
-    private readonly pageId = this.isHome ? pageTextId.home() : pageTextId.staticPage(this.route.snapshot.paramMap.get('fileName') || '');
+    private readonly pageId = pageIdOf(this.page);
     private session: PageTextSession = this.pageText.session(this.pageId);
     /** One number per drawing: a new one draws the page again with the draft as it is then. */
     readonly drawing = signal<number[]>([]);

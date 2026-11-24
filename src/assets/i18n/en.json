@@ -1995,7 +1995,9 @@
         "feature_confirm": "\"{{ title }}\" is shown as featured.",
         "unfeature_confirm": "\"{{ title }}\" is no longer shown as featured.",
         "featured": "Featured.",
-        "unfeatured": "No longer featured."
+        "unfeatured": "No longer featured.",
+        "visual_editor_list": "Visual Editor",
+        "visual_editor_list_title": "Edit the list page as the site shows it, in the Visual Editor"
       },
       "authors": {
         "page_title": "Authors",
@@ -4114,7 +4116,8 @@
       "preview": "Preview",
       "edit_on_page": "Visual Editor",
       "edit_home_page": "Home page",
-      "edit_static_page": "Edit page"
+      "edit_static_page": "Edit page",
+      "edit_list_page": "List page"
     },
     "preview": {
       "strip": "Draft preview, updating live",
@@ -4252,11 +4255,19 @@
       "address_by_developer": "Set by your developer.",
       "seo_from_basic": "The title, cover image and summary come from Basic.",
       "history_publishing": "Publishing. The new version shows here when it is live.",
-      "history_words": "History holds this page's own words. A card has its own History."
+      "history_words": "History holds this page's own words. A card has its own History.",
+      "list_title_hint": "The heading of the page. Also shown in the browser tab, search engines and shares.",
+      "list_title_fixed": "Shown in the browser tab, search engines and shares. The heading on the page is set by your developer.",
+      "list_summary_hint": "The words under the heading. Also shown in search engines and shares.",
+      "list_summary_fixed": "Shown in search engines and shares. The words on the page are set by your developer.",
+      "seo_summary_wins": "Search engines and shares show the meta description instead (SEO tab).",
+      "list_seo_hint": "Leave these empty to use the title and summary from Basic.",
+      "address_by_type": "Set under Content types.",
+      "list_formatted": "It has formatting: change it on the page."
     },
     "more_pages": {
       "title": "More Pages",
-      "subtitle": "The home page, and the pages written as files that have parts you can change.",
+      "subtitle": "The home page, the list pages, and the pages written as files that have parts you can change.",
       "loading": "Loading…",
       "load_failed": "The pages could not be loaded.",
       "retry": "Try again",
@@ -4300,8 +4311,8 @@
         "address": "Address",
         "bad_address": "Use an address that starts with https://, /, mailto:, tel: or #.",
         "use_file_address": "Use the file's address",
-        "cards_newest": "{{ type }}: {{ count }} shown, newest first",
-        "cards_own_order": "{{ type }}: {{ count }} shown, in your own order",
+        "cards_newest": "{{ type }}: up to {{ count }} shown, newest first",
+        "cards_own_order": "{{ type }}: up to {{ count }} shown, in your own order",
         "edit_cards": "Edit {{ type }}",
         "nothing_marked": "This page marks nothing to change yet. Its title, cover image and summary are in the panel.",
         "gone_title": "No longer on the page",
@@ -4336,9 +4347,13 @@
         "section": "Section {{ n }}",
         "not_read": "What was saved for this page could not be read, so changes cannot be saved. Reload the page to try again.",
         "remove_title": "Remove what was saved?",
-        "restore_title": "Restore this version?"
+        "restore_title": "Restore this version?",
+        "no_list_type": "There is no content type with this address.",
+        "no_list_page": "This content type has no public pages, so it has no list page.",
+        "no_list_file": "The template of this list page is not on the live site. Deploy the website first."
       },
-      "visual_editor": "Visual Editor"
+      "visual_editor": "Visual Editor",
+      "list_page": "{{ type }} list"
     },
     "hold": {
       "held": "{{ name }} has unpublished changes.",
@@ -4398,7 +4413,8 @@
       "put_back_failed": "It could not be put back. Check your connection and try again.",
       "same_words": "Only formatting, a link or a picture changed.",
       "yes": "Yes",
-      "no": "No"
+      "no": "No",
+      "kept_address_taken": "The kept draft is back, at the address it has now: another entry uses its old one. Publish puts it on the site."
     }
   },
   "user": {

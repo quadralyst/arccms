@@ -877,8 +877,8 @@
 
     /**
      * The strip's links for a page (VE-D13): a content page is edited on the
-     * page, a list page adds an entry of its type; every page leads back to the
-     * admin, to the type's entries when the page has a type.
+     * page, a list page too, where an entry of its type is added as well (VE-D65);
+     * every page leads back to the admin, to the type's entries when the page has a type.
      *
      * `home` and `p/{name}` also fit a type slugged `home` or `p` (its list page, its
      * entries): the page's own address tells them apart (VE3.11). A type's list page
@@ -917,6 +917,8 @@
             links.push({ name: 'edit', text: stripT('strip_edit', 'Edit this page'), href: '/admin/edit/' + enc(type) + '/' + enc(parts[1]) });
         } else if (parts.length === 1) {
             type = parts[0];
+            // The list page itself in its Visual Editor: its words, its cards and its search words (VE-D65).
+            links.push({ name: 'edit', text: stripT('strip_edit', 'Edit this page'), href: '/admin/edit-page/list/' + enc(type) });
             // A list page's entries have pages: a new one starts on its page, in the Visual Editor.
             links.push({ name: 'add', text: stripT('strip_add', 'Add new'), href: '/admin/edit/' + enc(type) + '/new' });
         }

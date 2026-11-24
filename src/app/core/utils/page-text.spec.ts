@@ -406,7 +406,8 @@ describe('list page text', () => {
     });
 
     describe('listPageWords', () => {
-        const words = (values: PageTextValues | null, options = EN_LIST) => {
+        const RICH = { rich: { title: false, intro: true } };
+        const words = (values: PageTextValues | null, options: app.ListPageTextOptions = { ...EN_LIST, ...RICH }) => {
             const out = app.listPageWords(values, options);
             expect(published.listPageWords(values, options)).toEqual(out);
             return out;
@@ -425,11 +426,35 @@ describe('list page text', () => {
         });
 
         it('another language takes the default\'s unless it has its own, or the type is named in it', () => {
-            expect(words(values, HI_LIST)).toMatchObject({ title: 'Stories', seoTitle: 'Stories | Site' });
-            expect(words({ ...values, text: { ...values.text, hi: { title: { value: 'कहानियाँ' } } } }, HI_LIST))
+            expect(words(values, { ...HI_LIST, ...RICH })).toMatchObject({ title: 'Stories', seoTitle: 'Stories | Site' });
+            expect(words({ ...values, text: { ...values.text, hi: { title: { value: 'कहानियाँ' } } } }, { ...HI_LIST, ...RICH }))
                 .toMatchObject({ title: 'कहानियाँ', seoTitle: 'कहानियाँ', intro: 'By us & you' });
             expect(words(values, { ...HI_LIST, named: { title: true, intro: true } }))
                 .toMatchObject({ title: undefined, seoTitle: undefined, intro: undefined, seoDescription: undefined });
+        });
+
+        it('reads a rich area\'s value as its words, tags or none, and a plain one\'s as it is, by the area\'s kind', () => {
+            const of = (value: string, rich: boolean) => words(text('en', 'intro', value), { ...EN_LIST, rich: { title: false, intro: rich } }).intro;
+            expect(of('Tom &amp; Jerry\'s &lt;3', true)).toBe('Tom & Jerry\'s <3');
+            expect(of('Tom &amp; <b>Jerry</b><br>and&nbsp;more<img src=x onerror=alert(1)>', true)).toBe('Tom & Jerry and more');
+            // Typed as they are: an entity written out stays written out, once decoded only.
+            expect(of('&amp;amp;', true)).toBe('&amp;');
+            expect(of('Salt &amp; <b>pepper</b>', false)).toBe('Salt &amp; <b>pepper</b>');
+            // The SEO tab's words are plain whatever the area is; an emptied tag is no words.
+            expect(words({ ...text('en', 'intro', '<b></b>'), seo: { en: { description: { value: 'A &amp; B' } } } }, { ...EN_LIST, rich: { title: true, intro: true } }))
+                .toMatchObject({ intro: undefined, seoDescription: 'A &amp; B' });
+        });
+
+        it('knows from the template which of its two areas are rich, never one inside or over a loop', () => {
+            const rich = (html: string) => {
+                const out = app.listRichAreas(html);
+                expect(published.listRichAreas(html)).toEqual(out);
+                return out;
+            };
+            expect(rich('<h1>None</h1>')).toEqual({ title: false, intro: false });
+            expect(rich('<div data-arc-loop="items"><p data-arc-edit="title" data-arc-edit-kind="rich">x</p></div><h1 data-arc-edit="title">T</h1><p data-arc-edit="intro" data-arc-edit-kind="rich">I</p>'))
+                .toEqual({ title: false, intro: true });
+            expect(rich('<div data-arc-edit="intro" data-arc-edit-kind="rich"><i data-arc-loop="items"></i></div>')).toEqual({ title: false, intro: false });
         });
     });
 });

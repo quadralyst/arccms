@@ -24,7 +24,7 @@ import { IContentTranslation, mergeTranslation } from '../admin/contents/draft-c
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { siteTemplateUrl } from '../../core/site/site';
 import { ArcZones } from '../../core/time/arc-zones.service';
-import { type PageCardNote, CardDraft, cardsWithDraft, cardsWithDrafts, PageCardDrafts } from './card-draft';
+import { CardDraft, cardsWithDraft, cardsWithDrafts, markPageCards, PageCardDrafts } from './card-draft';
 
 /** The most entries a card block shows, as when published (functions/src/pages/card-blocks.ts). */
 export const MAX_CARD_BLOCK_COUNT = 50;
@@ -431,7 +431,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
 
         if (this.pageEditing && !this.inChrome() && isPlatformBrowser(this.platformId)) {
             const page = untracked(() => this.pageShown());
-            if (page) setTimeout(() => this.markPageCards(page.cards, page.leaving, page.changedIds, page.tookLastPlace, page.notes), 0);
+            if (page) setTimeout(() => markPageCards(this.host.nativeElement as HTMLElement, this.contentType(), page), 0);
         }
 
         // The page's scripts do not run on the Visual Editor (VE-D55).
@@ -451,34 +451,6 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         if (draftIndex < 0) return;
         const card = host.querySelector(`[data-arc-field="items"][data-arc-row="${draftIndex}"]`);
         card?.setAttribute('data-arc-draft', tookLastPlace ? 'last' : '');
-    }
-
-    /**
-     * Marks each card on a page's Visual Editor (VE-D54) with its entry
-     * (`data-arc-card-id`, `data-arc-card-type`), a card with unpublished changes
-     * (`data-arc-changed`), the card being edited when it took the last place
-     * (`data-arc-draft="last"`, as VE2) and one Publish
-     * would push out (`data-arc-leaving`), for the screen's card bar.
-     */
-    private markPageCards(cards: IContents[], leaving: IContents[], changed: Set<string>, tookLastPlace: boolean, notes: Readonly<Record<string, PageCardNote>> = {}): void {
-        const host = this.host.nativeElement as HTMLElement;
-        const type = this.contentType();
-        [...cards, ...leaving].forEach((entry, index) => {
-            const card = host.querySelector(`[data-arc-field="items"][data-arc-row="${index}"]`);
-            if (!card) return;
-            card.setAttribute('data-arc-card-id', entry.id);
-            card.setAttribute('data-arc-card-type', type);
-            card.toggleAttribute('data-arc-leaving', index >= cards.length);
-            const note = notes[entry.id];
-            // Only this person's own changes on the page are Publish's to take (VE-D72).
-            card.toggleAttribute('data-arc-changed', changed.has(entry.id) && !note);
-            card.toggleAttribute('data-arc-theirs', !!note?.theirs);
-            card.toggleAttribute('data-arc-elsewhere', !!note?.elsewhere);
-            if (note?.held) card.setAttribute('data-arc-held', note.held);
-            else card.removeAttribute('data-arc-held');
-            if (tookLastPlace && index === cards.length - 1) card.setAttribute('data-arc-draft', 'last');
-            else card.removeAttribute('data-arc-draft');
-        });
     }
 
     /** Runs the template's script tags, which [innerHTML] leaves inert. */

@@ -16,7 +16,7 @@ import { NotifyService } from '../../../../shared/services/notify.service';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 import { CreateContentComponent, type PageModeHooks } from '../contents/create-content/create-content.component';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
-import type { ContentType } from '../contents/content-types/content-types.model';
+import { contentTypeSingularName, type ContentType } from '../contents/content-types/content-types.model';
 import { PageCardActions, cardHasReplace, cardProblem, type CardRef } from './page-card-actions';
 import type { EditState } from '../edit/edit-state';
 import { EditStateComponent } from '../edit/page-status.component';
@@ -26,6 +26,7 @@ import { HoldBarComponent } from '../hold/hold-bar.component';
 import type { ReviewCard } from '../hold/review-changes-dialog.component';
 import { PageReview } from './page-review';
 import { pageValuesHaveReplace } from './page-text-editor.model';
+import { classicEditorLink, pagePreviewPath, pageRefFrom, type PageRef } from './page-ref';
 export { pageValuesHaveReplace };
 import { isPageChange, type PageCardsMessage } from './page-cards';
 import MediaManagerComponent from '../(media)/media.page';
@@ -40,6 +41,8 @@ import type { AreaView } from './page-text-editor.model';
 
 /** How long the screen waits for the frame to draw the page. */
 const DRAW_WAIT_MS = 20_000;
+/** How long a drawn list page waits for its cards to be marked, so the outlines find them. */
+const CARDS_DRAW_WAIT_MS = 5_000;
 /** How long the screen waits for a card's form to load the card. */
 const CARD_WAIT_MS = 10_000;
 /** About how wide the card bar is at most, so it never runs off the left edge. */
@@ -63,26 +66,38 @@ export function siteAddressOpenedFrom(referrer: string, origin: string): string 
     if (!referrer || !origin) return '';
     try {
         const url = new URL(referrer);
-        if (url.origin !== origin || url.pathname === '/admin' || url.pathname.startsWith('/admin/')) return '';
+        if (url.origin !== origin || url.pathname.startsWith('//') || url.pathname === '/admin' || url.pathname.startsWith('/admin/')) return '';
         return url.pathname + url.search;
     } catch {
         return '';
     }
 }
 
-/** The page's preview address, in the language on screen (a static page has the default language only). */
-function pagePreviewAddress(name: string, lang: string, defaultLang: string): string {
-    if (name) return `/admin/preview-page/p/${encodeURIComponent(name)}`;
-    return `/admin/preview-page/home${lang && lang !== defaultLang ? `/${encodeURIComponent(lang)}` : ''}`;
-}
-
-export function pageEditFrameUrl(name: string, lang: string, defaultLang: string): string {
-    return `${pagePreviewAddress(name, lang, defaultLang)}?edit=1`;
+/** The Visual Editor's frame: the page's preview, to be edited. */
+export function pageEditFrameUrl(page: PageRef, lang: string, defaultLang: string): string {
+    return `${pagePreviewPath(page, lang, defaultLang)}?edit=1`;
 }
 
 /** Live Preview from the Visual Editor: the page with its draft and the changed cards, as the one Publish would put them out. */
-export function pageLivePreviewUrl(name: string, lang: string, defaultLang: string): string {
-    return `${pagePreviewAddress(name, lang, defaultLang)}?cards=1`;
+export function pageLivePreviewUrl(page: PageRef, lang: string, defaultLang: string): string {
+    return `${pagePreviewPath(page, lang, defaultLang)}?cards=1`;
+}
+
+/** The list page's own nodes were drawn again, not an area's words changed or a card marked. */
+export function listReplaced(record: MutationRecord): boolean {
+    if (record.type !== 'childList') return false;
+    if ((record.target as Element).hasAttribute?.('data-arc-list-drawn')) return true;
+    return Array.from(record.addedNodes).some((node) => {
+        const el = node as Element;
+        return !!el.matches?.('[data-arc-list-drawn]') || !!el.querySelector?.('[data-arc-list-drawn]');
+    });
+}
+
+/** A list page is drawn: its template is, and its cards are marked as entries (VE-D66); with none, or after a wait, its template alone. */
+export function listDrawn(doc: Document, waited = false): boolean {
+    const list = doc.querySelector('[data-arc-list-drawn]');
+    if (!list) return false;
+    return waited || !list.querySelector('[data-arc-field="items"]') || !!list.querySelector('[data-arc-card-id]');
 }
 
 /** A card on the page, as the screen reads it from the frame's marks (VE-D54). */
@@ -141,8 +156,8 @@ interface Box {
 }
 
 /**
- * The Visual Editor for the home page or a static page
- * (specs/visual-editing-spec.md, VE-D49, VE-D50, VE-D55): the page as the site
+ * The Visual Editor for the home page, a static page or a list page
+ * (specs/visual-editing-spec.md, VE-D49, VE-D50, VE-D55, VE-D58): the page as the site
  * draws it in a frame, its marked areas changed where they are, under the same
  * strip as an entry's Visual Editor, with the page's panel as Page settings. It is
  * the same draft as the classic editor's, and every change saves on its own.
@@ -196,6 +211,11 @@ interface Box {
                 [title]="'admin.preview.phone' | transloco" [attr.aria-label]="'admin.preview.phone' | transloco"><i class="bi bi-phone" aria-hidden="true"></i></button>
         </span>
         <!-- The page in its own window, updating with each save, the changed cards included, as on an entry's strip. -->
+        @if (data.isList) {
+        <!-- A new entry of the type starts on its own page (VE-D62). -->
+        <button type="button" class="arc-ed-btn" (click)="addEntry()" [disabled]="!!data.loadError()" data-testid="page-edit-add-entry">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'admin.contents.list.add_item' | transloco: { type: singularTitle() } }}</button>
+        }
         <button type="button" class="arc-ed-btn" (click)="openPreview()" [disabled]="!panelRef()" [title]="'admin.contents.editor.preview_title' | transloco" data-testid="page-edit-preview">
             <i class="fa-regular fa-eye" aria-hidden="true"></i> {{ 'admin.contents.editor.preview' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="toClassic()" [title]="'admin.edit_page.form_title' | transloco" data-testid="page-edit-classic">{{ 'admin.edit_page.form' | transloco }}</button>
@@ -222,7 +242,7 @@ interface Box {
         <iframe #frame class="arc-ed-frame" [class.arc-ed-phone]="phone()" [src]="url" [title]="'admin.edit_page.frame' | transloco"
             (load)="onFrameLoad()" data-testid="page-edit-frame"></iframe>
         }
-        @if (!drawn()) {
+        @if (!drawn() && !data.loadError()) {
         <p class="arc-ed-loading" role="status">{{ 'admin.edit_page.loading' | transloco }}</p>
         }
         <aside id="arc-ed-panel" class="arc-ed-panel" #panelBox [class.arc-ed-dragging]="panel.dragging()" [style.transform]="panel.transform()"
@@ -256,7 +276,7 @@ interface Box {
                 }
                 <div class="page-text-panel-box" [hidden]="!!card()">
                 @if (data.session; as session) {
-                <arc-page-text-panel #panelRef [session]="session" [lang]="data.lang()" [defaultLang]="data.defaultLang()" [seo]="data.seo()"
+                <arc-page-text-panel #panelRef [session]="session" [lang]="data.lang()" [defaultLang]="data.defaultLang()" [seo]="data.seo()" [basics]="data.basics()"
                     [busy]="saving() > 0" [failed]="!!saveError()" [url]="data.url()" [beforePublish]="beforePublish" [publishWith]="publishWith" [extraChanges]="changedCards().length"
                     [locked]="!!data.heldBy()" (review)="review()" />
                 }
@@ -362,7 +382,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     private actions = inject(PageCardActions);
     private t = injectT();
 
-    readonly data = new PageEditorData(inject(Injector), this.route.snapshot.paramMap.get('name') || '');
+    readonly data = new PageEditorData(inject(Injector), pageRefFrom(this.route.snapshot.paramMap));
     readonly panel = new PagePanel();
     readonly phone = signal(false);
     /** The top bar's switch: every part that can be changed outlined, as this person left it. */
@@ -422,7 +442,10 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     private spotEl: HTMLElement | null = null;
     private drawTimer: ReturnType<typeof setTimeout> | null = null;
 
-    readonly pageTitle = computed(() => (this.data.isHome ? this.t('admin.more_pages.home_page') : this.data.fileTitle()));
+    readonly pageTitle = computed(() => {
+        if (this.data.isHome) return this.t('admin.more_pages.home_page');
+        return this.data.isList ? this.t('admin.more_pages.list_page', { type: this.data.fileTitle() }) : this.data.fileTitle();
+    });
     /** The panel says it, the same there and on the strip (VE-D70); until it is there the page is opening. */
     readonly status = computed<EditState>(() => {
         if (this.saveError() || this.data.session?.error()) return 'not_saved';
@@ -430,7 +453,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     });
     readonly frameUrl = computed<SafeResourceUrl | null>(() => {
         if (!isPlatformBrowser(this.platformId) || this.data.loading() || this.data.loadError()) return null;
-        return this.sanitizer.bypassSecurityTrustResourceUrl(pageEditFrameUrl(this.data.name, this.data.lang(), this.data.defaultLang()));
+        return this.sanitizer.bypassSecurityTrustResourceUrl(pageEditFrameUrl(this.data.page, this.data.lang(), this.data.defaultLang()));
     });
     private readonly views = computed(() => this.data.sections().flatMap((section) => section.areas));
 
@@ -438,7 +461,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         // Every save, the screen's own or another editor's, shows on the page (VE-D52).
         effect(() => {
             const views = this.views();
-            if (this.drawn()) this.inPlace?.patch(views);
+            if (this.drawn()) untracked(() => this.patchPage(views));
         });
         // Someone else's page is drawn with the cards they changed on it, and its own areas only looked at (VE-D72, VE-D79).
         effect(() => {
@@ -466,6 +489,12 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         if (isPlatformBrowser(this.platformId) && view?.history?.state?.navigationId === 1) {
             this.openedFrom = siteAddressOpenedFrom(this.document.referrer, view.location.origin);
         }
+        const state = view?.history?.state;
+        // Back from the classic editor: where this editor was first opened.
+        if (view && !this.openedFrom && typeof state?.arcOpenedFrom === 'string') {
+            this.openedFrom = siteAddressOpenedFrom(`${view.location.origin}${state.arcOpenedFrom}`, view.location.origin);
+        }
+        this.openedFromEntries = this.data.isList && state?.arcFrom === 'entries';
         void this.data.load();
         // The card forms need every type, as the entries list loads them.
         if (isPlatformBrowser(this.platformId) && !this.typesStore.items().length) this.typesStore.getAll();
@@ -511,10 +540,10 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         const started = Date.now();
         const wait = () => {
             // The page is drawn when its marks (or, with none, its body) are there.
-            const ready = !!doc.querySelector('[data-arc-edit]') || (doc.body?.innerText.trim().length ?? 0) > 0;
+            const ready = this.data.isList ? listDrawn(doc, Date.now() - started > CARDS_DRAW_WAIT_MS) : !!doc.querySelector('[data-arc-edit]') || (doc.body?.innerText.trim().length ?? 0) > 0;
             if (ready || Date.now() - started > DRAW_WAIT_MS) {
                 this.drawn.set(true);
-                this.inPlace?.patch(this.views());
+                this.patchPage(this.views());
                 this.watchCards(doc);
                 // The page opens showing what can be changed on it, once.
                 if (!this.revealedOnce) {
@@ -616,14 +645,22 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
 
     // ── Saving (VE-D52) ────────────────────────────────────────────────────
 
-    private async run(save: () => Promise<void>): Promise<void> {
+    /** Words typed on the page and not stored, by language and area: until their save lands, and after one failed. */
+    private readonly unsavedWords = new Map<string, string>();
+
+    private async run(save: () => Promise<void>, words?: { id: string; value: string }): Promise<void> {
         this.saving.update((n) => n + 1);
+        if (words) this.unsavedWords.set(words.id, words.value);
+        const stored = () => {
+            if (words && this.unsavedWords.get(words.id) === words.value) this.unsavedWords.delete(words.id);
+        };
         try {
             await save();
+            stored();
             this.saveError.set('');
         } catch (error: any) {
             // Someone else made the first change: the bar says who, and the page shows theirs.
-            if (isHeld(error)) return;
+            if (isHeld(error)) return stored();
             console.error('[PageEdit] Could not save:', error);
             this.saveError.set(error?.message || String(error));
         } finally {
@@ -643,7 +680,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
                 fileText: view.fileWords,
                 ...(lang !== this.data.defaultLang() ? { sourceText: view.defaultWords } : {}),
             });
-        });
+        }, { id: `${lang}:${view.area.key}`, value: trimmed });
     }
 
     addressChanged(view: AreaView, value: string): void {
@@ -751,7 +788,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
      * either editor brings the same one forward.
      */
     openPreview(): void {
-        const win = this.document.defaultView?.open(pageLivePreviewUrl(this.data.name, this.data.lang(), this.data.defaultLang()), `arc-page-preview-${this.data.pageId}`);
+        const win = this.document.defaultView?.open(pageLivePreviewUrl(this.data.page, this.data.lang(), this.data.defaultLang()), `arc-page-preview-${this.data.pageId}`);
         win?.focus();
     }
 
@@ -759,11 +796,18 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     async toClassic(): Promise<void> {
         this.leaveSpot();
         if (!(await this.saveCard())) return;
-        void this.router.navigate(this.data.isHome ? ['/admin/more-pages/home'] : ['/admin/more-pages/p', this.data.name]);
+        // Where this editor was opened from goes along, for its Close once it is opened from there.
+        const from = {
+            ...(this.openedFromEntries ? { arcFrom: 'entries' } : {}),
+            ...(this.openedFrom ? { arcOpenedFrom: this.openedFrom } : {}),
+        };
+        void this.router.navigate(classicEditorLink(this.data.page), ...(Object.keys(from).length ? [{ state: from }] : []));
     }
 
     /** Where the editor was opened from when that was the site's own page (the admin bar's Edit link), else ''. */
     private openedFrom = '';
+    /** A list page's editor opened from its type's entries: Close goes back to them. */
+    private openedFromEntries = false;
 
     /** Close goes back to where the editor was opened: the page on the site, else More Pages. */
     async close(): Promise<void> {
@@ -773,7 +817,20 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             this.document.defaultView?.location.assign(this.openedFrom);
             return;
         }
-        void this.router.navigate(['/admin/more-pages']);
+        void this.router.navigate(this.openedFromEntries ? ['/admin/contents', this.data.name] : ['/admin/more-pages']);
+    }
+
+    /** Add new (VE-D62): the open card and the words saved first. */
+    async addEntry(): Promise<void> {
+        this.leaveSpot();
+        if (!(await this.saveCard())) return;
+        void this.router.navigate(['/admin/edit', this.data.name, 'new']);
+    }
+
+    /** The list page's type, one entry of it. */
+    singularTitle(): string {
+        const type = this.typeOf(this.data.name);
+        return (type && contentTypeSingularName(type)) || this.data.fileTitle();
     }
 
     /**
@@ -889,6 +946,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     /** Follows the cards the frame marks, as they are drawn again. */
     private watchCards(doc: Document): void {
         this.cardsObserver?.disconnect();
+        let replaced = false;
         const scan = () => {
             this.scanTimer = null;
             if (this.frameDoc !== doc) return;
@@ -897,16 +955,43 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             // Said again as cards are drawn: the first may come before the frame listens.
             this.post({ arcPageCards: 'shows', uid: this.data.heldBy()?.by ?? null });
             this.decorateCards();
+            // A list page's cards and areas are one template: drawing the cards draws the areas too.
+            if (replaced && this.redrawn(doc)) replaced = false;
         };
         const view = doc.defaultView as (Window & typeof globalThis) | null;
         if (!view?.MutationObserver || !doc.body) return;
-        this.cardsObserver = new view.MutationObserver(() => {
+        this.cardsObserver = new view.MutationObserver((records) => {
+            if (this.data.isList && records?.some(listReplaced)) replaced = true;
             if (!this.scanTimer) this.scanTimer = setTimeout(scan, 120);
         });
         this.cardsObserver.observe(doc.body, {
             childList: true, subtree: true, attributes: true, attributeFilter: ['data-arc-card-id', 'data-arc-changed', 'data-arc-leaving', 'data-arc-held', 'data-arc-elsewhere', 'data-arc-theirs'],
         });
         scan();
+    }
+
+    /** The areas drawn again with the list's cards: their values put back, and the open box kept by its area. */
+    private redrawn(doc: Document): boolean {
+        // Not while another language is being drawn: its values are not this page's.
+        const at = doc.location;
+        if (!this.drawn() || `${at?.pathname}${at?.search}` !== pageEditFrameUrl(this.data.page, this.data.lang(), this.data.defaultLang())) return false;
+        this.patchPage(this.views());
+        const box = this.box();
+        if (!box || box.el.isConnected) return true;
+        const el = doc.querySelector<HTMLElement>(`[data-arc-edit="${cssEscape(box.view.area.key)}"]`);
+        if (el) this.box.set({ ...box, el, ...this.boxPlace(el) });
+        else this.closeBox();
+        return true;
+    }
+
+    /** Puts the areas' values on the page; words not saved (on their way, or refused by a failure) stay as they were typed. */
+    private patchPage(views: AreaView[]): void {
+        const lang = this.data.lang();
+        const unsaved = this.data.heldBy() ? null : this.unsavedWords;
+        this.inPlace?.patch(!unsaved?.size ? views : views.map((view) => {
+            const typed = unsaved.get(`${lang}:${view.area.key}`);
+            return typed === undefined ? view : { ...view, words: typed };
+        }));
     }
 
     /** The note on a card (Publish would push it out, or it is not this person's to publish here), and the outline on the open card. */
@@ -1051,7 +1136,8 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         const el = this.frameDoc?.querySelector<HTMLElement>(`[data-arc-edit="${cssEscape(key)}"]`);
         if (!el || key === change.field) {
             this.panel.setOpen(true);
-            this.panelRef()?.showTab('basic');
+            // A list page's own search words are in SEO; its title and summary in Basic (VE-D69).
+            this.panelRef()?.showTab(this.data.isList && change.field.startsWith('seo:') ? 'seo' : 'basic');
             return;
         }
         el.scrollIntoView?.({ block: 'center' });
@@ -1211,7 +1297,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         const leaving = el.hasAttribute('data-arc-leaving');
         let move: CardBar['move'] = null;
         if (type?.entryOrder === 'manual' && !leaving) {
-            const block = el.closest('arc-content-partials');
+            const block = el.closest('arc-content-partials, arc-content-list');
             const inBlock = Array.from(block?.querySelectorAll<HTMLElement>('[data-arc-card-id]:not([data-arc-leaving])') ?? []).filter((card) => cardOf(card));
             const at = inBlock.indexOf(el);
             const before = inBlock[at - 1] ?? null;

@@ -142,6 +142,15 @@
                 ]
             },
             {
+                "regex": "^/admin(/.*)?$",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache"
+                    }
+                ]
+            },
+            {
                 "source": "/_arc/**",
                 "headers": [
                     {

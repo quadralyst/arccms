@@ -281,8 +281,8 @@ export class PageInPlace {
         const view = current.view!;
         const value = typedValue(view, current.el);
         const before = view.words || '';
-        // Unchanged: as saved, or still the words shown from the file (or a translation).
-        if (value === before || (!before && value === typedValue(view, this.fallbackElement(view)))) return;
+        // Unchanged: as saved (however it was written there), or still the words shown from the file (or a translation).
+        if (value === before || (view.area.kind === 'rich' && before && this.asDrawn(current.el, value) === this.asDrawn(current.el, sanitizeRichText(before))) || (!before && value === typedValue(view, this.fallbackElement(view)))) return;
         this.host.saveWords(view, value);
     }
 
@@ -292,9 +292,17 @@ export class PageInPlace {
         if (current) current.el.innerHTML = current.before;
     }
 
+    /** HTML as it reads back from an element of the page once put in it: `&#39;` is `'` there. In a document where nothing loads or runs. */
+    private asDrawn(el: HTMLElement, html: string): string {
+        const copy = this.doc.implementation.createHTMLDocument('').createElement(el.tagName);
+        copy.innerHTML = html;
+        return copy.innerHTML;
+    }
+
     /** An element holding the words shown when nothing is saved, to compare what was typed with. */
     private fallbackElement(view: AreaView): HTMLElement {
-        const el = this.doc.createElement('div');
+        // In a document of its own, where nothing loads or runs: a list page's file text holds its type's description.
+        const el = this.doc.implementation.createHTMLDocument('').createElement('div');
         // The file's own words are trusted; saved words go through the allow-list.
         if (view.area.kind === 'rich') el.innerHTML = view.wordsFallback === view.area.fileText ? view.area.fileText : sanitizeRichText(view.wordsFallback);
         else el.textContent = view.wordsFallback;
@@ -310,7 +318,9 @@ export class PageInPlace {
             const fixed = !offered.has(el.getAttribute('data-arc-edit') || '');
             if (el.hasAttribute('data-arc-fixed') !== fixed) el.toggleAttribute('data-arc-fixed', fixed);
         }
+        const typing = this.current?.view?.area.key;
         for (const view of views) {
+            if (view.area.key === typing) continue;
             for (const el of Array.from(this.doc.querySelectorAll<HTMLElement>(`[data-arc-edit="${cssEscape(view.area.key)}"]`))) {
                 if (el === this.current?.el) continue;
                 this.patchOne(view, el);
@@ -328,7 +338,7 @@ export class PageInPlace {
             case 'rich': {
                 // The file's own HTML is the developer's; anything saved goes through the allow-list.
                 const html = view.words ? sanitizeRichText(view.words) : view.wordsFallback === view.area.fileText ? view.area.fileText : sanitizeRichText(view.wordsFallback);
-                if (el.innerHTML !== html) el.innerHTML = html;
+                if (el.innerHTML !== this.asDrawn(el, html)) el.innerHTML = html;
                 break;
             }
             case 'link':

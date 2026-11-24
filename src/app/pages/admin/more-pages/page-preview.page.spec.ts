@@ -9,6 +9,7 @@ import PagePreviewPage from './page-preview.page';
 import { PageCardDrafts } from '../../page.parts/card-draft';
 import { PageCardsSource } from './page-cards';
 import HomeComponent from '../../index.page';
+import { ContentListComponent } from '../../page.parts/content-list.component';
 import { PublicPageRendererComponent } from '../../public-page-renderer/public-page-renderer.component';
 
 let drawn = 0;
@@ -18,7 +19,27 @@ class FakeHome {
     constructor() { drawn++; }
 }
 
+@Component({ selector: 'arc-content-list', standalone: true, template: 'The list' })
+class FakeList {}
+
 describe('PagePreviewPage', () => {
+    it('draws a type\'s list page, by the parameter its renderer reads (VE-D65)', () => {
+        const session = { draft: signal<any>(null), loaded: signal(true), open: vi.fn(), close: vi.fn() };
+        const sessionFor = vi.fn(() => session);
+        TestBed.configureTestingModule({
+            imports: [PagePreviewPage],
+            providers: [
+                { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (key: string) => (key === 'contentTypeSlug' ? 'articles' : null) } } } },
+                { provide: PageTextService, useValue: { session: sessionFor } },
+            ],
+        });
+        TestBed.overrideComponent(PagePreviewPage, { remove: { imports: [HomeComponent, PublicPageRendererComponent, ContentListComponent] }, add: { imports: [FakeHome, FakeList] } });
+        const fixture = TestBed.createComponent(PagePreviewPage);
+        fixture.detectChanges();
+        expect(sessionFor).toHaveBeenCalledWith('list-articles');
+        expect(fixture.nativeElement.textContent).toContain('The list');
+    });
+
     it('draws the page with the draft, and again after each save', async () => {
         const draft = signal<any>(null);
         const loaded = signal(false);
@@ -31,7 +52,7 @@ describe('PagePreviewPage', () => {
                 { provide: PageTextService, useValue: { session: sessionFor } },
             ],
         });
-        TestBed.overrideComponent(PagePreviewPage, { remove: { imports: [HomeComponent, PublicPageRendererComponent] }, add: { imports: [FakeHome] } });
+        TestBed.overrideComponent(PagePreviewPage, { remove: { imports: [HomeComponent, PublicPageRendererComponent, ContentListComponent] }, add: { imports: [FakeHome, FakeList] } });
         const fixture = TestBed.createComponent(PagePreviewPage);
         fixture.detectChanges();
         expect(sessionFor).toHaveBeenCalledWith('home');
@@ -64,7 +85,7 @@ describe('PagePreviewPage', () => {
                     { provide: PageTextService, useValue: { session: () => session } },
                 ],
             });
-            TestBed.overrideComponent(PagePreviewPage, { remove: { imports: [HomeComponent, PublicPageRendererComponent] }, add: { imports: [FakeHome] } });
+            TestBed.overrideComponent(PagePreviewPage, { remove: { imports: [HomeComponent, PublicPageRendererComponent, ContentListComponent] }, add: { imports: [FakeHome, FakeList] } });
             TestBed.overrideProvider(PageCardsSource, { useValue: Object.assign(Object.create(PageCardDrafts.prototype), { editing: true, start: vi.fn(), watch: vi.fn(), cardsOf: () => null }) });
             const fixture = TestBed.createComponent(PagePreviewPage);
             const drafts = fixture.debugElement.injector.get(PageCardDrafts, null);

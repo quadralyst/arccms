@@ -6,11 +6,14 @@ import { siteManifest, sitePageUrl } from '../../../core/site/site';
 import { PageTextService, pageHeldByOther, type PageTextSession, type PublishedPageText } from '../../../core/site/page-text.service';
 import { SiteIdentityService } from '../../../core/services/site-identity.service';
 import { HoldService } from '../../../core/editing/hold.service';
-import { pageTextId } from '../../../core/utils/page-text-model';
 import { readPageFile, type PageFile } from '../../../core/utils/page-text-areas';
+import { SitePagesService } from '../../../core/site/site-pages.service';
+import { siteInfoOf } from '../../../core/site/site-info-source';
 import { MorePagesService, type CardTypeInfo } from './more-pages.service';
+import { pageIdOf, type PageRef } from './page-ref';
 import {
-    goneKeys, sectionViews, seoView, type EditorContext, type GoneKey, type SectionView, type SeoView,
+    LIST_PAGE_KEYS, goneKeys, listBasics, listSeoView, sectionViews, seoView,
+    type EditorContext, type GoneKey, type ListBasics, type ListWords, type SectionView, type SeoView,
 } from './page-text-editor.model';
 
 export interface PageLanguage {
@@ -26,9 +29,11 @@ export interface PageLanguage {
  * views of one draft.
  */
 export class PageEditorData {
-    /** `''` for the home page, else the static page's name. */
+    readonly page: PageRef;
+    /** `''` for the home page, else the static page's name or the list page's content type. */
     readonly name: string;
     readonly isHome: boolean;
+    readonly isList: boolean;
     readonly pageId: string;
 
     readonly loading = signal(true);
@@ -40,6 +45,10 @@ export class PageEditorData {
     readonly ownFiles = signal<Record<string, boolean>>({});
     private readonly strings = signal<Record<string, Record<string, string>>>({});
     readonly cardTypes = signal<Map<string, CardTypeInfo>>(new Map());
+    /** A list page: what its type says in each language (VE-D60). */
+    private readonly listWords = signal<Record<string, NonNullable<EditorContext['list']>>>({});
+    /** A list page: its type's name. */
+    private readonly typeName = signal('');
 
     /** The draft's session, once the files are read: a signal, so what reads the draft follows it. */
     private readonly sessionRef = signal<PageTextSession | null>(null);
@@ -65,7 +74,11 @@ export class PageEditorData {
         const defaultFile = files[defaultLang];
         if (!file || !defaultFile) return null;
         const ownFile = lang === defaultLang || !!this.ownFiles()[lang];
-        return { lang, defaultLang, ownFile, file, defaultFile, strings: ownFile ? {} : this.strings()[lang] ?? {}, draft: this.draft() };
+        const list = this.isList ? this.listWords()[lang] ?? this.listWords()[defaultLang] : undefined;
+        return {
+            lang, defaultLang, ownFile, file, defaultFile, strings: ownFile ? {} : this.strings()[lang] ?? {}, draft: this.draft(),
+            ...(list ? { list } : {}),
+        };
     });
     readonly sections = computed<SectionView[]>(() => {
         const ctx = this.context();
@@ -73,24 +86,36 @@ export class PageEditorData {
     });
     readonly seo = computed<SeoView | null>(() => {
         const ctx = this.context();
-        return ctx ? seoView(ctx) : null;
+        if (!ctx) return null;
+        return this.isList ? listSeoView(ctx) : seoView(ctx);
     });
-    readonly gone = computed<GoneKey[]>(() => goneKeys(this.draft(), Object.values(this.files()), this.defaultLang()));
+    /** A list page's Title and Summary (VE-D60); null for the other pages, whose panel edits their SEO words. */
+    readonly basics = computed<ListBasics | null>(() => {
+        const ctx = this.context();
+        return ctx ? listBasics(ctx) : null;
+    });
+    readonly gone = computed<GoneKey[]>(() => goneKeys(this.draft(), Object.values(this.files()), this.defaultLang(), this.isList ? LIST_PAGE_KEYS : []));
     /** The site's public address with no slash at its end; the admin's own until it is read. */
     private readonly origin = signal(typeof window === 'undefined' ? '' : window.location.origin);
     /** The page's public address in the language chosen (VE-D74). */
     readonly url = computed(() => {
         const prefix = this.lang() && this.lang() !== this.defaultLang() ? `/${this.lang()}` : '';
+        if (this.isList) return `${this.origin()}${prefix}/${this.name}`;
         return this.isHome ? `${this.origin()}${prefix}/` : `${this.origin()}/p/${this.name}`;
     });
     readonly isDefaultLang = computed(() => this.lang() === this.defaultLang());
-    /** The static page's title from its file, else its name; '' for the home page. */
-    readonly fileTitle = computed(() => (this.isHome ? '' : this.files()[this.defaultLang()]?.title || this.name));
+    /** The static page's title from its file, else its name; a list page's type; '' for the home page. */
+    readonly fileTitle = computed(() => {
+        if (this.isHome) return '';
+        return (this.isList ? this.typeName() : this.files()[this.defaultLang()]?.title) || this.name;
+    });
 
-    constructor(private injector: Injector, name: string) {
-        this.name = name;
-        this.isHome = !name;
-        this.pageId = this.isHome ? pageTextId.home() : pageTextId.staticPage(name);
+    constructor(private injector: Injector, page: PageRef) {
+        this.page = page;
+        this.name = page.name;
+        this.isHome = page.kind === 'home';
+        this.isList = page.kind === 'list';
+        this.pageId = pageIdOf(page);
     }
 
     /** Reads the languages, files and strings, and opens the draft. */
@@ -99,7 +124,7 @@ export class PageEditorData {
             const settings = await this.injector.get(LocalizationService).load();
             const defaultLang = settings.defaultLanguage || 'en';
             // Static pages exist in the default language only (VE-D43).
-            const languages = this.isHome
+            const languages = this.isHome || this.isList
                 ? (settings.enabledLanguages || []).map((l: { code: string; label?: string; nativeLabel?: string }) => ({ code: l.code, label: l.nativeLabel || l.label || l.code }))
                 : [];
             const list = languages.length ? languages : [{ code: defaultLang, label: defaultLang }];
@@ -107,7 +132,8 @@ export class PageEditorData {
             this.languages.set(list);
             this.defaultLang.set(defaultLang);
             if (!this.lang() || !list.some((l) => l.code === this.lang())) this.lang.set(defaultLang);
-            await this.loadFiles(list.map((l) => l.code), defaultLang);
+            if (this.isList) await this.loadListFiles(list.map((l) => l.code), defaultLang);
+            else await this.loadFiles(list.map((l) => l.code), defaultLang);
             const session = this.injector.get(PageTextService).session(this.pageId);
             session.published = () => this.published();
             this.stopPublished = this.injector.get(PageTextService).followPublished(this.pageId, (published) => this.published.set(published));
@@ -142,6 +168,45 @@ export class PageEditorData {
         this.files.set(files);
         this.ownFiles.set(own);
         this.strings.set(strings);
+    }
+
+    /**
+     * A list page's file in each language, as the page shows it with nothing edited
+     * (VE-D60, VE-D61): its type's template after its strings and bindings. Only for a
+     * type with public pages, as only those have a list page.
+     */
+    private async loadListFiles(langs: string[], defaultLang: string): Promise<void> {
+        const t = (key: string) => this.injector.get(TranslocoService).translate(key);
+        const morePages = this.injector.get(MorePagesService);
+        const type = (await morePages.contentTypes()).find((each) => each.slug === this.name);
+        if (!type) throw new Error(t('admin.more_pages.editor.no_list_type'));
+        if (type.hasPublicUrl === false) throw new Error(t('admin.more_pages.editor.no_list_page'));
+        const template = await morePages.listTemplate(type.templateFolder);
+        if (!template) throw new Error(t('admin.more_pages.editor.no_list_file'));
+        this.typeName.set(type.name || type.slug);
+
+        const uiStrings = this.injector.get(UiStringsService);
+        // Its parser of templates is loaded for a list page only.
+        const [{ listPageFile, listPageNamed }, identity, pages, strings] = await Promise.all([
+            import('../../../core/site/list-page-file'),
+            this.injector.get(SiteIdentityService).load().catch(() => null),
+            this.injector.get(SitePagesService).load().catch(() => []),
+            Promise.all(langs.map(async (lang) => [lang, await uiStrings.load(lang).catch(() => ({}))] as const)),
+        ]);
+        const byLang: Record<string, Record<string, string>> = Object.fromEntries(strings);
+        const files: Record<string, PageFile> = {};
+        for (const lang of langs) {
+            files[lang] = listPageFile({
+                template, type, lang, defaultLang, strings: byLang[lang] ?? {}, siteInfo: siteInfoOf(identity, pages),
+            });
+        }
+        const wordsOf = (lang: string): ListWords => ({ title: files[lang].title, intro: files[lang].description });
+        this.files.set(files);
+        this.ownFiles.set({});
+        this.strings.set(Object.fromEntries(langs.filter((lang) => lang !== defaultLang).map((lang) => [lang, byLang[lang] ?? {}])));
+        this.listWords.set(Object.fromEntries(langs.map((lang) => [lang, {
+            named: listPageNamed(type, lang), words: wordsOf(lang), defaultWords: wordsOf(defaultLang),
+        }])));
     }
 
     /** The Production URL, so a local admin shows the live address, as an entry's. */

@@ -862,6 +862,22 @@ describe('DraftContentsTableComponent', () => {
             expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/contents/articles/add']);
         });
 
+        it('opens the type\'s list page in the Visual Editor, for a type with pages (VE-D65)', () => {
+            component.contentTypeSlug = 'articles';
+            mockContentTypesStore.items.set([{ name: 'Articles', slug: 'articles' }]);
+            fixture.detectChanges();
+            (fixture.nativeElement.querySelector('[data-testid="list-page-button"]') as HTMLButtonElement).click();
+            // Its Close comes back to the entries.
+            expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/edit-page/list', 'articles'], { state: { arcFrom: 'entries' } });
+        });
+
+        it('offers no list page for a type without pages', () => {
+            component.contentTypeSlug = 'articles';
+            mockContentTypesStore.items.set([{ name: 'Articles', slug: 'articles', hasPublicUrl: false }]);
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelector('[data-testid="list-page-button"]')).toBeNull();
+        });
+
         it('offers the Visual Editor on each row of a type with pages', () => {
             component.contentTypeSlug = 'articles';
             mockContentTypesStore.items.set([{ name: 'Articles', slug: 'articles' }]);

@@ -111,6 +111,28 @@ describe('PageInPlace', () => {
         expect(host.saveWords).toHaveBeenCalledWith(views[1], 'New <b>bold</b> wordsalert(1)');
     });
 
+    it('a rich value saved another way than the page writes it: a click in and out saves nothing, and the page is not written again (review M1)', async () => {
+        const saved = 'Tom &amp; Jerry&#39;s &quot;best&quot; <B>bread</B>&lt;3';
+        views = make({ text: { en: { intro: { value: saved } } } });
+        inPlace.patch(views);
+        const node = el('intro').firstChild;
+        const writes = vi.fn();
+        const observer = new MutationObserver(writes);
+        observer.observe(el('intro'), { childList: true, subtree: true, characterData: true });
+        inPlace.patch(views);
+        expect(el('intro').firstChild).toBe(node);
+        click(el('intro'));
+        inPlace.done();
+        await Promise.resolve();
+        observer.disconnect();
+        expect(writes).not.toHaveBeenCalled();
+        expect(host.saveWords).not.toHaveBeenCalled();
+        click(el('intro'));
+        el('intro').innerHTML = 'Other words';
+        inPlace.done();
+        expect(host.saveWords).toHaveBeenCalledWith(expect.anything(), 'Other words');
+    });
+
     it('opens the box for a picture or background, and for a link\'s address beside its words', () => {
         click(el('photo'));
         expect(host.open).toHaveBeenLastCalledWith(views[2], el('photo'));
@@ -157,9 +179,9 @@ describe('PageInPlace', () => {
     });
 
     it('points the frame at the page\'s Live Preview in edit mode', () => {
-        expect(pageEditFrameUrl('', 'en', 'en')).toBe('/admin/preview-page/home?edit=1');
-        expect(pageEditFrameUrl('', 'hi', 'en')).toBe('/admin/preview-page/home/hi?edit=1');
-        expect(pageEditFrameUrl('about-us', 'en', 'en')).toBe('/admin/preview-page/p/about-us?edit=1');
+        expect(pageEditFrameUrl({ kind: 'home', name: '' }, 'en', 'en')).toBe('/admin/preview-page/home?edit=1');
+        expect(pageEditFrameUrl({ kind: 'home', name: '' }, 'hi', 'en')).toBe('/admin/preview-page/home/hi?edit=1');
+        expect(pageEditFrameUrl({ kind: 'static', name: 'about-us' }, 'en', 'en')).toBe('/admin/preview-page/p/about-us?edit=1');
     });
 });
 

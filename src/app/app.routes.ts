@@ -34,9 +34,13 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/admin/preview/content-preview.component').then((m) => m.default),
   },
-  // Live Preview of the home page or a static page (specs/visual-editing-spec.md, VE-D50):
-  // the page drawn with its draft, outside the admin shell like the preview above.
-  ...['admin/preview-page/home', 'admin/preview-page/home/:lang', 'admin/preview-page/p/:fileName'].map((path) => ({
+  // Live Preview of the home page, a static page or a list page (specs/visual-editing-spec.md,
+  // VE-D50, VE-D65): the page drawn with its draft, outside the admin shell like the preview
+  // above. The parameters are named as each page's own renderer reads them.
+  ...[
+    'admin/preview-page/home', 'admin/preview-page/home/:lang', 'admin/preview-page/p/:fileName',
+    'admin/preview-page/list/:contentTypeSlug', 'admin/preview-page/list/:contentTypeSlug/:lang',
+  ].map((path) => ({
     path,
     title: 'Live Preview',
     canActivate: [roleGuard],
@@ -44,9 +48,9 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/admin/more-pages/page-preview.page').then((m) => m.default),
   })),
-  // The Visual Editor for the home page or a static page (specs/visual-editing-spec.md, VE-D49):
-  // full screen like an entry's, outside the admin shell.
-  ...['admin/edit-page/home', 'admin/edit-page/p/:name'].map((path) => ({
+  // The Visual Editor for the home page, a static page or a list page (specs/visual-editing-spec.md,
+  // VE-D49, VE-D58): full screen like an entry's, outside the admin shell.
+  ...['admin/edit-page/home', 'admin/edit-page/p/:name', 'admin/edit-page/list/:type'].map((path) => ({
     path,
     title: 'Visual Editor',
     canActivate: [roleGuard],
@@ -416,10 +420,10 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/contents/[slug]/edit.[contentId].page').then((m) => m.default),
       },
-      // Content, More Pages (specs/visual-editing-spec.md, VE-D48, VE-D49): the home page
-      // and the static pages editors can change, and the classic editor of each. Its own
-      // prefix, so a static page's address can clash neither with contents/:slug nor with
-      // a static page named home.
+      // Content, More Pages (specs/visual-editing-spec.md, VE-D48, VE-D49, VE-D65): the home
+      // page, the list pages and the static pages editors can change, and the classic editor
+      // of each. Its own prefix, so a static page's address can clash neither with
+      // contents/:slug nor with a static page named home.
       {
         path: 'more-pages',
         title: 'More Pages',
@@ -441,6 +445,14 @@ export const routes: Routes = [
         title: 'Edit page',
         canActivate: [roleGuard],
         data: { titleKey: 'admin.titles.edit_static_page', allowedRoles: ['admin'] },
+        loadComponent: () =>
+          import('./pages/admin/more-pages/page-text-editor.page').then((m) => m.default),
+      },
+      {
+        path: 'more-pages/list/:type',
+        title: 'List page',
+        canActivate: [roleGuard],
+        data: { titleKey: 'admin.titles.edit_list_page', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/more-pages/page-text-editor.page').then((m) => m.default),
       },

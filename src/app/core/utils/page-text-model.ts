@@ -170,6 +170,12 @@ export interface ListPageTextOptions {
     strings?: Record<string, string> | null;
     /** Keep the `data-arc-edit*` marks, for the Visual Editor. */
     keepMarks?: boolean;
+    /**
+     * Whether the template marks its heading and its intro as rich text (listRichAreas):
+     * their values are then HTML, which listPageWords reads as plain words. Not given, or
+     * not marked, they are plain words.
+     */
+    rich?: { title: boolean; intro: boolean };
 }
 
 /** A list page's own words, as published: undefined where the type's name or description stands. */
@@ -185,10 +191,14 @@ export interface ListPageWords {
     shareImage: string;
 }
 
-/** Rich text as plain words, for the title, the description and the JSON-LD. */
-function plainWords(value: string): string {
-    if (!/<\/?(b|strong|i|em|br|a)\b[^<>]*>/i.test(value)) return value.trim();
-    return decodeAttr(value.replace(/<\/?(b|strong|i|em|br|a)\b[^<>]*>/gi, (tag) => (/^<br/i.test(tag) ? ' ' : ''))).replace(/\s+/g, ' ').trim();
+/**
+ * A rich area's value as plain words, for the title, the description, the JSON-LD and
+ * a plain field: the words the page shows, without their tags and entities. Only for
+ * a rich area: a plain one's value is words already, and an `&amp;` in it is what was typed.
+ */
+export function richTextWords(value: string): string {
+    const words = sanitizeRichText(value).replace(/<[^<>]*>/g, (tag) => (tag === '<br>' ? ' ' : ''));
+    return decodeAttr(words.replace(/&nbsp;|&#160;/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -199,21 +209,21 @@ function plainWords(value: string): string {
  */
 export function listPageWords(values: PageTextValues | null | undefined, options: ListPageTextOptions): ListPageWords {
     const { lang, defaultLang, named } = options;
-    const pick = (key: string, seo: 'title' | 'description', isNamed: boolean) => {
-        const text = (code: string) => values?.text?.[code]?.[key]?.value;
+    const pick = (key: string, seo: 'title' | 'description', isNamed: boolean, rich: boolean) => {
+        const words = (value: string | undefined) => (typeof value === 'string' && rich ? richTextWords(value) : value);
+        const text = (code: string) => words(values?.text?.[code]?.[key]?.value);
+        // The SEO tab's words are plain, whatever the area is.
         const search = (code: string) => values?.seo?.[code]?.[seo]?.value;
-        const first = (...candidates: Array<string | undefined>) => {
-            const found = candidates.find((value) => typeof value === 'string' && value.trim() !== '');
-            return found === undefined ? undefined : plainWords(found) || undefined;
-        };
+        const first = (...candidates: Array<string | undefined>) =>
+            candidates.find((value) => typeof value === 'string' && value.trim() !== '')?.trim();
         const fallback = lang !== defaultLang && !isNamed;
         return {
             shown: first(text(lang), fallback ? text(defaultLang) : undefined),
             search: first(search(lang), text(lang), fallback ? search(defaultLang) : undefined, fallback ? text(defaultLang) : undefined),
         };
     };
-    const title = pick(LIST_TITLE_KEY, 'title', named.title);
-    const intro = pick(LIST_INTRO_KEY, 'description', named.intro);
+    const title = pick(LIST_TITLE_KEY, 'title', named.title, !!options.rich?.title);
+    const intro = pick(LIST_INTRO_KEY, 'description', named.intro, !!options.rich?.intro);
     return {
         title: title.shown, intro: intro.shown, seoTitle: title.search, seoDescription: intro.search,
         shareImage: safePageTextUrl(values?.shareImage?.value),

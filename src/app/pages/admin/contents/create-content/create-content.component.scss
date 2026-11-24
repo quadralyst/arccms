@@ -1742,4 +1742,17 @@
     .sidebar-content {
         overflow-y: auto;
     }
+
+    // A card's form (VE-D54) fills the panel it is in, which has its own width.
+    &.card-mode {
+        .sidebar-resizer {
+            display: none;
+        }
+
+        .settings-sidebar {
+            flex: 1 1 auto;
+            width: auto;
+            max-width: none;
+        }
+    }
 }

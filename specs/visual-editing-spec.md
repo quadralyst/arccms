@@ -368,8 +368,9 @@ VE-D60, VE-D62 and VE-D63 added the same day after the team's report; step B (on
 VE-D76 to VE-D85) added after that, with VE-D72 changed to fit. Agreed in discussion 2026-11-24 that
 one person holds a page until its changes are published or discarded, and that another person can
 review, publish or take over. Steps A and B and group C (VE6.1, VE6.2) built 2026-11-24 together, see
-the build notes below; merged into `dev` 2026-11-24, not deployed; groups D and E (the list page editors and
-the finish) not built. Built on `feat/visual-editing-ve6`, cut
+the build notes below; merged into `dev` and deployed to the dev project 2026-11-24; groups D and E (the list page editors and
+the finish, VE6.3 to VE6.7) built the same day after that, not yet checked in a browser (VE6.8) or
+reviewed (VE6.9). Built on `feat/visual-editing-ve6`, cut
 from `dev`, in a worktree (`../arccms-visual-editing-ve6`), so the main checkout and its running dev
 server are never switched. Reverses the earlier non-goal "Inline editing of list pages" (VE-D58).
 
@@ -622,11 +623,14 @@ Not checked in a browser on the emulators: the functions themselves, the notific
 list pages with words, Restore of a kept draft, Publish these.
 
 *Low items left:*
-- History does not name both people on Publish these (VE-D80): the queue item carries no name.
+- History does not name both people on Publish these (VE-D80): a queue item has four keys and no name.
+  Looked at again with group E and left: the queue has no safe place for the publisher without a rules
+  change, and the draft's holder alone would name only the one who changed it.
 - A hold and a kept draft keep a person's name after their account is deleted (said in the account
   contract).
-- The media usage check does not look inside `Kept`.
-- A restored kept draft's address is not checked for a clash.
+- The media usage check does not look inside `Kept` (left with group E: it needs a collection group
+  read in `mediaUsage`, a third function to deploy).
+- ~~A restored kept draft's address is not checked for a clash.~~ Done with group E.
 - Staff can write a `Kept` document of a discard by hand; it shows in History and changes nothing.
 - The pages' editors never use the "took over" wording: their bar always says who has unpublished
   changes.
@@ -634,7 +638,7 @@ list pages with words, Restore of a kept draft, Publish these.
 - Focus is lost when the area it is in turns inert.
 - The editor offers no Delete on an entry never published (VE-D83); the entries list does.
 - The amber outlines of VE-D80 are not built (above).
-- The entry's form inside a page's card panel is narrower than the panel (from VE5.7).
+- ~~The entry's form inside a page's card panel is narrower than the panel (from VE5.7).~~ Done with group E.
 - A tab from before the deploy writes no `editing`, so on a held entry it can still change
   `customFields` alone (the `modifiedAt` check remains).
 - If the stamp after a publish fails after its retries, the entry stays held until its next publish or a
@@ -648,7 +652,54 @@ list pages with words, Restore of a kept draft, Publish these.
   the browser title and description only; a home page rebuild and a whole-site republish can still
   cross, as before.
 
+*Groups D and E (VE6.3 to VE6.7).* A page of the page editors is a `PageRef` (`page-ref.ts`: home,
+static, list), which gives its id, its editors and its preview. No rules changed; functions only for
+  the review's `richTextWords` (`processPublishQueue`, `seedStaticPages`).
+- **The file's text is read from the bound page** (`core/site/list-page-file.ts`): the template through
+  `holdListMarks`, the language's strings, the site's details, an empty loop, the type's bindings and
+  `fillListPage` with no values, then `readPageFile`. The strings' keys are read from the template, since
+  the fill removes them. The parser is loaded only when a list page opens. `areaView` knows a list page:
+  an area with a translation, or Title or Summary of a type named in the language, falls back to that
+  text, not to the default language's saved words.
+- **Title and Summary** (`listBasics`) are areas with the keys `title` and `intro`, made up from the
+  type's words when the file marks none, so Basic always edits the same keys and nothing is stored twice.
+  They are never "No longer on the page". The panel takes them as `basics`; without it, it is as before.
+- **The areas and the cards of a list page are one template**, so drawing the cards draws the areas.
+  `ContentListComponent` draws with the draft's words as they are then, waits while words are typed on
+  the page (`data-arc-editing`), and the screen puts the areas' values back after each draw (`redrawn`).
+- **Cards:** `markPageCards` moved to `card-draft.ts` and is shared with the card block. The template's
+  `data-limit` (at most 100) is the list's count there; the Visual Editor cuts the cards itself, so a card
+  Publish pushes out shows after the others.
+- **`data-arc-if` on a marked area is dropped on the Visual Editor** (`showEveryArea`, the app only), so an
+  intro of a type with no description can be typed in; the published page is as before.
+- **Outlines on load** start when the list's cards are marked, or after five seconds, or at once with none
+  (`listDrawn`, VE-D66).
+- **Close** goes to the type's entries when opened from there (history state), else as before. The Visual
+  Editor button on the entries page is in the header; the strip's Add names the type ("Add article").
+- **Published list pages need no new mark:** their `arc-entry` already names the type; `stripLinks` adds
+  the link, so the site has it once the website is deployed (`arc-site.js`).
+- **The critical review's fixes:** whether Title or Summary is HTML is decided by the area's kind
+  (`listRichAreas` on the template, given to `listPageWords` as `rich`), never guessed from the value, so a
+  plain value is never decoded and a rich one always is (`richTextWords`, both copies); Basic shows
+  formatted words read only. The page compares rich words as an element reads them back (`asDrawn`), and
+  the areas are put back only when the list's own nodes were replaced (`listReplaced`), the page is drawn
+  and the frame is at this language; words on their way or refused by a failure stay as typed
+  (`unsavedWords`). The type's name is resolved in the default language too, as published. Live Preview
+  runs the template's scripts after each draw of the cards, so a script that declares a name at its top
+  level (`const x`) runs on the first draw only. Close survives a detour through the classic editor
+  (router state, not stored).
+- **Not changed:** the list row's status says From the file until something is edited. Edit this page on
+  the bar opens the default language, as on the home page.
+
 ---
+
+**Browser check of D and E (2026-11-24),** two accounts and two languages on the emulators with the
+real rules: heading and intro in place and in Basic, `&`, `'` and `<b>` as words, a language of its
+own, More Pages, the classic editor, Discard, a card typed and moved, a card's form at the panel's
+width, view only, Review with the card, Publish these of words and card together, the entries page
+button, a type without pages, the site strip. Not checked: a formatted (rich) heading, leaving cards,
+Live Preview, a template with no marks, the functions themselves. Known: Review drops a literal tag
+from plain words (it shows them as words everywhere else).
 
 ## 3. Risks
 

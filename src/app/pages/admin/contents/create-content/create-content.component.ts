@@ -1258,6 +1258,8 @@ export class CreateContentComponent extends BaseComponent {
   /** Writes language-varying values back into the forms. */
   private applyTranslatableValues(values: TranslatableValues): void {
     this.pageTitle = values.title;
+    this.previousTitle = values.title || '';
+    this.emptiedTogether = false;
     // emitEvent:false: these writes are a language switch, not a user edit,
     // and must not trip the summary to metaDescription sync or auto-save.
     this.publishForm.get('title')?.setValue(values.title, { emitEvent: false });
@@ -1401,6 +1403,8 @@ export class CreateContentComponent extends BaseComponent {
   /** Shows a stored entry in the forms: the default language. */
   private fillForms(contentData: any) {
     this.pageTitle = contentData?.title;
+    this.previousTitle = contentData?.title || '';
+    this.emptiedTogether = false;
     this.coverImage =
       contentData?.coverImage !== '' ? contentData?.coverImage : null;
 
@@ -1658,7 +1662,29 @@ export class CreateContentComponent extends BaseComponent {
     this.session.settleLoad();
   }
 
+  /** The title the SEO title was last compared with. */
+  private previousTitle = '';
+  /** Both were the same words when the title was emptied: typed again, they go on together. */
+  private emptiedTogether = false;
+
+  /**
+   * The SEO title follows the title until someone makes it their own: the same words
+   * as the title was go on as its new ones. Blank, it stays blank (publishing uses
+   * the title then), except on a new entry, where it starts with the title.
+   */
+  private followTitle(): void {
+    const seo = this.seoForm.get('seoTitle');
+    const title = this.pageTitle || '';
+    const was = seo?.value || '';
+    const follows = was ? was === this.previousTitle : this.emptiedTogether || (!this.isTranslating() && this.slugFollowsTitle);
+    this.emptiedTogether = follows && !title && (!!was || this.emptiedTogether);
+    this.previousTitle = title;
+    if (seo && follows && was !== title) seo.setValue(title);
+  }
+
+  /** The title was typed, here or on the page. */
   public createSlag(): void {
+    this.followTitle();
     // A new entry's address follows its title, also once its first input has
     // saved it (4.1), until the address is edited by hand or the entry is
     // published. A stored entry keeps its address.
@@ -1666,8 +1692,6 @@ export class CreateContentComponent extends BaseComponent {
     // The slug is shared across languages (M-D2), so a translated title must
     // never regenerate it.
     if (this.isTranslating()) return;
-
-    this.seoForm.get('seoTitle')?.setValue(this.pageTitle);
 
     // Asked of the server after a pause in typing, not on every key (RF4 review L7).
     if (this.slugTimer) clearTimeout(this.slugTimer);
@@ -2643,9 +2667,11 @@ export class CreateContentComponent extends BaseComponent {
   /** Restores a kept draft (VE-D84), asked by the list. */
   async restoreKept(kept: KeptDraft): Promise<void> {
     try {
-      await this.session.restoreKept(kept);
+      const { addressTaken } = await this.session.restoreKept(kept);
       this.activeTab = 'basic';
-      this.notify.success('admin.hold.kept_restored');
+      // Its old address may have gone to another entry meanwhile (VE-D84).
+      if (addressTaken) this.notify.info('admin.hold.kept_address_taken');
+      else this.notify.success('admin.hold.kept_restored');
     } catch (error) {
       console.error('Error restoring a kept draft:', error);
       this.notify.error('admin.hold.kept_failed');
@@ -2693,6 +2719,9 @@ export class CreateContentComponent extends BaseComponent {
     // Restore title
     if (version.title) {
       this.pageTitle = version.title;
+      // With the version's own SEO title, which comes back below.
+      this.previousTitle = version.title;
+      this.emptiedTogether = false;
     }
 
     // Restore content body

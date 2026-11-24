@@ -23,7 +23,7 @@
 
     <h2>Translate</h2>
     <ol class="steps">
-      <li><p><strong>Content type names.</strong> Edit each type under <strong>Content types</strong> and fill in the language tabs: the plural and singular name, the description and the custom field labels. They appear on the public list page and in headings such as "Back to Articles".</p></li>
+      <li><p><strong>Content type names.</strong> Edit each type under <strong>Content types</strong> and fill in the language tabs: the plural and singular name, the description and the custom field labels. They appear on the public list page, where they win over a heading or intro written in the default language only, and in headings such as "Back to Articles".</p></li>
       <li><p><strong>Items.</strong> In the editor, switch to a language tab and translate. Empty fields fall back to the default language. The URL, cover image, tags and dates are shared by all languages, and <strong>Save as draft</strong> and <strong>Publish</strong> apply to every language at once.</p></li>
       <li><p><strong>Fixed template text</strong>, such as "Read more": mark it in your templates, header and footer with <code>data-arc-t="read_more"</code>, leaving the default wording inside, and add the key to that language's strings file in your site folder, for example <code class="new">src/custom/site/strings/hi.json</code>. Your keys are merged over Arc CMS's (<code>public/_site/strings/hi.json</code>), so write only the keys you add or reword. A missing key shows the default wording.</p></li>
     </ol>

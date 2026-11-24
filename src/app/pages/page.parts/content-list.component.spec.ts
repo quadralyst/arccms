@@ -626,6 +626,15 @@ describe('ContentListComponent', () => {
             expect(mockTitleService.setTitle).toHaveBeenCalledWith('Articles');
         });
 
+        it('in the default language too, shows the name the type has there, as published (review M2)', async () => {
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', description: 'News', nameTranslations: { en: { name: 'Stories', description: 'Told here' } } }]);
+            fixture.detectChanges();
+            await settle();
+            expect(component.templateHtml()).toContain('<h1>Stories</h1><p>Told here</p>');
+            expect(mockTitleService.setTitle).toHaveBeenCalledWith('Stories');
+            expect(mockMetaService.updateTag).toHaveBeenCalledWith({ name: 'description', content: 'Told here' });
+        });
+
         it('reads nothing on the server, which draws no template', () => {
             component['platformId'] = 'server' as any;
             component['loadPageText']('articles');
@@ -648,6 +657,166 @@ describe('ContentListComponent', () => {
             expect(mockMetaService.updateTag).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'arc-entry' }));
             expect(mockMetaService.updateTag).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'robots' }));
             document.documentElement.classList.remove('arc-editing');
+        });
+    });
+
+    // VE-D62, VE-D72: the list's cards on its Visual Editor, and in Live Preview from it.
+    describe('its cards on the Visual Editor', () => {
+        const TEMPLATE = '<h1 data-arc-edit="title">{{ contentType }}</h1><p data-arc-edit="intro" data-arc-if="contentTypeDescription">{{ contentTypeDescription }}</p>'
+            + '<ul data-arc-loop="items" data-limit="2"><li class="card"><b>{{ title }}</b><i>{{ summary }}</i></li></ul>';
+        const entry = (id: string, day: number) => ({ id, type: 'articles', publishedStatus: true, title: `Entry ${id}`, summary: 'S', tags: [], publishedOn: `2026-01-0${day}T00:00:00Z` });
+        const page = signal<any>(null);
+        const watch = vi.fn();
+        let values: any;
+
+        const open = async (editing: boolean, type: object = {}) => {
+            values = { text: { en: { title: { value: 'Our stories' } } } };
+            page.set(null);
+            watch.mockClear();
+            mockHttpClient.get.mockReturnValue(of(TEMPLATE));
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', ...type }]);
+            mockContentsStore.items.set([entry('a', 3), entry('b', 2), entry('c', 1)]);
+            component['textPreview'] = { values: () => values, editing };
+            component['pageCards'] = { editing, watch, cardsOf: (type: string) => (type === 'articles' ? page() : null) };
+            component['pageText'].set(values);
+            await settle();
+        };
+        const settle = async () => {
+            for (let i = 0; i < 3; i++) {
+                fixture.detectChanges();
+                await new Promise((resolve) => setTimeout(resolve, 0));
+            }
+        };
+        const list = () => fixture.nativeElement as HTMLElement;
+        const titles = () => Array.from(list().querySelectorAll('li.card b')).map((b) => b.textContent);
+        const changes = (over: object = {}) => ({ changed: [], hidden: new Set(), sortOrder: {}, notes: {}, focus: null, ...over });
+
+        afterEach(() => document.documentElement.classList.remove('arc-editing'));
+
+        it('follows the type\'s drafts, and shows every area, whatever its data-arc-if says', async () => {
+            await open(true);
+            expect(watch).toHaveBeenCalledWith('articles');
+            // The type has no description: the intro is there to be typed in.
+            expect(list().querySelector('[data-arc-edit="intro"]')?.textContent).toBe('');
+            expect(list().querySelector('[data-arc-list-drawn]')).not.toBeNull();
+        });
+
+        it('draws the changed drafts as Publish would, marks each card with its entry and its values, and says why a card is not this person\'s', async () => {
+            await open(true);
+            page.set(changes({
+                changed: [{ ...entry('b', 2), title: 'Edited b' }], hidden: new Set(['c']),
+                notes: { a: { held: 'Priya' } },
+            }));
+            await settle();
+            expect(titles()).toEqual(['Entry a', 'Edited b']);
+            const card = (id: string) => list().querySelector(`[data-arc-card-id="${id}"]`)!;
+            expect(card('b').getAttribute('data-arc-card-type')).toBe('articles');
+            expect(card('b').hasAttribute('data-arc-changed')).toBe(true);
+            expect(card('a').hasAttribute('data-arc-changed')).toBe(false);
+            expect(card('a').getAttribute('data-arc-held')).toBe('Priya');
+            expect(card('a').querySelector('[data-arc-sub="title"]')?.textContent).toBe('Entry a');
+            expect(card('a').querySelector('[data-arc-sub="summary"]')).not.toBeNull();
+        });
+
+        it('marks no card in the header or the footer (VE-D20)', async () => {
+            await open(true);
+            // A card block there, its rows marked as the list's are.
+            const row = '<i data-arc-field="items" data-arc-row="0"></i><i data-arc-field="items" data-arc-row="1"></i>';
+            list().querySelector('arc-header')!.insertAdjacentHTML('beforeend', row);
+            list().querySelector('arc-footer')!.insertAdjacentHTML('beforeend', row);
+            page.set(changes());
+            await settle();
+            expect(list().querySelectorAll('[data-arc-card-id]')).toHaveLength(2);
+            expect(list().querySelector('arc-header [data-arc-card-id], arc-footer [data-arc-card-id]')).toBeNull();
+        });
+
+        it('in Live Preview runs the template\'s scripts again after the cards were drawn, once per draw; never on the Visual Editor', async () => {
+            const run = vi.spyOn(component as any, 'runTemplateScripts');
+            await open(false);
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            expect(run).toHaveBeenCalledTimes(1);
+            page.set(changes({ changed: [{ ...entry('b', 2), title: 'Edited b' }] }));
+            await settle();
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            expect(run).toHaveBeenCalledTimes(2);
+        });
+
+        it('marks the cards as they were drawn, not ones that arrived before the marking', async () => {
+            await open(true);
+            page.set(changes());
+            await settle();
+            const later: Array<() => void> = [];
+            const timers = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((run: () => void) => later.push(run)) as never);
+            try {
+                (component as any).hydrateAndSetTemplate(TEMPLATE, component.currentContentType(), component.filteredContents(), false);
+                list().querySelectorAll('[data-arc-card-id]').forEach((card) => card.removeAttribute('data-arc-card-id'));
+                // Others arrive before the marking, and are not drawn yet.
+                const drawn = [...later];
+                page.set(changes({ hidden: new Set(['a']) }));
+                drawn.forEach((run) => run());
+                expect(list().querySelector('[data-arc-field="items"][data-arc-row="0"]')?.getAttribute('data-arc-card-id')).toBe('a');
+            } finally {
+                timers.mockRestore();
+            }
+        });
+
+        it('a rich intro gives the browser and search its words, never its HTML, once the template is read', async () => {
+            await open(true);
+            mockMetaService.updateTag.mockClear();
+            (component as any).pageText.set({ text: { en: { intro: { value: 'Tom &amp; Jerry\'s &lt;3 <b>bread</b>' } } } });
+            (component as any).hydrateAndSetTemplate(TEMPLATE.replace('data-arc-edit="intro"', 'data-arc-edit="intro" data-arc-edit-kind="rich"'), component.currentContentType(), [], false);
+            await settle();
+            expect(mockMetaService.updateTag).toHaveBeenCalledWith({ name: 'twitter:description', content: 'Tom & Jerry\'s <3 bread' });
+        });
+
+        it('cuts at the template\'s own limit, the card Publish pushes out last and marked', async () => {
+            await open(true);
+            page.set(changes({ changed: [{ ...entry('n', 9), title: 'Added here' }] }));
+            await settle();
+            expect(titles()).toEqual(['Added here', 'Entry a', 'Entry b']);
+            expect(list().querySelector('[data-arc-leaving]')?.getAttribute('data-arc-card-id')).toBe('b');
+        });
+
+        it('in Live Preview shows the list as Publish leaves it, and marks nothing', async () => {
+            await open(false);
+            page.set(changes({ changed: [{ ...entry('n', 9), title: 'Added here' }] }));
+            await settle();
+            expect(titles()).toEqual(['Added here', 'Entry a']);
+            expect(component.templateHtml()).not.toContain('data-arc-');
+            expect(list().querySelector('[data-arc-card-id], [data-arc-list-drawn]')).toBeNull();
+        });
+
+        it('draws the cards again with the page\'s words as they are by then, never the words it opened with', async () => {
+            await open(true);
+            values = { text: { en: { title: { value: 'Stories now' } } } };
+            page.set(changes({ changed: [{ ...entry('b', 2), title: 'Edited b' }] }));
+            await settle();
+            expect(list().querySelector('h1')?.textContent).toBe('Stories now');
+        });
+
+        it('draws nothing again under words being typed on the page, but once they are done', async () => {
+            await open(true);
+            const heading = list().querySelector('h1')!;
+            heading.setAttribute('data-arc-editing', '');
+            page.set(changes({ changed: [{ ...entry('b', 2), title: 'Edited b' }] }));
+            await settle();
+            expect(list().querySelector('h1')).toBe(heading);
+            expect(titles()).toEqual(['Entry a', 'Entry b']);
+            heading.removeAttribute('data-arc-editing');
+            await new Promise((resolve) => setTimeout(resolve, 350));
+            await settle();
+            expect(titles()).toEqual(['Entry a', 'Edited b']);
+        });
+
+        it('shows an editor\'s words and a type\'s name as words, never as HTML', async () => {
+            await open(true, { name: '<img src=x onerror="alert(2)">', description: '<script>alert(1)</script>' });
+            expect(list().querySelector('[data-arc-edit="intro"]')?.textContent).toBe('<script>alert(1)</script>');
+            expect(list().querySelector('[data-arc-edit] script, [data-arc-edit] img')).toBeNull();
+            values = { text: { en: { title: { value: '<img src=x onerror="alert(1)">' } } } };
+            page.set(changes({ changed: [{ ...entry('b', 2), title: '<b onclick="alert(1)">Edited</b>' }] }));
+            await settle();
+            expect(list().querySelector('h1 img, li.card [onclick], [data-arc-edit] script')).toBeNull();
+            expect(list().querySelector('h1')?.textContent).toBe('<img src=x onerror="alert(1)">');
         });
     });
 });

@@ -730,6 +730,8 @@ export type TranslationKey =
     | 'admin.contents.list.view_save_failed'
     | 'admin.contents.list.visible_columns'
     | 'admin.contents.list.visual_editor'
+    | 'admin.contents.list.visual_editor_list'
+    | 'admin.contents.list.visual_editor_list_title'
     | 'admin.contents.preview.created'
     | 'admin.contents.preview.details'
     | 'admin.contents.preview.fields'
@@ -1206,6 +1208,7 @@ export type TranslationKey =
     | 'admin.edit_page.add_first'
     | 'admin.edit_page.add_picture'
     | 'admin.edit_page.address_by_developer'
+    | 'admin.edit_page.address_by_type'
     | 'admin.edit_page.alt'
     | 'admin.edit_page.alt_placeholder'
     | 'admin.edit_page.back_to_page'
@@ -1257,6 +1260,12 @@ export type TranslationKey =
     | 'admin.edit_page.language'
     | 'admin.edit_page.last_published'
     | 'admin.edit_page.link'
+    | 'admin.edit_page.list_formatted'
+    | 'admin.edit_page.list_seo_hint'
+    | 'admin.edit_page.list_summary_fixed'
+    | 'admin.edit_page.list_summary_hint'
+    | 'admin.edit_page.list_title_fixed'
+    | 'admin.edit_page.list_title_hint'
     | 'admin.edit_page.loading'
     | 'admin.edit_page.never_published'
     | 'admin.edit_page.no_description'
@@ -1288,6 +1297,7 @@ export type TranslationKey =
     | 'admin.edit_page.search_preview'
     | 'admin.edit_page.section_title'
     | 'admin.edit_page.seo_from_basic'
+    | 'admin.edit_page.seo_summary_wins'
     | 'admin.edit_page.seo_title_wins'
     | 'admin.edit_page.share_preview'
     | 'admin.edit_page.show_editable'
@@ -1702,6 +1712,7 @@ export type TranslationKey =
     | 'admin.hold.from_file'
     | 'admin.hold.held'
     | 'admin.hold.is_new'
+    | 'admin.hold.kept_address_taken'
     | 'admin.hold.kept_discard'
     | 'admin.hold.kept_failed'
     | 'admin.hold.kept_of'
@@ -2046,6 +2057,9 @@ export type TranslationKey =
     | 'admin.more_pages.editor.live_preview'
     | 'admin.more_pages.editor.no_file'
     | 'admin.more_pages.editor.no_history'
+    | 'admin.more_pages.editor.no_list_file'
+    | 'admin.more_pages.editor.no_list_page'
+    | 'admin.more_pages.editor.no_list_type'
     | 'admin.more_pages.editor.not_read'
     | 'admin.more_pages.editor.not_saved'
     | 'admin.more_pages.editor.not_saved_detail'
@@ -2084,6 +2098,7 @@ export type TranslationKey =
     | 'admin.more_pages.editor.version_count'
     | 'admin.more_pages.home_page'
     | 'admin.more_pages.last_published'
+    | 'admin.more_pages.list_page'
     | 'admin.more_pages.load_failed'
     | 'admin.more_pages.loading'
     | 'admin.more_pages.never'
@@ -3527,6 +3542,7 @@ export type TranslationKey =
     | 'admin.titles.edit_content_type'
     | 'admin.titles.edit_entry'
     | 'admin.titles.edit_home_page'
+    | 'admin.titles.edit_list_page'
     | 'admin.titles.edit_on_page'
     | 'admin.titles.edit_static_page'
     | 'admin.titles.edit_user'
@@ -5270,6 +5286,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.list.view_save_failed',
     'admin.contents.list.visible_columns',
     'admin.contents.list.visual_editor',
+    'admin.contents.list.visual_editor_list',
+    'admin.contents.list.visual_editor_list_title',
     'admin.contents.preview.created',
     'admin.contents.preview.details',
     'admin.contents.preview.fields',
@@ -5746,6 +5764,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.add_first',
     'admin.edit_page.add_picture',
     'admin.edit_page.address_by_developer',
+    'admin.edit_page.address_by_type',
     'admin.edit_page.alt',
     'admin.edit_page.alt_placeholder',
     'admin.edit_page.back_to_page',
@@ -5797,6 +5816,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.language',
     'admin.edit_page.last_published',
     'admin.edit_page.link',
+    'admin.edit_page.list_formatted',
+    'admin.edit_page.list_seo_hint',
+    'admin.edit_page.list_summary_fixed',
+    'admin.edit_page.list_summary_hint',
+    'admin.edit_page.list_title_fixed',
+    'admin.edit_page.list_title_hint',
     'admin.edit_page.loading',
     'admin.edit_page.never_published',
     'admin.edit_page.no_description',
@@ -5828,6 +5853,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.search_preview',
     'admin.edit_page.section_title',
     'admin.edit_page.seo_from_basic',
+    'admin.edit_page.seo_summary_wins',
     'admin.edit_page.seo_title_wins',
     'admin.edit_page.share_preview',
     'admin.edit_page.show_editable',
@@ -6242,6 +6268,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.hold.from_file',
     'admin.hold.held',
     'admin.hold.is_new',
+    'admin.hold.kept_address_taken',
     'admin.hold.kept_discard',
     'admin.hold.kept_failed',
     'admin.hold.kept_of',
@@ -6586,6 +6613,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.more_pages.editor.live_preview',
     'admin.more_pages.editor.no_file',
     'admin.more_pages.editor.no_history',
+    'admin.more_pages.editor.no_list_file',
+    'admin.more_pages.editor.no_list_page',
+    'admin.more_pages.editor.no_list_type',
     'admin.more_pages.editor.not_read',
     'admin.more_pages.editor.not_saved',
     'admin.more_pages.editor.not_saved_detail',
@@ -6624,6 +6654,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.more_pages.editor.version_count',
     'admin.more_pages.home_page',
     'admin.more_pages.last_published',
+    'admin.more_pages.list_page',
     'admin.more_pages.load_failed',
     'admin.more_pages.loading',
     'admin.more_pages.never',
@@ -8067,6 +8098,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.titles.edit_content_type',
     'admin.titles.edit_entry',
     'admin.titles.edit_home_page',
+    'admin.titles.edit_list_page',
     'admin.titles.edit_on_page',
     'admin.titles.edit_static_page',
     'admin.titles.edit_user',

@@ -18,7 +18,7 @@
     <table>
       <thead><tr><th>File</th><th>Renders</th></tr></thead>
       <tbody>
-        <tr><td><code>list.html</code></td><td>The list of the type, <code>/{type}</code>. Mark its heading and intro so they can have words of their own (see <a href="../features/templates.html#list-page-words">A list page's words</a>)</td></tr>
+        <tr><td><code>list.html</code></td><td>The list of the type, <code>/{type}</code>. Mark its heading and intro so editors can give them words of their own (see <a href="../features/templates.html#list-page-words">A list page's words</a>)</td></tr>
         <tr><td><code>detail.html</code></td><td>One item, <code>/{type}/{item}</code></td></tr>
         <tr><td><code>partials.html</code></td><td>Cards of the type on the home page, such as the latest articles</td></tr>
         <tr><td><code>detail-{name}.html</code></td><td>Optional: another layout for one item, such as <code>detail-contact.html</code>, which an editor picks with <strong>Layout</strong> (see <a href="../features/templates.html#layouts">Layouts</a>)</td></tr>
@@ -83,7 +83,7 @@
         <tr><td><code>data-arc-placeholder="e.g. 25"</code></td><td>Optional, for the Visual Editor: the words an empty value shows instead of "Add ...".</td></tr>
         <tr><td>A repeating field's rows</td><td>On the <a href="../features/content.html#visual-editor">Visual Editor</a> each row is edited where it is drawn, with no attribute to add: the loop repeats its first child, so that element is the row (give it a box of its own; one drawn only by its children with <code>display: contents</code> still works). Each value the row fills (<code>data-arc-bind</code>, <code>{{ }}</code>, an attribute) is typed in or picked there; a value worked out from it, such as <code>answer_html</code>, <code>video_thumb</code> or <code>map_embed</code>, opens the value it comes from. Keep a row's empty values in the markup, under <code>data-arc-if</code> if you like: on the Visual Editor they stay as places to fill in.</td></tr>
         <tr><td><code>data-arc-locked</code></td><td>Optional, for the Visual Editor: the values inside are shown but never edited in place (they stay editable in the form).</td></tr>
-        <tr><td><code>data-arc-edit="hero_title"</code></td><td>Only in <code>home.html</code> and static pages: an area editors change under More Pages, kept by its key and filled in at every publish (see <a href="home-page.html#page-text">Areas editors can change</a>). Entry templates take their values from fields instead.</td></tr>
+        <tr><td><code>data-arc-edit="hero_title"</code></td><td>In <code>home.html</code>, static pages and <code>list.html</code>: an area editors change under More Pages, kept by its key and filled in at every publish (see <a href="home-page.html#page-text">Areas editors can change</a>). The other templates take their values from fields instead.</td></tr>
         <tr><td><code>data-arc-t="read_more"</code></td><td>Translate fixed text into the page's language (see <a href="languages.html">Publish in more than one language</a>)</td></tr>
       </tbody>
     </table>
