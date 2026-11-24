@@ -51,6 +51,16 @@ export function cardsWithDraft<T extends Record<string, any>>(
     return { cards, draftIndex: cards.length - 1, tookLastPlace: true };
 }
 
+/** Why a card on a page's Visual Editor is drawn as it is (specs/visual-editing-spec.md, VE-D72). */
+export interface PageCardNote {
+    /** Someone else is editing the entry: their name. */
+    held?: string;
+    /** The entry has unpublished changes made elsewhere. */
+    elsewhere?: boolean;
+    /** Drawn from the draft of the person whose page is being looked at. */
+    theirs?: boolean;
+}
+
 /**
  * The cards of one type on the page's Visual Editor (specs/visual-editing-spec.md,
  * VE-D53, VE-D54): every card with unpublished changes is drawn from its draft,
@@ -63,6 +73,8 @@ export interface PageCardsOfType<T> {
     hidden: ReadonlySet<string>;
     /** Each entry's place in the type's own order as the drafts have it now (a Move saved). */
     sortOrder: Readonly<Record<string, number>>;
+    /** Why a card is not this person's to publish here (VE-D72), by entry id. */
+    notes?: Readonly<Record<string, PageCardNote>>;
     /** The card being edited, as typed in its form, or null. */
     focus: T | null;
 }

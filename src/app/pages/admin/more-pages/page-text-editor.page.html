@@ -5,15 +5,11 @@
                 <i class="fa-solid fa-arrow-left me-1" aria-hidden="true"></i>{{ 'admin.nav.more_pages' | transloco }}
             </a>
             <h1 class="page-title">{{ pageTitle() }}</h1>
-            <span class="save-state" role="status" aria-live="polite">
-                @if (saving() > 0) {
-                    <i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.saving' | transloco }}
-                } @else if (saveError()) {
-                    <span class="text-danger"><i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.not_saved' | transloco }}</span>
-                } @else if (draft()) {
-                    <i class="fa-solid fa-check me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.saved' | transloco }}
-                }
-            </span>
+            @if (panelRef(); as panel) {
+            @if (panel.known()) {
+            <arc-edit-state class="save-state" [state]="panel.state()" />
+            }
+            }
         </div>
         <div class="bar-right">
             @if (languages().length > 1) {
@@ -30,9 +26,19 @@
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openPreview()" [disabled]="loading() || !!loadError()">
                 <i class="fa-regular fa-eye me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.live_preview' | transloco }}
             </button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="panelRef()?.publish()" [disabled]="!panelRef()?.canPublish()" data-testid="publish">
+                @if (panelRef()?.publishing()) {
+                    <i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.publishing' | transloco }}
+                } @else {
+                    <i class="fa-solid fa-upload me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.publish' | transloco }}
+                }
+            </button>
         </div>
     </nav>
 
+    @if (data.heldBy(); as hold) {
+        <arc-hold-bar [hold]="hold" (review)="review()" />
+    }
     @if (session?.error()) {
         <div class="alert alert-danger py-2" role="alert" data-testid="read-error">{{ 'admin.more_pages.editor.not_read' | transloco }}</div>
     }
@@ -46,7 +52,7 @@
         <div class="alert alert-danger m-3" role="alert">{{ loadError() }}</div>
     } @else {
         <div class="editor-body">
-            <main class="areas">
+            <main class="areas" [attr.inert]="data.heldBy() ? '' : null">
                 @if (!isDefaultLang()) {
                     <p class="lang-note">{{ 'admin.more_pages.editor.other_language_note' | transloco }}</p>
                 }
@@ -201,8 +207,9 @@
 
             <aside class="panel">
                 @if (session; as session) {
-                    <arc-page-text-panel [session]="session" [lang]="lang()" [defaultLang]="defaultLang()" [seo]="seo()"
-                        [busy]="saving() > 0" [beforePublish]="flushAll" />
+                    <arc-page-text-panel #panelRef [session]="session" [lang]="lang()" [defaultLang]="defaultLang()" [seo]="seo()"
+                        [busy]="saving() > 0" [failed]="!!saveError()" [url]="data.url()" [beforePublish]="flushAll"
+                        [locked]="!!data.heldBy()" (review)="review()" />
                 }
             </aside>
         </div>

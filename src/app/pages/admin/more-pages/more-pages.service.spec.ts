@@ -32,7 +32,7 @@ describe('MorePagesService', () => {
     afterEach(() => setSiteManifestForTesting());
 
     it('lists the home page first, then only the static pages with an area to change', async () => {
-        drafts['home'] = { updatedAt: at(5) };
+        drafts['home'] = { updatedAt: at(5), text: { en: { hero: { value: 'New' } } } };
         published['home'] = { draftUpdatedAt: at(4), publishedAt: at(4000) };
         published['p-about-us'] = { draftUpdatedAt: at(1), publishedAt: at(2000) };
         drafts['p-about-us'] = { updatedAt: at(1) };
@@ -45,7 +45,9 @@ describe('MorePagesService', () => {
 
     it('tells where a page stands', () => {
         expect(morePageStatus(null, null)).toBe('file');
-        expect(morePageStatus({ updatedAt: at(2) }, null)).toBe('changes');
+        expect(morePageStatus({ updatedAt: at(2), text: { en: { hero: { value: 'New' } } } }, null)).toBe('changes');
+        // Saved since, and the same words: nothing to publish (VE6.B1).
+        expect(morePageStatus({ updatedAt: at(3), text: { en: { hero: { value: 'A' } } } }, { draftUpdatedAt: at(2), text: { en: { hero: { value: 'A' } } } })).toBe('published');
         expect(morePageStatus({ updatedAt: at(2) }, { draftUpdatedAt: at(2) })).toBe('published');
         expect(morePageStatus(null, { draftUpdatedAt: at(2) })).toBe('published');
     });

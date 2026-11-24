@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import * as app from './page-text';
 import * as published from '../../../../functions/src/shared/page-text';
 import type { PageTextOptions, PageTextValues } from './page-text';
+import { TemplateHydrationService as AppHydration } from '../services/template-hydration.service';
+import { TemplateHydrationService as PublishHydration } from '../../../../functions/src/shared/template-hydration';
 
 const copies: Array<[string, typeof app.applyPageText]> = [
     ['app', app.applyPageText],
@@ -302,7 +304,132 @@ describe('page text', () => {
         expect(app.PAGE_TEXT_ID.test('p-about-us')).toBe(true);
         expect(app.PAGE_TEXT_ID.test('p-')).toBe(false);
         expect(app.PAGE_TEXT_ID.test('home2')).toBe(false);
+        expect(app.pageTextId.listPage('articles')).toBe('list-articles');
+        expect(published.pageTextId.listPage('articles')).toBe('list-articles');
+        expect(app.PAGE_TEXT_ID.test('list-articles')).toBe(true);
+        expect(app.PAGE_TEXT_ID.test('list-')).toBe(false);
+        expect(app.PAGE_TEXT_ID.test('list-a/b')).toBe(false);
+        expect([published.LIST_TITLE_KEY, published.LIST_INTRO_KEY]).toEqual([app.LIST_TITLE_KEY, app.LIST_INTRO_KEY]);
         expect(published.PAGE_TEXT_ID.source).toBe(app.PAGE_TEXT_ID.source);
         expect(published.PAGE_TEXT_KEY.source).toBe(app.PAGE_TEXT_KEY.source);
+    });
+});
+
+// VE-D59 to VE-D61, VE-D64: a list page, filled after its bindings.
+describe('list page text', () => {
+    const site = join(__dirname, '../../../../public/_site/templates');
+    const templates = readdirSync(site).filter((name) => existsSync(join(site, name, 'list.html')));
+    const EN_LIST: app.ListPageTextOptions = { lang: 'en', defaultLang: 'en', named: { title: false, intro: false } };
+    const HI_LIST: app.ListPageTextOptions = { lang: 'hi', defaultLang: 'en', named: { title: false, intro: false } };
+    const ITEMS = [{ title: 'First', url: '/articles/first', excerpt: 'One' }, { title: 'Second', url: '/articles/second' }];
+    const TYPE = { contentType: 'Articles', contentTypeDescription: 'Latest news', contentTypeSlug: 'articles', lang: 'en', langPrefix: '' };
+
+    /** The page as the app and as publishing build it, checked to agree but for their hydrators' own differences. */
+    function draw(html: string, values: PageTextValues | null, options = EN_LIST, data: Record<string, unknown> = TYPE, strings = {}) {
+        const pages = [
+            { text: app, hydrate: AppHydration }, { text: published as unknown as typeof app, hydrate: PublishHydration as unknown as typeof AppHydration },
+        ].map(({ text, hydrate }) => {
+            const held = text.holdListMarks(html, values, { ...options, strings });
+            let out = hydrate.processLoops(hydrate.applyStrings(held.html, strings), { items: ITEMS });
+            out = hydrate.hydrateTemplate(out, data);
+            return text.fillListPage(out, held.token, values, { ...options, strings });
+        });
+        expect(pages[1]).toBe(pages[0]);
+        return pages[0];
+    }
+
+    it.each(templates)('a page with nothing changed is, byte for byte, the one its file made without marks: %s', (name) => {
+        const html = readFileSync(join(site, name, 'list.html'), 'utf8');
+        const bare = html.replace(/ data-arc-edit="[^"]*"/g, '');
+        expect(bare).not.toBe(html);
+        expect(draw(html, null)).toBe(draw(bare, null));
+        expect(draw(html, { seo: { en: { title: { value: 'T' } } }, shareImage: { value: '/s.jpg' } })).toBe(draw(bare, null));
+        for (const copy of [app, published]) {
+            // A file with no marks is not touched at all.
+            expect(copy.holdListMarks(bare, text('en', 'title', 'X'), EN_LIST)).toEqual({ html: bare, token: '' });
+            expect(copy.fillListPage(bare, '', text('en', 'title', 'X'), EN_LIST)).toBe(bare);
+        }
+    });
+
+    it('an area shows the bound value until an editor changes it, and then their words', () => {
+        const html = '<h1 data-arc-edit="title">{{ contentType }}</h1><h2>{{ contentType }}</h2>';
+        expect(draw(html, null)).toContain('<h1>Articles</h1><h2>Articles</h2>');
+        expect(draw(html, text('en', 'title', 'Our stories'))).toContain('<h1>Our stories</h1><h2>Articles</h2>');
+    });
+
+    it('an editor\'s words win over every way a template binds', () => {
+        const values = text('en', 'title', 'Mine');
+        expect(draw('<h1 data-arc-edit="title" data-arc-bind="contentType">x</h1>', values)).toContain('<h1>Mine</h1>');
+        expect(draw('<h1 data-arc-edit="title" class="arc-skeleton">{{ contentType }}</h1>', values)).toContain('<h1>Mine</h1>');
+        expect(draw('<h1 data-arc-edit="title" data-arc-if="nothing">{{ contentType }}</h1>', values)).toContain('<h1>Mine</h1>');
+        expect(draw('<h1 data-arc-edit="title" data-arc-if="nothing">{{ contentType }}</h1>', null)).not.toContain('<h1');
+    });
+
+    it('never reads their words as a binding', () => {
+        expect(draw('<h1 data-arc-edit="title">{{ contentType }}</h1>', text('en', 'title', '{{ contentTypeSlug }}'))).toContain('<h1>{{ contentTypeSlug }}</h1>');
+        const link = draw('<a data-arc-edit="go" href="/x">Go</a>', { urls: { go: { value: 'https://x.test/{{contentTypeSlug}}' } } });
+        expect(link).toContain('href="https://x.test/{{contentTypeSlug}}"');
+    });
+
+    it('marks inside a loop, or words marked over one, are not areas', () => {
+        const values = { ...text('en', 'title', 'Mine'), text: { en: { title: { value: 'Mine' }, all: { value: 'Gone' } } } };
+        const out = draw('<ul data-arc-loop="items"><li data-arc-edit="title" data-arc-label="Card">{{ title }}</li></ul>', values);
+        expect(out).toContain('<li>First</li><li>Second</li>');
+        const rich = draw('<div data-arc-edit="all" data-arc-edit-kind="rich"><ul data-arc-loop="items"><li>{{ title }}</li></ul></div>', values);
+        expect(rich).toContain('<li>First</li>');
+        expect(draw('<ul data-arc-edit="all" data-arc-edit-kind="rich" data-arc-loop="items"><li>{{ title }}</li></ul>', values)).toContain('<li>First</li>');
+        // A background over the cards is still an area: it changes no words.
+        expect(draw('<div data-arc-edit="bg" data-arc-edit-kind="background"><ul data-arc-loop="items"><li>{{ title }}</li></ul></div>', { urls: { bg: { value: '/b.jpg' } } }))
+            .toContain('background-image');
+    });
+
+    it('every kind of area works, in and out of a loop\'s way', () => {
+        const out = draw(
+            '<img data-arc-edit="pic" src="/a.jpg" alt="A"><p data-arc-edit="note" data-arc-edit-kind="rich">x</p><ul data-arc-loop="items"><li>{{ title }}</li></ul>',
+            { text: { en: { pic: { value: 'New' }, note: { value: '<b>Bold</b><script>x</script>' } } }, urls: { pic: { value: '/n.jpg' } } });
+        expect(out).toContain('src="/n.jpg" alt="New"');
+        expect(out).toContain('<p><b>Bold</b>x</p>');
+    });
+
+    it('keeps the marks for the Visual Editor, its label and placeholder with them, and nothing of its own', () => {
+        const out = draw('<h1 data-arc-edit="title" data-arc-label="Heading" data-arc-placeholder="Add a heading" data-arc-t="k">{{ contentType }}</h1>', null, { ...EN_LIST, keepMarks: true });
+        expect(out).toContain('<h1 data-arc-edit="title" data-arc-label="Heading" data-arc-placeholder="Add a heading">Articles</h1>');
+        expect(out).not.toContain('data-arc-held');
+    });
+
+    it('a translation wins over the default language\'s words; a type named in the language wins for its heading', () => {
+        const values: PageTextValues = { text: { en: { more: { value: 'See all' }, title: { value: 'Our stories' } } } };
+        const html = '<h1 data-arc-edit="title">{{ contentType }}</h1><b data-arc-edit="more" data-arc-t="read_more">More</b>';
+        expect(draw(html, values, HI_LIST)).toContain('<h1>Our stories</h1><b>See all</b>');
+        expect(draw(html, values, HI_LIST, TYPE, { read_more: 'और' })).toContain('<b>और</b>');
+        expect(draw(html, values, { ...HI_LIST, named: { title: true, intro: false } }, { ...TYPE, contentType: 'लेख' })).toContain('<h1>लेख</h1>');
+    });
+
+    describe('listPageWords', () => {
+        const words = (values: PageTextValues | null, options = EN_LIST) => {
+            const out = app.listPageWords(values, options);
+            expect(published.listPageWords(values, options)).toEqual(out);
+            return out;
+        };
+        const values: PageTextValues = {
+            text: { en: { title: { value: 'Stories' }, intro: { value: 'By <b>us</b> &amp; you' } } },
+            seo: { en: { title: { value: 'Stories | Site' } } },
+            shareImage: { value: 'javascript:alert(1)' },
+        };
+
+        it('the title and intro, the SEO\'s own over them in the head, and only a safe share picture', () => {
+            expect(words(null)).toEqual({ title: undefined, intro: undefined, seoTitle: undefined, seoDescription: undefined, shareImage: '' });
+            expect(words(values)).toEqual({ title: 'Stories', intro: 'By us & you', seoTitle: 'Stories | Site', seoDescription: 'By us & you', shareImage: '' });
+            expect(words({ ...values, shareImage: { value: '/s.jpg' } }).shareImage).toBe('/s.jpg');
+            expect(words({ text: { en: { title: { value: '  ' } } } }).title).toBeUndefined();
+        });
+
+        it('another language takes the default\'s unless it has its own, or the type is named in it', () => {
+            expect(words(values, HI_LIST)).toMatchObject({ title: 'Stories', seoTitle: 'Stories | Site' });
+            expect(words({ ...values, text: { ...values.text, hi: { title: { value: 'कहानियाँ' } } } }, HI_LIST))
+                .toMatchObject({ title: 'कहानियाँ', seoTitle: 'कहानियाँ', intro: 'By us & you' });
+            expect(words(values, { ...HI_LIST, named: { title: true, intro: true } }))
+                .toMatchObject({ title: undefined, seoTitle: undefined, intro: undefined, seoDescription: undefined });
+        });
     });
 });

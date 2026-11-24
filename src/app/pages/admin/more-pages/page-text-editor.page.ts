@@ -1,6 +1,7 @@
 import {
-    ChangeDetectionStrategy, Component, ElementRef, Injector, OnDestroy, OnInit, computed, effect, inject, signal, viewChildren,
+    ChangeDetectionStrategy, Component, ElementRef, Injector, OnDestroy, OnInit, computed, effect, inject, signal, viewChild, viewChildren,
 } from '@angular/core';
+import { isHeld } from '../../../core/editing/hold';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { TranslocoPipe } from '@jsverse/transloco';
@@ -12,6 +13,9 @@ import { ConfirmService } from '../../../../shared/components/confirmation-popup
 import { escapeHtml } from '../../../../shared/utils/escape-html';
 import MediaManagerComponent from '../(media)/media.page';
 import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
+import { EditStateComponent } from '../edit/page-status.component';
+import { HoldBarComponent } from '../hold/hold-bar.component';
+import { PageReview } from './page-review';
 import { PageTextPanelComponent } from './page-text-panel.component';
 import { PageEditorData } from './page-editor-data';
 import type { AreaView, SectionView } from './page-text-editor.model';
@@ -29,7 +33,7 @@ const SAVE_DELAY_MS = 700;
 @Component({
     selector: 'arc-page-text-editor',
     standalone: true,
-    imports: [RouterLink, TranslocoPipe, PageTextPanelComponent],
+    imports: [RouterLink, TranslocoPipe, EditStateComponent, HoldBarComponent, PageTextPanelComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './page-text-editor.page.html',
     styleUrls: ['./page-text-editor.page.scss'],
@@ -72,6 +76,8 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
     readonly badUrl = signal<Record<string, boolean>>({});
     private timers = new Map<string, { timer: ReturnType<typeof setTimeout>; save: () => Promise<boolean> }>();
 
+    /** The panel, which Publish on the top bar runs through. */
+    readonly panelRef = viewChild<PageTextPanelComponent>('panelRef');
     readonly richEditors = viewChildren<ElementRef<HTMLElement>>('rich');
     /** The rich text field whose link box is open, and the selection it applies to. */
     readonly linkFor = signal('');
@@ -128,6 +134,11 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
             this.saveErrors.update(({ [id]: _, ...rest }) => rest);
             return true;
         } catch (error: any) {
+            // Someone else made the first change: the bar says who, and the fields show theirs.
+            if (isHeld(error)) {
+                this.typing.set({});
+                return false;
+            }
             console.error('[PageTextEditor] Could not save:', error);
             this.saveErrors.update((errors) => ({ ...errors, [id]: error?.message || String(error) }));
             return false;
@@ -330,6 +341,34 @@ export default class PageTextEditorPage implements OnInit, OnDestroy {
         // A field whose save failed keeps its words and its error: Publish waits for it.
         return !this.saveError();
     };
+
+    private reviews = inject(PageReview);
+
+    /** Review changes (VE-D80): someone else's, or this person's own. */
+    review(): void {
+        void this.reviews.open(this.data, this.pageTitle(), {
+            flush: this.flushAll,
+            // Someone else's words as they are, or this person's through the panel.
+            publish: () => (this.data.heldBy() ? this.panelRef()?.publishWords() : this.panelRef()?.publish()),
+            kept: () => this.panelRef()?.keptChanged.update((n) => n + 1),
+            show: (change) => {
+                if (change.lang && change.lang !== this.lang()) this.chooseLanguage(change.lang);
+                // Title, summary and cover image are in the panel.
+                if (!/^(text|url):/.test(change.field)) {
+                    this.panelRef()?.showTab('basic');
+                    const id = change.field === 'seo:title' ? 'page-title' : change.field === 'seo:description' ? 'page-summary' : '';
+                    setTimeout(() => document.getElementById(id)?.focus());
+                    return;
+                }
+                setTimeout(() => {
+                const key = change.field.replace(/^(text|url):/, '');
+                const el = document.getElementById(`${change.field.startsWith('url:') ? 'u' : 'w'}-${key}`);
+                el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+                el?.focus?.({ preventScroll: true });
+                });
+            },
+        });
+    }
 
     /** The Visual Editor of the same page (VE-D49): the same draft. */
     visualEditorLink(): string[] {

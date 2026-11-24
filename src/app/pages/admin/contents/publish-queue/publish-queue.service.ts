@@ -12,7 +12,7 @@ import { Firestore, collection, addDoc, doc, runTransaction } from '@angular/fir
  * `page-text` publishes a page's text (specs/visual-editing-spec.md, VE-D57):
  * its document is the page (`home`, `p-{name}`), with no content type.
  */
-export type PublishAction = 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'order' | 'page-text';
+export type PublishAction = 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'order' | 'page-text' | 'purge-draft';
 
 export interface PublishQueueItem {
     action: PublishAction;

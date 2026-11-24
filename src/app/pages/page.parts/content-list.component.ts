@@ -38,6 +38,9 @@ import {
     mergeTranslation,
 } from '../admin/contents/draft-content-store/content-translation.model';
 import { ArcZones } from '../../core/time/arc-zones.service';
+import { PageTextService } from '../../core/site/page-text.service';
+import { PAGE_TEXT_PREVIEW } from '../../core/site/page-text-preview';
+import { fillListPage, holdListMarks, listPageWords, pageTextId, type ListPageTextOptions, type PageTextValues } from '../../core/utils/page-text';
 
 /**
  * Dynamic Content List Component
@@ -131,6 +134,16 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     tagsStore = inject(TagsStore);
     private gaTracking = inject(GaTrackingService);
     private trackedContentTypes = new Set<string>();
+    /** Live Preview and the Visual Editor of the list page (VE-D58): the draft's words, and no admin strip. */
+    private textPreview = inject(PAGE_TEXT_PREVIEW, { optional: true });
+    /**
+     * What editors changed on the page (specs/visual-editing-spec.md, VE-D64), as
+     * published or, on a preview, as drafted; undefined until it was read. The page
+     * is drawn once it is, so the type's name never shows first.
+     */
+    private pageText = signal<PageTextValues | null | undefined>(this.textPreview ? this.textPreview.values() : undefined);
+    /** The share picture put on the page's head, taken off when it is left. */
+    private shareImageSet = false;
 
     contentTypeSlug = signal<string>('');
 
@@ -266,21 +279,21 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             const isLoading = this.contentTypesStore.isLoading() || this.contentsStore.isLoading();
 
             // Update SEO meta tags when content type is available
-            if (contentType && !isLoading) {
+            if (contentType && !isLoading && this.pageText() !== undefined) {
                 this.updateSeoMeta(contentType);
                 // Mark as hydrated — client data is now available
                 if (!this.hydrated()) {
                     this.hydrated.set(true);
                 }
                 // Track content list view (once per content type)
-                if (!this.trackedContentTypes.has(contentType.slug)) {
+                if (!this.textPreview && !this.trackedContentTypes.has(contentType.slug)) {
                     this.trackedContentTypes.add(contentType.slug);
                     this.gaTracking.trackContentListView(contentType.slug, contents.length);
                 }
             }
 
             // Only load template when we have content type, not loading, and haven't loaded yet
-            if (contentType && !isLoading && !this.templateHtml()) {
+            if (contentType && !isLoading && this.pageText() !== undefined && !this.templateHtml()) {
                 this.loadCustomTemplate(contentType, contents);
             }
         });
@@ -311,6 +324,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         this.localization.languageVariants.set(
             this.localization.enabledLanguages().map(language => language.code),
         );
+        this.loadPageText(slug);
         // Chrome for this page's language; '' restores the authored English.
         this.uiStrings.use(lang);
 
@@ -359,6 +373,10 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     ngOnDestroy(): void {
         this.liveScript?.remove();
         setArcEntry(this.metaService, null);
+        if (this.shareImageSet) {
+            this.metaService.removeTag("property='og:image'");
+            this.metaService.removeTag("name='twitter:image'");
+        }
         // The next page may have no variants at all.
         this.localization.languageVariants.set(null);
     }
@@ -386,6 +404,36 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             // Rendering the list in the default language is correct degradation.
             console.error('Error loading list translations:', error);
         }
+    }
+
+    /** Reads the list page's published words, and which language is the default one they are kept under. */
+    private loadPageText(slug: string): void {
+        if (this.textPreview) return;
+        // The server draws no template; the browser reads them.
+        if (!slug || !isPlatformBrowser(this.platformId)) {
+            this.pageText.set(null);
+            return;
+        }
+        const read = async () => {
+            const [values] = await Promise.all([
+                this.injector.get(PageTextService).published(pageTextId.listPage(slug)),
+                this.localization.load(),
+            ]);
+            return values;
+        };
+        // Unreadable words cost the page its edits, never its entries.
+        read().catch(() => null).then((values) => this.pageText.set(values));
+    }
+
+    /** The page's language and what its type says in it, for the words editors changed. */
+    private textOptions(contentType: ContentType): ListPageTextOptions {
+        const defaultLang = this.localization.defaultLanguage();
+        const lang = this.pageLang() || defaultLang;
+        const own = contentType.nameTranslations?.[lang];
+        return {
+            lang, defaultLang, named: { title: !!own?.name?.trim(), intro: !!own?.description?.trim() },
+            strings: this.uiStrings.strings(), keepMarks: !!this.textPreview?.editing,
+        };
     }
 
     /** A template folder whose file turned out not to be a template; the default is used instead. */
@@ -473,15 +521,24 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         // First process loops with list data
         // See ContentDetailComponent — chrome before loops and bindings.
         // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
+        // The marks of the areas editors change are put by first and filled after the bindings (VE-D61).
+        const textOptions = this.textOptions(contentType);
+        const held = holdListMarks(templateHtml, this.pageText(), textOptions);
         const localizedTemplate = TemplateHydrationService.applySiteInfo(
-            TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
+            TemplateHydrationService.applyStrings(held.html, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
 
         // Then hydrate with page-level data
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
+        hydratedHtml = fillListPage(hydratedHtml, held.token, this.pageText(), textOptions);
 
         this.templateHtml.set(hydratedHtml);
 
+        // On the Visual Editor the page's scripts do not run and the page shows at rest (VE-D55).
+        if (this.textPreview?.editing) {
+            this.document.documentElement.classList.add('arc-editing');
+            return;
+        }
         // Execute scripts after template is rendered (browser only)
         if (runScripts && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 100);
@@ -522,13 +579,15 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         // and subtitle they describe.
         const lang = this.pageLang();
         const typeName = contentTypeName(contentType, lang);
-        const pageTitle = typeName;
+        // What editors changed on the page, as published (VE-D64), else what the type says.
+        const words = listPageWords(this.pageText(), this.textOptions(contentType));
+        const pageTitle = words.seoTitle || typeName;
         if (pageTitle) {
             this.titleService.setTitle(pageTitle);
         }
 
         // Set meta description from content type description or generate one
-        const description = contentTypeDescription(contentType, lang)
+        const description = words.seoDescription || contentTypeDescription(contentType, lang)
             || `Browse all ${typeName?.toLowerCase() || 'content'}`;
         this.metaService.updateTag({ name: 'description', content: description });
 
@@ -554,9 +613,16 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         this.metaService.updateTag({ property: 'og:locale', content: this.ogLocale() });
 
         // Robots — allow indexing of all published content list pages
-        this.metaService.updateTag({ name: 'robots', content: 'index, follow' });
+        // A preview is a draft under /admin, never listed.
+        if (!this.textPreview) this.metaService.updateTag({ name: 'robots', content: 'index, follow' });
         // What the page is, for the admin strip (VE-D11).
-        setArcEntry(this.metaService, arcEntry.list(contentType.slug));
+        // Not inside a preview.
+        setArcEntry(this.metaService, this.textPreview ? null : arcEntry.list(contentType.slug));
+        if (words.shareImage) {
+            this.shareImageSet = true;
+            this.metaService.updateTag({ property: 'og:image', content: words.shareImage });
+            this.metaService.updateTag({ name: 'twitter:image', content: words.shareImage });
+        }
 
         // Set Twitter Card tags
         this.metaService.updateTag({ name: 'twitter:card', content: 'summary' });

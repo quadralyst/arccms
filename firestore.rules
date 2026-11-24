@@ -68,9 +68,63 @@ service cloud.firestore {
       return isAdmin() || (isAuthenticated() && arcRole() == 'editor');
     }
 
-    // A page's id for its text (VE-D39): `home`, or `p-{name}` for a static page.
+    // A page's id for its text (VE-D39): `home`, `p-{name}` for a static page, or
+    // `list-{slug}` for a type's list page (VE-D59).
     function isPageTextId(id) {
-      return id is string && id.matches('^(home|p-[A-Za-z0-9_-]{1,100})$');
+      return id is string && id.matches('^(home|(p|list)-[A-Za-z0-9_-]{1,100})$');
+    }
+
+    // One person holds a draft (specs/visual-editing-spec.md, VE-D76 to VE-D78):
+    // `editing`, with the account that has unpublished changes there. Whether someone
+    // other than the caller does:
+    function heldByOther(data) {
+      return data.get('editing', null) is map
+             && data.editing.get('by', '') is string
+             && data.editing.get('by', '') != ''
+             && data.editing.get('by', '') != request.auth.uid;
+    }
+
+    // A hold written is the writer's own, or the one already there: nobody puts one
+    // on for someone else.
+    function ownHold(before) {
+      return !('editing' in request.resource.data)
+             || request.resource.data.editing == before
+             || (request.resource.data.editing is map && request.resource.data.editing.get('by', '') == request.auth.uid);
+    }
+
+    // A take over (VE-D81): changes the hold and nothing else, to the caller, and in the
+    // same write keeps the other person's draft under `draftPath` (VE-D84). An old tab's
+    // ordinary save is never one.
+    function takesOver(draftPath) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['editing'])
+             && request.resource.data.editing is map
+             && request.resource.data.editing.get('by', '') == request.auth.uid
+             && request.resource.data.editing.get('kept', null) is string
+             && !exists(path(draftPath + '/Kept/' + request.resource.data.editing.kept))
+             && existsAfter(path(draftPath + '/Kept/' + request.resource.data.editing.kept));
+    }
+
+    // A draft kept before a take over or a discard, named by the one who keeps it. One of
+    // a take over comes with the take over itself: the same write makes the caller the
+    // holder and names this kept draft, whose it was being whoever held the draft.
+    function keepsDraft(draftPath, keptId) {
+      return request.resource.data.keys().hasOnly(['by', 'name', 'why', 'keptBy', 'keptByName', 'keptAt', 'data'])
+             && request.resource.data.keptBy == request.auth.uid
+             && request.resource.data.keptByName is string
+             && request.resource.data.keptByName.size() <= 200
+             && request.resource.data.keptAt == request.time
+             && request.resource.data.by is string
+             && request.resource.data.data is map
+             && (request.resource.data.why == 'discard'
+                 || (request.resource.data.why == 'takeover'
+                     && get(path(draftPath)).data.editing.by == request.resource.data.by
+                     && getAfter(path(draftPath)).data.editing.by == request.auth.uid
+                     && getAfter(path(draftPath)).data.editing.kept == keptId));
+    }
+
+    // A kept draft's other languages: written only with the kept draft itself.
+    function keptIsNew(keptPath) {
+      return !exists(path(keptPath)) && existsAfter(path(keptPath));
     }
 
     // ============================================================
@@ -105,9 +159,9 @@ service cloud.firestore {
     // use a catch-all wildcard with collection.matches() regex.
     match /{collection}/{docId} {
       // Published content: arc_* but NOT *_drafts → public read
-      allow read: if collection.matches('arc_.*') && !collection.matches('.*_drafts');
+      allow read: if isPublishedCollection();
       // Draft content: arc_*_drafts → staff read (only the admin editor reads drafts)
-      allow read: if collection.matches('arc_.*_drafts') && isEditor();
+      allow read: if isDraftCollection() && isEditor();
       // Tags: Tags_* → public read
       allow read: if collection.matches('Tags_.*');
       // WaitlistUserTags: admin read
@@ -115,8 +169,32 @@ service cloud.firestore {
 
       // Writes: arc_* and Tags_* → staff. These were writable by any signed-in
       // user, and sign-up is open, so anyone could publish or deface content.
-      allow write: if (collection.matches('arc_.*') || collection.matches('Tags_.*'))
+      allow write: if (isPublishedCollection() || collection.matches('Tags_.*'))
                    && isEditor();
+
+      // Drafts → staff, one at a time (VE-D78): while someone else holds a draft its words,
+      // address, SEO, tags, author and layout are theirs. What is not held stays open:
+      // where it stands (publish, unpublish), its order, featured, the series links, and
+      // the references the CMS keeps in step (customFields, modifiedAt).
+      function isDraftCollection() {
+        return collection.matches('arc_.*_drafts');
+      }
+      function isPublishedCollection() {
+        return collection.matches('arc_.*') && !collection.matches('.*_drafts');
+      }
+      function draftPath() {
+        return '/databases/' + database + '/documents/' + collection + '/' + docId;
+      }
+      function touchesHeld() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'editing', 'title', 'content', 'summary', 'coverImage', 'urlSlug', 'seoTitle', 'metaDescription',
+          'canonicalUrl', 'tags', 'authorId', 'layout', 'references', 'updatedOn', 'changedOnPage']);
+      }
+      allow create: if isDraftCollection() && isEditor() && ownHold(null);
+      // The take over is asked last: it is the only part that reads another document.
+      allow update: if isDraftCollection() && isEditor() && ownHold(resource.data.get('editing', null))
+                    && (!heldByOther(resource.data) || !touchesHeld() || takesOver(draftPath()));
+      allow delete: if isDraftCollection() && isEditor();
       // WaitlistUserTags → admin write. Signing up no longer counts tag use from the
       // browser (joinForm runs on the server), so nobody else may touch `usageCount`.
       allow create, update, delete: if collection.matches('WaitlistUserTags_.*') && isAdmin();
@@ -130,13 +208,30 @@ service cloud.firestore {
 
       // translations/{lang} subcollection — per-language content variants (M2).
       // Mirrors the parent's access model:
-      //   arc_*_drafts → authored in the editor, so staff read/write
+      //   arc_*_drafts → authored in the editor, so staff read/write, unless someone
+      //                  else holds the entry (VE-D77)
       //   arc_*        → published variants, public read (the language pages
       //                  and the SPA fallback are public); written only by the
       //                  publish pipeline, which bypasses rules via Admin SDK.
       match /translations/{lang} {
-        allow read, write: if collection.matches('arc_.*_drafts') && isEditor();
-        allow read: if collection.matches('arc_.*') && !collection.matches('.*_drafts');
+        allow read: if isDraftCollection() && isEditor();
+        allow write: if isDraftCollection() && isEditor()
+                     && (!exists(path(draftPath())) || !heldByOther(get(path(draftPath())).data));
+        allow read: if isPublishedCollection();
+      }
+
+      // Drafts kept before a take over or a discard (VE-D84): staff keep and read them,
+      // nobody changes one; onDraftKept (functions) prunes them.
+      match /Kept/{keptId} {
+        allow read: if isDraftCollection() && isEditor();
+        allow create: if isDraftCollection() && isEditor() && keepsDraft(draftPath(), keptId);
+        allow update, delete: if false;
+
+        match /translations/{lang} {
+          allow read: if isDraftCollection() && isEditor();
+          allow create: if isDraftCollection() && isEditor() && keptIsNew(draftPath() + '/Kept/' + keptId);
+          allow update, delete: if false;
+        }
       }
 
       // The steps of a page's release to Hosting (functions/src/pages/deployToHosting.ts):
@@ -393,20 +488,21 @@ service cloud.firestore {
 
     // Publish queue: staff add trigger docs (PublishQueueService); processPublishQueue
     // runs and deletes them. Create only, with exactly the fields the admin app sends.
-    // Never with the fixed id of a whole-site republish, an items-from rebuild or the
-    // home page rebuild (functions/src/publishQueue/coalesced-items.ts): those hold the run's state
+    // Never with the fixed id of a whole-site republish, an items-from rebuild, a list page
+    // rebuild or the home page rebuild (functions/src/publishQueue/coalesced-items.ts): those hold the run's state
     // (`running`, `since`), and a forged one would block the run.
     // A page's text (specs/visual-editing-spec.md, VE-D39): `page-text` names the page
-    // (`home` or `p-{name}`) and no content type.
+    // (`home`, `p-{name}` or `list-{slug}`) and no content type.
     match /_publish_queue/{queueId} {
       allow read: if false;       // Cloud Functions use Admin SDK (bypasses rules)
       allow create: if isEditor()
                     && queueId != 'redeploy-all'
                     && queueId != 'home-page'
                     && !queueId.matches('items-from--.*')
+                    && !queueId.matches('list-.*')
                     && request.resource.data.keys().hasOnly(['action', 'contentTypeSlug', 'docId', 'timestamp'])
                     && request.resource.data.keys().hasAll(['action', 'contentTypeSlug', 'docId', 'timestamp'])
-                    && request.resource.data.action in ['publish', 'unpublish', 'update', 'delete', 'redeploy', 'redeploy-all', 'order', 'page-text']
+                    && request.resource.data.action in ['publish', 'unpublish', 'update', 'delete', 'redeploy', 'redeploy-all', 'order', 'page-text', 'purge-draft']
                     && request.resource.data.contentTypeSlug is string
                     && request.resource.data.docId is string
                     && request.resource.data.timestamp is timestamp
@@ -417,23 +513,55 @@ service cloud.firestore {
 
     // Page text (specs/visual-editing-spec.md, VE-D39): what editors changed on the
     // home page and the static pages, by key, filled into the page's marked areas
-    // when it is published. `pageId` is `home` or `p-{name}`.
+    // when it is published. `pageId` is `home`, `p-{name}` or `list-{slug}`.
     //   SitePageTextDrafts → the editors' draft, saved a field at a time.
     //   SitePageText       → what is published: on the public page anyway, so anyone
     //                        reads it; only the publish function writes it.
     //   History            → every publish, for Restore; Cloud Functions write it.
+    // One person at a time here too (VE-D78), while what they saved is not published:
+    // a publish lets go of the page.
     match /SitePageTextDrafts/{pageId} {
+      function pageDraftPath() {
+        return '/databases/' + database + '/documents/SitePageTextDrafts/' + pageId;
+      }
+      function pagePublishedPath() {
+        return path('/databases/' + database + '/documents/SitePageText/' + pageId);
+      }
+      function pageHeldByOther() {
+        return heldByOther(resource.data)
+               && (!exists(pagePublishedPath())
+                   || get(pagePublishedPath()).data.get('draftUpdatedAt', null) == null
+                   || resource.data.get('updatedAt', null) == null
+                   || resource.data.updatedAt > get(pagePublishedPath()).data.draftUpdatedAt);
+      }
+      function pageDraftShape() {
+        return isPageTextId(pageId)
+               && request.resource.data.keys().hasOnly(['text', 'urls', 'seo', 'shareImage', 'updatedAt', 'updatedBy', 'editing'])
+               && (!('text' in request.resource.data) || request.resource.data.text is map)
+               && (!('urls' in request.resource.data) || request.resource.data.urls is map)
+               && (!('seo' in request.resource.data) || request.resource.data.seo is map)
+               && (!('shareImage' in request.resource.data) || request.resource.data.shareImage is map);
+      }
+      function pageDraftStamp() {
+        return request.resource.data.updatedAt == request.time
+               && request.resource.data.updatedBy == request.auth.uid;
+      }
       allow read: if isEditor();
-      allow create, update: if isEditor()
-                            && isPageTextId(pageId)
-                            && request.resource.data.keys().hasOnly(['text', 'urls', 'seo', 'shareImage', 'updatedAt', 'updatedBy'])
-                            && (!('text' in request.resource.data) || request.resource.data.text is map)
-                            && (!('urls' in request.resource.data) || request.resource.data.urls is map)
-                            && (!('seo' in request.resource.data) || request.resource.data.seo is map)
-                            && (!('shareImage' in request.resource.data) || request.resource.data.shareImage is map)
-                            && request.resource.data.updatedAt == request.time
-                            && request.resource.data.updatedBy == request.auth.uid;
-      allow delete: if isEditor();
+      allow create: if isEditor() && pageDraftShape() && pageDraftStamp() && ownHold(null);
+      // A page's first save is an update of a draft not there yet (`resource` is null): let
+      // through, it answers "not found" and the app creates the draft. Refused here it
+      // would read as a save that failed.
+      allow update: if isEditor() && pageDraftShape()
+                    && (resource == null
+                        || (ownHold(resource.data.get('editing', null))
+                            && ((pageDraftStamp() && !pageHeldByOther()) || takesOver(pageDraftPath()))));
+      allow delete: if isEditor() && !pageHeldByOther();
+
+      match /Kept/{keptId} {
+        allow read: if isEditor();
+        allow create: if isEditor() && isPageTextId(pageId) && keepsDraft(pageDraftPath(), keptId);
+        allow update, delete: if false;
+      }
     }
     match /SitePageText/{pageId} {
       allow read: if true;

@@ -1,6 +1,8 @@
-import { Injectable, runInInjectionContext } from '@angular/core';
+import { Injectable, inject, runInInjectionContext } from '@angular/core';
 import { CollectionReference, collection, getDocs, getDoc, getDocsFromServer, getCountFromServer, query, where, limit, doc, writeBatch, orderBy, runTransaction } from '@angular/fire/firestore';
 import { EntryChangedError, EntryGoneError, changedSinceOpened } from './entry-changed';
+import { HeldError, heldByOther, type EditorPerson } from '../../../../core/editing/hold';
+import { HoldService } from '../../../../core/editing/hold.service';
 import { draftQueueEntry } from '../../../../../shared/services/search-queue';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IDraftContents, INextContentReference } from './draft-contents.model';
@@ -13,6 +15,8 @@ import { arcCallable } from '../../../../core/config/arc-functions';
     providedIn: 'root'
 })
 export class DraftContentsService extends DbService<IDraftContents> {
+
+    private holds = inject(HoldService);
 
     constructor() {
         super('DraftContents'); // Default fallback
@@ -100,23 +104,49 @@ export class DraftContentsService extends DbService<IDraftContents> {
         // The draft is queued for search with it (specs/feature-flags-spec.md 6.5).
         // A transaction, not a batch: without a connection it fails at once
         // instead of waiting, so the editor can say "Not saved" (RF4 review M6).
+        const base = this.entryRef(contentTypeSlug, docId);
+        const me = this.holds.me();
         await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
+            // A translation follows its entry's hold (VE-D77).
+            if (me) this.checkHold((await transaction.get(base)).data() as Record<string, unknown> | undefined, me);
             transaction.set(ref, { ...pruned, lang: translation.lang });
             const entry = draftQueueEntry(this.firestore, ref.path);
             if (entry) transaction.set(entry.ref, entry.data);
         }));
     }
 
-    /** Removes a language variant entirely, reverting it to the base content. */
-    async deleteTranslation(contentTypeSlug: string, docId: string, lang: string): Promise<void> {
+    /**
+     * Removes a language variant entirely, reverting it to the base content. A change
+     * like any other: the entry is held, and its `modifiedAt` moves so it reads as
+     * changed. Returns that new mark, which the caller's next save compares with.
+     */
+    async deleteTranslation(contentTypeSlug: string, docId: string, lang: string): Promise<Date | null> {
         const ref = runInInjectionContext(this.injector, () =>
             doc(this.translationsRef(contentTypeSlug, docId), lang),
         );
-        await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
+        const base = this.entryRef(contentTypeSlug, docId);
+        const me = this.holds.me();
+        return runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
+            const stored = (await transaction.get(base)).data() as Record<string, unknown> | undefined;
+            this.checkHold(stored, me);
+            const modifiedAt = stored ? new Date() : null;
+            if (modifiedAt) transaction.update(base, { modifiedAt, status: 'draft', ...(me ? this.holds.stamp(me, stored, false) : {}) });
             transaction.delete(ref);
             const entry = draftQueueEntry(this.firestore, ref.path);
             if (entry) transaction.set(entry.ref, entry.data);
+            return modifiedAt;
         }));
+    }
+
+    /** The entry's own draft. */
+    private entryRef(contentTypeSlug: string, docId: string) {
+        return runInInjectionContext(this.injector, () => doc(this.getCollectionRef(contentTypeSlug), docId));
+    }
+
+    /** Someone else holds the draft: nothing is written (VE-D78). */
+    private checkHold(stored: Record<string, unknown> | undefined, me: EditorPerson | null): void {
+        const hold = me ? heldByOther(stored, me.uid) : null;
+        if (hold) throw new HeldError(hold);
     }
 
     /**
@@ -136,7 +166,9 @@ export class DraftContentsService extends DbService<IDraftContents> {
         const collectionRef = this.getCollectionRef(contentType);
         const ref = runInInjectionContext(this.injector, () => (id ? doc(collectionRef, id) : doc(collectionRef)));
         const now = new Date();
-        const written = { createdAt: now, modifiedAt: now, ...data, id: ref.id };
+        const me = this.holds.me();
+        // A new entry is held by its author until it is first published (VE-D77).
+        const written = { createdAt: now, modifiedAt: now, ...data, id: ref.id, ...(me ? this.holds.stamp(me, null, false) : {}) };
         await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
             transaction.set(ref, written);
             const entry = draftQueueEntry(this.firestore, ref.path);
@@ -151,6 +183,8 @@ export class DraftContentsService extends DbService<IDraftContents> {
      * since, nothing is written and an EntryChangedError is thrown. Without it
      * (Keep mine), the write goes ahead. `data.modifiedAt` is the new mark;
      * the caller keeps it for its next save. Failures reach the caller.
+     * A draft someone else holds is never written, whatever else is asked
+     * (VE-D78); the save takes the hold.
      */
     async saveDraft(
         contentType: string,
@@ -159,14 +193,17 @@ export class DraftContentsService extends DbService<IDraftContents> {
         openedModifiedAt: unknown,
     ): Promise<void> {
         const ref = runInInjectionContext(this.injector, () => doc(this.getCollectionRef(contentType), id));
-        const written = { ...data, modifiedAt: data['modifiedAt'] ?? new Date() };
+        const me = this.holds.me();
+        const written: Record<string, unknown> = { ...data, modifiedAt: data['modifiedAt'] ?? new Date() };
         await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
             const snap = await transaction.get(ref);
             if (!snap.exists()) throw new EntryGoneError();
-            if (changedSinceOpened(openedModifiedAt, (snap.data() as { modifiedAt?: unknown }).modifiedAt)) {
+            const stored = snap.data() as unknown as Record<string, unknown>;
+            this.checkHold(stored, me);
+            if (changedSinceOpened(openedModifiedAt, stored['modifiedAt'])) {
                 throw new EntryChangedError();
             }
-            transaction.update(ref, written);
+            transaction.update(ref, { ...written, ...(me ? this.holds.stamp(me, stored, false) : {}) });
             const entry = draftQueueEntry(this.firestore, ref.path);
             if (entry) transaction.set(entry.ref, entry.data);
         }));

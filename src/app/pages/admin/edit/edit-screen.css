@@ -12,10 +12,7 @@
     overflow-x: auto; scrollbar-width: none;
 }
 .arc-ed-title { font-weight: 600; white-space: nowrap; }
-.arc-ed-status { padding: 1px 8px; border-radius: 999px; background: #4b5563; white-space: nowrap; }
-.arc-ed-status.arc-ed-saved, .arc-ed-status.arc-ed-published { background: #15803d; }
-.arc-ed-status.arc-ed-publishing { background: #a16207; }
-.arc-ed-status.arc-ed-not_saved { background: #b91c1c; }
+.arc-ed-name { max-width: 24ch; overflow: hidden; text-overflow: ellipsis; }
 .arc-ed-spacer { flex: 1 1 auto; }
 .arc-ed-group { display: inline-flex; gap: 2px; }
 .arc-ed-btn {

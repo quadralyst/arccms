@@ -25,13 +25,14 @@ import { indexDocument, removeSearchEntries } from '../search/writer.js';
 import { runReindex } from '../search/reindexSearch.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
-import { claimCoalesced, coalescedIdFor, finishCoalesced, requestCoalesced } from './coalesced-items.js';
-import { markPageTextUnreleased, pageOfPageTextId, publishPageTextDraft } from '../pages/page-text-store.js';
+import { claimCoalesced, coalescedIdFor, finishCoalesced, requestCoalesced, rerunCoalesced } from './coalesced-items.js';
+import { markPageTextUnreleased, pageOfPageTextId, publishedPageTextStamp, publishPageTextDraft } from '../pages/page-text-store.js';
+import { pageTextId } from '../shared/page-text.js';
 import type { RebuildCursor } from '../pages/items-from-type-pages.js';
 import type { ItemsFromTypeCache } from '../pages/published-entries.js';
 
 interface QueueItem {
-    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'order' | 'items-from' | 'page-text';
+    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'list' | 'order' | 'items-from' | 'page-text' | 'purge-draft';
     contentTypeSlug: string;
     docId: string;
     timestamp: Timestamp;
@@ -100,6 +101,60 @@ export async function queueHomePage(reason: string): Promise<boolean> {
     }
 }
 
+/**
+ * Queues a rebuild of a type's list page in every language, coalesced
+ * (specs/visual-editing-spec.md, VE-D63): its words were published.
+ */
+export async function queueListPage(slug: string, reason: string): Promise<boolean> {
+    try {
+        const outcome = await requestCoalesced('list', slug);
+        console.log(`Rebuilding the ${slug} list page (${outcome}): ${reason}`);
+        return true;
+    } catch (error) {
+        console.error(`Could not queue the ${slug} list page rebuild (${reason}):`, error);
+        return false;
+    }
+}
+
+/** Whether a type has a list page: it exists, and has public pages. */
+async function hasListPage(slug: string): Promise<boolean> {
+    const snap = await db.collection('ContentTypes').where('slug', '==', slug).limit(1).get();
+    return !snap.empty && snap.docs[0].data()?.hasPublicUrl !== false;
+}
+
+/**
+ * The list pages one run built into its own release, and the mark of the words each
+ * was built with (publishedPageTextStamp). An entry's list page goes out with the
+ * entry, so it shows there as soon as the entry is live; only a publish of the list
+ * page's words is a coalesced item. The two can cross, so each makes sure the other
+ * is on the page: `buildListPage` runs a list rebuild under way again (it may have
+ * read the entries before this one), and `rebuildListsChanged`, after the release,
+ * queues one when words were published since this page was built.
+ */
+export type ListBuilds = Map<string, string>;
+
+const listStamp = (slug: string): Promise<string> => publishedPageTextStamp(pageTextId.listPage(slug));
+
+async function buildListPage(slug: string, batch: HostingBatch, builds: ListBuilds): Promise<void> {
+    try {
+        builds.set(slug, await listStamp(slug));
+        if (await rerunCoalesced('list', slug)) console.log(`The ${slug} list page is being rebuilt; it runs again with this change`);
+    } catch (error) {
+        console.error(`Could not check for a rebuild of the ${slug} list page:`, error);
+    }
+    await generateAndDeployContentListPage(slug, batch);
+}
+
+async function rebuildListsChanged(builds: ListBuilds): Promise<void> {
+    for (const [slug, stamp] of builds) {
+        try {
+            if ((await listStamp(slug)) !== stamp) await queueListPage(slug, 'its words were published while it was being released');
+        } catch (error) {
+            console.error(`Could not check the words of the ${slug} list page:`, error);
+        }
+    }
+}
+
 /** The queue function's timeout (timeoutSeconds below), in ms. */
 export const QUEUE_TIMEOUT_MS = 540_000;
 
@@ -154,7 +209,7 @@ async function releaseRun(batch: HostingBatch, runStart: number): Promise<{ rele
  * Only `sortOrder` is written, so a draft's unpublished edits stay unpublished.
  * Returns whether it queued a whole-site republish.
  */
-export async function applyEntryOrder(slug: string, batch: HostingBatch): Promise<boolean> {
+export async function applyEntryOrder(slug: string, batch: HostingBatch, builds: ListBuilds = new Map()): Promise<boolean> {
     const [drafts, published, typeSnap] = await Promise.all([
         db.collection(getDraftCollectionName(slug)).get(),
         db.collection(getPublishedCollectionName(slug)).get(),
@@ -174,7 +229,7 @@ export async function applyEntryOrder(slug: string, batch: HostingBatch): Promis
 
     const typeData = typeSnap.empty ? null : typeSnap.docs[0].data();
     const hasPublicUrl = typeData?.hasPublicUrl !== false;
-    if (hasPublicUrl) await generateAndDeployContentListPage(slug, batch);
+    if (hasPublicUrl) await buildListPage(slug, batch, builds);
     if (await homeShowsType(slug).catch(() => false)) await generateAndDeployHomePage(batch);
     // The footer lists the standard pages in this order (SS6). A card block in the
     // header or footer shows the type's entries in its order, which this item may
@@ -203,9 +258,9 @@ const byDocId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.
  */
 async function collectAllPublishedPages(
     batch: HostingBatch,
-    options: { after?: SiteCursor; deadline?: number } = {},
+    options: { after?: SiteCursor; deadline?: number; builds?: ListBuilds } = {},
 ): Promise<{ pages: number; next?: SiteCursor }> {
-    const { after, deadline = Infinity } = options;
+    const { after, deadline = Infinity, builds = new Map() } = options;
     const contentTypes = (await db.collection('ContentTypes').get()).docs
         .map((doc) => doc.data() as { slug?: string; hasPublicUrl?: boolean })
         .filter((type): type is { slug: string; hasPublicUrl?: boolean } => !!type.slug && type.hasPublicUrl !== false)
@@ -239,7 +294,7 @@ async function collectAllPublishedPages(
         }
 
         try {
-            await generateAndDeployContentListPage(slug, batch);
+            await buildListPage(slug, batch, builds);
         } catch (error) {
             console.error(`Could not rebuild the ${slug} list page:`, error);
         }
@@ -254,12 +309,13 @@ async function collectAllPublishedPages(
  *
  * Languages removed from the draft are deleted from the published copy —
  * otherwise clearing a translation would leave its page deploying forever.
+ * Resolves with the words it copied (translationWords), null when it could not.
  */
 async function syncTranslations(
     draftCollection: string,
     publishedCollection: string,
     docId: string,
-): Promise<void> {
+): Promise<Map<string, string> | null> {
     try {
         const draftTranslations = await db
             .collection(draftCollection).doc(docId).collection('translations').get();
@@ -277,11 +333,19 @@ async function syncTranslations(
             .forEach(doc => batch.delete(doc.ref));
 
         await batch.commit();
+        return translationWords(draftTranslations.docs);
     } catch (error) {
         // A translation sync failure must not abort the publish — the default
-        // language still deploys, which is the pre-multilingual behaviour.
+        // language still deploys, which is the pre-multilingual behaviour. The draft
+        // still reads as not published, since its translations may not be live.
         console.error(`Could not sync translations for ${publishedCollection}/${docId}:`, error);
+        return null;
     }
+}
+
+/** What an entry's translations say, per language, to tell whether one was saved since. */
+function translationWords(docs: { id: string; data(): Record<string, any> }[]): Map<string, string> {
+    return new Map(docs.map((doc) => [doc.id, stableWords(doc.data())]));
 }
 
 /** Removes every language variant of a published document. */
@@ -299,7 +363,94 @@ async function deleteTranslations(publishedCollection: string, docId: string): P
 }
 
 /**
- * Records on the draft that it has just been published.
+ * Removes everything under an entry that is deleted: its draft's other languages and
+ * the drafts kept before take overs and discards (VE-D84), each with its own. What is
+ * under a document outlives it.
+ */
+async function deleteUnderDraft(draftCollection: string, docId: string): Promise<void> {
+    try {
+        await db.recursiveDelete(db.collection(draftCollection).doc(docId));
+    } catch (error) {
+        console.error(`Could not delete what is under ${draftCollection}/${docId}:`, error);
+    }
+}
+
+/**
+ * The entry was taken off the site. A save of its editor that landed between the
+ * Unpublish and the published copy's removal (an auto-save, or one that let go of the
+ * entry) says it is published again: it is not. A Publish asked for since is
+ * left alone: its own item puts the entry back.
+ */
+async function markUnpublished(draftCollection: string, contentTypeSlug: string, docId: string): Promise<void> {
+    try {
+        const ref = db.collection(draftCollection).doc(docId);
+        if ((await ref.get()).data()?.['publishedStatus'] !== true) return;
+        const waiting = await db.collection('_publish_queue').where('docId', '==', docId).get();
+        if (waiting.docs.some((item) => item.data()['contentTypeSlug'] === contentTypeSlug && ['publish', 'update'].includes(item.data()['action']))) return;
+        await db.runTransaction(async (tx) => {
+            const now = (await tx.get(ref)).data();
+            if (now?.['publishedStatus'] === true) tx.update(ref, { publishedStatus: false, status: 'draft' });
+        });
+    } catch (error) {
+        console.error(`Could not mark ${draftCollection}/${docId} as unpublished:`, error);
+    }
+}
+
+/**
+ * What belongs to the draft alone, and is never copied to what visitors, History or
+ * the published search read: the address choice of one publish, who holds the draft
+ * (a person's name and account, VE-D78), and the page a card was changed on (VE-D72).
+ */
+export function publishableDraft(draft: Record<string, any>): { redirectOldAddress: unknown; data: Record<string, any> } {
+    const { redirectOldAddress, editing: _editing, changedOnPage: _changedOnPage, ...data } = draft;
+    return { redirectOldAddress, data };
+}
+
+/**
+ * The fields of a draft that are not its words: where it stands, who saved it, and
+ * what the CMS keeps beside them. The links of a series are words: they show on the page.
+ */
+const NOT_WORDS = new Set([
+    'modifiedAt', 'updatedAt', 'modifiedBy', 'createdAt', 'createdBy', 'id', 'status', 'publishedStatus', 'publishedOn', 'lastPublishedAt',
+    'editing', 'changedOnPage', 'addedOnPage', 'redirectOldAddress', 'sortOrder', 'isFeatured',
+]);
+
+/**
+ * What a draft or a translation says, as one text to compare: key order, empty values
+ * and how a time is stored make no difference, nor do the copies of other entries the
+ * CMS keeps in step (`_ref_*`).
+ */
+export function stableWords(data: Record<string, any>): string {
+    const norm = (value: any): unknown => {
+        if (value === null || value === undefined || value === '') return undefined;
+        if (typeof value !== 'object') return value;
+        if (typeof value.toMillis === 'function') return { time: value.toMillis() };
+        if (value instanceof Date) return { time: value.getTime() };
+        if (Array.isArray(value)) return value.length ? value.map((item) => norm(item) ?? null) : undefined;
+        const entries = Object.keys(value).filter((key) => !key.startsWith('_ref_')).sort()
+            .map((key) => [key, norm(value[key])] as const).filter(([, item]) => item !== undefined);
+        return entries.length ? Object.fromEntries(entries) : undefined;
+    };
+    return JSON.stringify(norm(Object.fromEntries(Object.entries(data).filter(([key]) => !NOT_WORDS.has(key)))) ?? {});
+}
+
+/** The same languages, saying the same. */
+function sameTranslations(a: Map<string, string>, b: Map<string, string>): boolean {
+    return a.size === b.size && [...a].every(([lang, words]) => b.get(lang) === words);
+}
+
+/** A stored time in milliseconds: a Timestamp, a copy of one, or a Date. */
+function millisOf(value: any): number {
+    if (value === null || value === undefined) return 0;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (typeof value.seconds === 'number') return value.seconds * 1000 + Math.floor((value.nanoseconds ?? 0) / 1e6);
+    return value instanceof Date ? value.getTime() : 0;
+}
+
+/**
+ * Records on the draft that it has just been published, and lets go of it
+ * (specs/visual-editing-spec.md, VE-D76): whoever held it has nothing unpublished
+ * left, and a card changed on a page is out.
  *
  * The admin list distinguishes "Published" from "Edited" by comparing the
  * draft's `modifiedAt` against this stamp. Writing it here — after the
@@ -307,13 +458,32 @@ async function deleteTranslations(publishedCollection: string, docId: string): P
  * guarantees it lands at or after the `modifiedAt` of the write that triggered
  * the publish, so a freshly published item can never read as edited.
  *
- * Deliberately a narrow `update`: touching any other field (or `modifiedAt`)
- * would defeat the comparison it exists to support.
+ * What went out is compared with what is stored by its words, not its dates
+ * (`copied`, read at `readAt`, and `translations`, the languages copied, null when they
+ * could not be): a reference kept in step moves the dates alone. A draft saved
+ * meanwhile holds words that are not live, put back to earlier ones too, or in
+ * another language: it is stamped with the time it was read, reads as edited (its
+ * `modifiedAt` is moved only when it would not), and whoever saved it keeps it.
  */
-async function stampLastPublishedAt(draftCollection: string, docId: string): Promise<void> {
+async function stampLastPublishedAt(
+    draftCollection: string, docId: string, copied: Record<string, any>, readAt: Timestamp, translations: Map<string, string> | null,
+): Promise<void> {
     try {
-        await db.collection(draftCollection).doc(docId).update({
-            lastPublishedAt: Timestamp.now(),
+        const ref = db.collection(draftCollection).doc(docId);
+        await db.runTransaction(async (tx) => {
+            const now = (await tx.get(ref)).data();
+            if (!now) throw new Error('the draft is gone');
+            const stored = translationWords((await tx.get(ref.collection('translations'))).docs);
+            const landed = !!translations && sameTranslations(translations, stored) && stableWords(now) === stableWords(copied);
+            if (landed) {
+                tx.update(ref, { lastPublishedAt: Timestamp.now(), editing: FieldValue.delete(), changedOnPage: FieldValue.delete() });
+                return;
+            }
+            tx.update(ref, {
+                lastPublishedAt: readAt,
+                ...(millisOf(now['modifiedAt']) > millisOf(readAt) ? {} : { modifiedAt: Timestamp.now() }),
+                ...(now['status'] === 'draft' ? {} : { status: 'draft' }),
+            });
         });
         // The drafts index shows Draft, Published or Edited from this stamp, and
         // no trigger watches draft writes (specs/feature-flags-spec.md 6.5).
@@ -493,9 +663,9 @@ export const processPublishQueue = onDocumentCreated({
 
     // 'redeploy-all' and 'home' are site-wide, so they name no content type and no
     // document; 'order' is about a whole content type, so it names no document;
-    // 'page-text' names a page (`home`, `p-{name}`) and no content type.
+    // 'page-text' names a page (`home`, `p-{name}`, `list-{slug}`) and no content type.
     const siteWide = action === 'redeploy-all' || action === 'home';
-    const typeWide = action === 'order' || action === 'items-from';
+    const typeWide = action === 'order' || action === 'items-from' || action === 'list';
     const pageWide = action === 'page-text';
     if (!action || (pageWide ? !docId : (!siteWide && (!contentTypeSlug || (!typeWide && !docId))))) {
         console.error('Invalid queue item — missing required fields:', queueData);
@@ -511,23 +681,29 @@ export const processPublishQueue = onDocumentCreated({
     const batch = new HostingBatch();
     /** Why this item's own page could not be built, if it could not (recordPageFailure). */
     let pageError: unknown = null;
+    /** The list pages built into this release (buildListPage). */
+    const listBuilds: ListBuilds = new Map();
     /** Pages left at an old address (moved-page.ts): not sent to IndexNow as new pages. */
     const movedPaths = new Set<string>();
 
     // A page's text was published (specs/visual-editing-spec.md, VE-D57): its draft
     // becomes the published copy, kept in History, and the page is rebuilt. The
     // home page joins the coalesced home page rebuild, with any cards published
-    // with it; a static page goes out in this item's own release.
+    // with it, and a list page its own coalesced rebuild (VE-D63); a static page
+    // goes out in this item's own release.
     if (action === 'page-text') {
         const page = pageOfPageTextId(docId);
         let published = false;
         try {
             if (!page) throw new Error(`not a page: ${docId}`);
+            if (page.kind === 'list' && !(await hasListPage(page.slug))) throw new Error(`${page.slug} has no list page`);
             await publishPageTextDraft(docId, queueId || undefined);
             published = true;
             if (page.kind === 'home') {
                 // Not queued: the words are copied but will not go out, so the admin must not say Published (review M1).
                 if (!(await queueHomePage('its page text was published'))) throw new Error('the home page rebuild could not be queued');
+            } else if (page.kind === 'list') {
+                if (!(await queueListPage(page.slug, 'its words were published'))) throw new Error('the list page rebuild could not be queued');
             } else {
                 await generateAndDeployStaticPage(page.name, batch);
                 const released = !batch.isEmpty
@@ -552,6 +728,7 @@ export const processPublishQueue = onDocumentCreated({
     if (coalescedId && queueId !== coalescedId) {
         if (action === 'redeploy-all') await queueRedeployAll(`asked for by queue item ${queueId}`);
         else if (action === 'home') await queueHomePage(`asked for by queue item ${queueId}`);
+        else if (action === 'list') await queueListPage(contentTypeSlug, `asked for by queue item ${queueId}`);
         else await requestCoalesced('items-from', contentTypeSlug).catch((error) =>
             console.error(`Could not queue the pages that show entries of ${contentTypeSlug}:`, error));
         if (queueDocRef) await queueDocRef.delete();
@@ -586,6 +763,37 @@ export const processPublishQueue = onDocumentCreated({
         return;
     }
 
+    // A type's list page in every language, after its words were published (VE-D63).
+    // However many asked, one run builds it from what is published then. A type
+    // deleted, or with its public pages turned off, meanwhile has none to build.
+    if (action === 'list') {
+        const claimed = await claimCoalesced(coalescedId);
+        if (!claimed) return;
+        let failure = '';
+        try {
+            if (await hasListPage(contentTypeSlug)) {
+                await generateAndDeployContentListPage(contentTypeSlug, batch);
+                const run = await releaseRun(batch, runStart);
+                failure = run.failure;
+                if (run.released && isFeatureOn('seo')) await submitBatchToIndexNow(batch.files.map((f) => f.path), batch.removedPaths);
+            }
+        } catch (error: any) {
+            failure = error?.message || String(error);
+            console.error(`Rebuilding the ${contentTypeSlug} list page failed:`, error);
+        }
+        if (failure) {
+            const givenUp = await finishCoalesced(coalescedId, undefined, { failed: true, error: failure });
+            // As for the home page: not live and not tried again, so the admin offers Publish again.
+            if (givenUp) {
+                await markPageTextUnreleased(pageTextId.listPage(contentTypeSlug))
+                    .catch((e) => console.error(`Could not mark the ${contentTypeSlug} list page text as not live:`, e));
+            }
+        } else {
+            await finishCoalesced(coalescedId);
+        }
+        return;
+    }
+
     // Handled ahead of the per-document setup below, which needs a document to
     // point at. This one is about the site, not about a document.
     if (action === 'redeploy-all') {
@@ -598,7 +806,7 @@ export const processPublishQueue = onDocumentCreated({
         try {
             // A site with more pages than fit in one run releases what it built
             // and goes on in a new run from where it stopped (as items-from).
-            const { pages, next } = await collectAllPublishedPages(batch, { after, deadline: runStart + COALESCED_BUILD_MS });
+            const { pages, next } = await collectAllPublishedPages(batch, { after, deadline: runStart + COALESCED_BUILD_MS, builds: listBuilds });
             if (!next) {
                 // The last part: the home page is part of the site, whatever it shows.
                 try {
@@ -643,6 +851,7 @@ export const processPublishQueue = onDocumentCreated({
             failure = error?.message || String(error);
             console.error('Site-wide redeploy failed:', error);
         }
+        await rebuildListsChanged(listBuilds);
         // The published search index is rebuilt with the pages, once they all
         // went out: a site-wide repair should leave nothing behind that a search
         // cannot find.
@@ -658,16 +867,32 @@ export const processPublishQueue = onDocumentCreated({
         return;
     }
 
+    // A draft with no live page was deleted: what is under it (its other languages, kept
+    // drafts) goes too. Nothing on the site changes. A draft that is still there, or is
+    // again, keeps everything.
+    if (action === 'purge-draft') {
+        const draftCollection = getDraftCollectionName(contentTypeSlug);
+        try {
+            if ((await db.collection(draftCollection).doc(docId).get()).exists) console.warn(`Not purging ${draftCollection}/${docId}: the draft is there`);
+            else await deleteUnderDraft(draftCollection, docId);
+        } catch (error) {
+            console.error(`Could not purge ${draftCollection}/${docId}:`, error);
+        }
+        if (queueDocRef) await queueDocRef.delete();
+        return;
+    }
+
     // A content type's entries were put in a new order (the Arrange dialog), or its
     // entry order changed: the pages that show them follow (specs/site-sections-spec.md, SS2).
     if (action === 'order') {
         let siteRepublished = false;
         try {
-            siteRepublished = await applyEntryOrder(contentTypeSlug, batch);
+            siteRepublished = await applyEntryOrder(contentTypeSlug, batch, listBuilds);
             if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '', itemRelease(runStart));
         } catch (error) {
             console.error(`Entry order update failed for ${contentTypeSlug}:`, error);
         }
+        await rebuildListsChanged(listBuilds);
         if (queueDocRef) await queueDocRef.delete();
         // A whole-site republish rebuilds those pages too.
         if (!siteRepublished) await queuePagesShowingItemsOf(contentTypeSlug);
@@ -725,12 +950,14 @@ export const processPublishQueue = onDocumentCreated({
         switch (action) {
             case 'publish': {
                 // Read the draft and copy it to the published collection
+                const readAt = Timestamp.now();
                 const draftDoc = await db.collection(draftCollection).doc(docId).get();
                 if (!draftDoc.exists) {
                     console.warn(`Draft not found: ${draftCollection}/${docId}`);
                     break;
                 }
-                const { redirectOldAddress, ...draftData } = draftDoc.data()!;
+                const copied = draftDoc.data()!;
+                const { redirectOldAddress, data: draftData } = publishableDraft(copied);
                 draftData.publishedOn = Timestamp.now();
                 // The live page's address before this publish, to move it when it changed.
                 const liveSlug = await publishedSlug(publishedRef);
@@ -741,8 +968,8 @@ export const processPublishQueue = onDocumentCreated({
                 publishBatch.set(publishedRef.collection('PublishedHistory').doc(), draftData);
                 await publishBatch.commit();
                 console.log(`Published: ${publishedCollection}/${docId}`);
-                await syncTranslations(draftCollection, publishedCollection, docId);
-                await stampLastPublishedAt(draftCollection, docId);
+                const translations = await syncTranslations(draftCollection, publishedCollection, docId);
+                await stampLastPublishedAt(draftCollection, docId, copied, readAt, translations);
                 await clearRedirectChoice(draftCollection, docId, redirectOldAddress);
                 await indexPublished(publishedCollection, docId);
 
@@ -751,7 +978,7 @@ export const processPublishQueue = onDocumentCreated({
                 if (hasPublicUrl) {
                     try {
                         await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
-                        await generateAndDeployContentListPage(contentTypeSlug, batch);
+                        await buildListPage(contentTypeSlug, batch, listBuilds);
                     } catch (deployErr) {
                         pageError = deployErr;
                         console.error(`Static HTML deployment failed for publish ${contentTypeSlug}/${docId}:`, deployErr);
@@ -781,13 +1008,14 @@ export const processPublishQueue = onDocumentCreated({
                 }
                 if (hasPublicUrl) {
                     await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
-                    await generateAndDeployContentListPage(contentTypeSlug, batch);
+                    await buildListPage(contentTypeSlug, batch, listBuilds);
                 }
                 break;
             }
 
             case 'update': {
                 // Read the draft and update only changed fields in the published doc
+                const readAt = Timestamp.now();
                 const draftSnap = await db.collection(draftCollection).doc(docId).get();
                 const publishedSnap = await publishedRef.get();
 
@@ -796,7 +1024,8 @@ export const processPublishQueue = onDocumentCreated({
                     break;
                 }
 
-                const { redirectOldAddress, ...draftFields } = draftSnap.data()!;
+                const copied = draftSnap.data()!;
+                const { redirectOldAddress, data: draftFields } = publishableDraft(copied);
                 const liveSlug = publishedSnap.exists ? String(publishedSnap.data()?.urlSlug || '') : '';
 
                 // Batch the update + history writes for atomicity
@@ -826,8 +1055,8 @@ export const processPublishQueue = onDocumentCreated({
                 // Add to published history
                 updateBatch.set(publishedRef.collection('PublishedHistory').doc(), draftFields);
                 await updateBatch.commit();
-                await syncTranslations(draftCollection, publishedCollection, docId);
-                await stampLastPublishedAt(draftCollection, docId);
+                const translations = await syncTranslations(draftCollection, publishedCollection, docId);
+                await stampLastPublishedAt(draftCollection, docId, copied, readAt, translations);
                 await clearRedirectChoice(draftCollection, docId, redirectOldAddress);
                 await indexPublished(publishedCollection, docId);
 
@@ -836,7 +1065,7 @@ export const processPublishQueue = onDocumentCreated({
                 if (hasPublicUrl) {
                     try {
                         await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
-                        await generateAndDeployContentListPage(contentTypeSlug, batch);
+                        await buildListPage(contentTypeSlug, batch, listBuilds);
                     } catch (deployErr) {
                         pageError = deployErr;
                         console.error(`Static HTML deployment failed for update ${contentTypeSlug}/${docId}:`, deployErr);
@@ -859,6 +1088,7 @@ export const processPublishQueue = onDocumentCreated({
                     console.log(`Unpublished: ${publishedCollection}/${docId}`);
                 }
                 await unindexPublished(contentTypeSlug, docId);
+                await markUnpublished(draftCollection, contentTypeSlug, docId);
 
                 // Remove static HTML and regenerate list page
                 if (hasPublicUrl) {
@@ -866,7 +1096,7 @@ export const processPublishQueue = onDocumentCreated({
                         if (urlSlug) {
                             await removeContentPage(contentTypeSlug, urlSlug, batch);
                         }
-                        await generateAndDeployContentListPage(contentTypeSlug, batch);
+                        await buildListPage(contentTypeSlug, batch, listBuilds);
                     } catch (deployErr) {
                         console.error(`Static HTML removal failed for unpublish ${contentTypeSlug}/${docId}:`, deployErr);
                     }
@@ -899,6 +1129,7 @@ export const processPublishQueue = onDocumentCreated({
                 } catch (draftErr) {
                     console.warn(`Could not delete draft ${draftCollection}/${docId}:`, draftErr);
                 }
+                await deleteUnderDraft(draftCollection, docId);
 
                 // Remove static HTML and regenerate list page
                 if (hasPublicUrl) {
@@ -906,7 +1137,7 @@ export const processPublishQueue = onDocumentCreated({
                         if (delUrlSlug) {
                             await removeContentPage(contentTypeSlug, delUrlSlug, batch);
                         }
-                        await generateAndDeployContentListPage(contentTypeSlug, batch);
+                        await buildListPage(contentTypeSlug, batch, listBuilds);
                     } catch (deployErr) {
                         console.error(`Static HTML removal failed for delete ${contentTypeSlug}/${docId}:`, deployErr);
                     }
@@ -973,6 +1204,7 @@ export const processPublishQueue = onDocumentCreated({
         }
     }
 
+    await rebuildListsChanged(listBuilds);
     if (pageError) await recordPageFailure(publishedCollection, docId, pageError);
 
     // The footer of every page lists the standard pages: when this one went live,

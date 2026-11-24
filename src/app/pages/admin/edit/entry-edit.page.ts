@@ -29,6 +29,11 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { CreateContentComponent, PageModeHooks } from '../contents/create-content/create-content.component';
 import { previewSessionKey } from '../../../core/preview/preview-channel';
 import { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
+import type { EditState } from './edit-state';
+import { EditStateComponent } from './page-status.component';
+import { HoldBarComponent } from '../hold/hold-bar.component';
+import { viewOnlyPage } from '../hold/review.service';
+import type { EditingHold } from '../../../core/editing/hold';
 import { PagePanel } from './page-panel';
 import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichContext, RichHandle, Spot, SpotInfo, isRowPart, spotInfo } from './in-place';
 import { insertRowsAfter, moveRow, removeRow, restoreRow, rowsAcross, setRowLocation, setRowMedia, setRowValue } from './rows';
@@ -59,7 +64,6 @@ const STATUS_EVERY_MS = 300;
 /** How long the screen waits for the frame to draw the page before giving up on the peek. */
 const DRAW_WAIT_MS = 20_000;
 
-export type EditStatus = 'saved' | 'saving' | 'unsaved' | 'not_saved' | 'publishing' | 'published';
 
 /** The hover text for each kind of value not edited in place (VE-D17). */
 const HINT_KEYS: Record<HintKind, string> = {
@@ -98,13 +102,15 @@ export function editFrameUrl(type: string, id: string, key: string): string {
 @Component({
     selector: 'arc-entry-edit-page',
     standalone: true,
-    imports: [CreateContentComponent, TranslocoPipe, SelectionMenuComponent, MapPickerComponent],
+    imports: [CreateContentComponent, EditStateComponent, HoldBarComponent, TranslocoPipe, SelectionMenuComponent, MapPickerComponent],
     template: `
     <div class="arc-ed-strip" role="region" [attr.aria-label]="'admin.edit_page.strip' | transloco" data-testid="edit-strip">
         @if (!richOn()) {
-        <span class="arc-ed-title">{{ 'admin.edit_page.strip' | transloco }}</span>
+        <span class="arc-ed-title arc-ed-name" [title]="entryTitle()">{{ entryTitle() || ('admin.edit_page.strip' | transloco) }}</span>
         }
-        <span class="arc-ed-status" [class]="'arc-ed-status arc-ed-' + status()" role="status" data-testid="edit-status">{{ statusKey() | transloco }}</span>
+        @if (stateKnown()) {
+        <arc-edit-state [state]="status()" [dark]="true" data-testid="edit-status" />
+        }
         @if (richOn()) {
         <span class="arc-ed-group arc-ed-format" role="toolbar" [attr.aria-label]="'admin.edit_page.formatting' | transloco" data-testid="edit-format">
             @for (b of formatButtons; track b.id) {
@@ -139,9 +145,12 @@ export function editFrameUrl(type: string, id: string, key: string): string {
         <button type="button" class="arc-ed-btn" (click)="toForm()" [disabled]="busy()" [title]="'admin.edit_page.form_title' | transloco" data-testid="edit-form">{{ 'admin.edit_page.form' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="panel.toggle()" [class.arc-ed-on]="panel.open()"
             [attr.aria-expanded]="panel.open()" aria-controls="arc-ed-panel" data-testid="edit-settings">{{ 'admin.edit_page.page_settings' | transloco }}</button>
-        <button type="button" class="arc-ed-btn arc-ed-primary" (click)="publish()" [disabled]="busy()" data-testid="edit-publish">{{ 'admin.contents.editor.publish' | transloco }}</button>
+        <button type="button" class="arc-ed-btn arc-ed-primary" (click)="publish()" [disabled]="!!heldBy() || busy() || nothingToPublish()" data-testid="edit-publish">{{ 'admin.contents.editor.publish' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="close()" [title]="'common.actions.close' | transloco" data-testid="edit-close">{{ 'common.actions.close' | transloco }}</button>
     </div>
+    @if (heldBy(); as hold) {
+    <arc-hold-bar [hold]="hold" [lost]="lostWords()" (review)="review()" (showTheirs)="editor?.session?.reloadTheirs()" />
+    }
     <div class="arc-ed-stage">
         @if (frameUrl) {
         <iframe #frame class="arc-ed-frame" [class.arc-ed-phone]="phone()" [src]="frameUrl"
@@ -300,21 +309,22 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     private revealedOnce = false;
     /** When a click on the page last put a box away: that click does not also explain the page. */
     private boxClosedAt = 0;
-    readonly status = signal<EditStatus>('saved');
+    readonly status = signal<EditState>('saving');
+    /** The entry's title, which the strip names. */
+    readonly entryTitle = signal('');
+    readonly nothingToPublish = signal(false);
+    /** The stored entry was read (a new one has none): until then nothing is said about it. */
+    readonly stateKnown = signal(false);
+    /** Someone else holds the entry: the page is looked at, not changed (VE-D79). */
+    readonly heldBy = signal<EditingHold | null>(null);
+    readonly lostWords = signal(false);
+    /** Ends the page's being only looked at. */
+    private endViewOnly: (() => void) | null = null;
     readonly busy = signal(false);
     /** The page is drawn in the frame with the draft in place. */
     readonly drawn = signal(false);
     /** The frame's scrollbar width, which the closed panel's handle sits inside of. */
     readonly scrollbar = signal(0);
-
-    readonly statusKey = computed(() => ({
-        saved: 'admin.edit_page.saved',
-        saving: 'admin.edit_page.saving',
-        unsaved: 'admin.edit_page.unsaved',
-        not_saved: 'admin.edit_page.not_saved',
-        publishing: 'admin.edit_page.publishing',
-        published: 'admin.edit_page.published',
-    } as const)[this.status()]);
 
     @ViewChild(CreateContentComponent) editor?: CreateContentComponent;
     @ViewChild('frame') frame?: ElementRef<HTMLIFrameElement>;
@@ -458,17 +468,35 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (langs.map((l) => l.code).join() !== this.langs().map((l) => l.code).join()) this.langs.set(langs);
         if (session.activeLang() !== this.lang()) this.lang.set(session.activeLang());
         const failed = session.saveFailed() || session.entryChanged() || session.entryGone();
-        const saving = session.isSavingDraft || session.isAutoSaving || session.creating();
-        const unsaved = session.hasUnsavedChanges();
-        // A publish shows on the strip until the page is live, and then until the next change.
-        const deploy = session.deployStatus();
-        this.status.set(saving ? 'saving' : failed ? 'not_saved' : deploy === 'pending' ? 'publishing'
-            : unsaved ? 'unsaved' : deploy === 'deployed' ? 'published' : 'saved');
+        this.status.set(session.editState());
+        this.nothingToPublish.set(session.nothingToPublish());
+        this.stateKnown.set(!this.entryId || session.entryRead());
+        this.entryTitle.set(this.editor?.pageTitle ?? '');
+        this.readHold();
         this.busy.set(session.isSavingDraft || session.creating());
         // A line the editor must act on is in the panel: it opens on it.
         const alerting = failed || !!session.publishProblem();
         if (alerting && !this.alerting) this.panel.setOpen(true);
         this.alerting = alerting;
+    }
+
+    /** Who holds the entry, and the page opened for editing or only for looking, as it changes. */
+    private readHold(): void {
+        const session = this.editor?.session;
+        if (!session) return;
+        const was = this.heldBy();
+        const hold = session.heldBy();
+        this.lostWords.set(session.lostWords());
+        if (was === hold) return;
+        this.heldBy.set(hold);
+        if (!!was === !!hold) return;
+        const doc = this.frameDocument();
+        if (doc && this.drawn()) this.pageDrawn(doc);
+    }
+
+    /** Review changes, on the form's own list. */
+    review(): void {
+        void this.editor?.reviewChanges();
     }
 
     /** Escape closes the panel; a dialog open over the screen keeps its own Escape. */
@@ -554,6 +582,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             this.inPlace = null;
             this.reveal?.detach();
             this.reveal = null;
+            this.endViewOnly?.();
+            this.endViewOnly = null;
         };
         this.waitForDraw(doc, win);
     }
@@ -595,7 +625,18 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
 
     /** The page is drawn in the frame: the place for editing in place to start. */
     protected pageDrawn(doc: Document): void {
+        this.endViewOnly?.();
+        this.endViewOnly = null;
         this.inPlace?.detach();
+        this.inPlace = null;
+        if (this.heldBy()) {
+            this.closePopover();
+            this.bar.set(null);
+            this.reveal?.detach();
+            this.reveal = null;
+            this.endViewOnly = viewOnlyPage(doc, () => this.review());
+            return;
+        }
         this.inPlace = new InPlaceEditing(doc, this.inPlaceHost);
         this.inPlace.attach();
         this.reveal?.detach();

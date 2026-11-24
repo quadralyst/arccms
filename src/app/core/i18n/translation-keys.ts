@@ -1205,6 +1205,7 @@ export type TranslationKey =
     | 'admin.edit_page.add'
     | 'admin.edit_page.add_first'
     | 'admin.edit_page.add_picture'
+    | 'admin.edit_page.address_by_developer'
     | 'admin.edit_page.alt'
     | 'admin.edit_page.alt_placeholder'
     | 'admin.edit_page.back_to_page'
@@ -1249,18 +1250,25 @@ export type TranslationKey =
     | 'admin.edit_page.hint_reading'
     | 'admin.edit_page.hint_shared'
     | 'admin.edit_page.hint_site'
+    | 'admin.edit_page.history_publishing'
+    | 'admin.edit_page.history_words'
     | 'admin.edit_page.image'
     | 'admin.edit_page.italic'
     | 'admin.edit_page.language'
+    | 'admin.edit_page.last_published'
     | 'admin.edit_page.link'
     | 'admin.edit_page.loading'
-    | 'admin.edit_page.not_saved'
+    | 'admin.edit_page.never_published'
+    | 'admin.edit_page.no_description'
+    | 'admin.edit_page.no_share_image'
+    | 'admin.edit_page.no_summary'
     | 'admin.edit_page.numbers'
+    | 'admin.edit_page.page_cover_hint'
     | 'admin.edit_page.page_settings'
+    | 'admin.edit_page.page_summary_hint'
+    | 'admin.edit_page.page_title_hint'
     | 'admin.edit_page.picture'
-    | 'admin.edit_page.publish_many'
-    | 'admin.edit_page.publish_one'
-    | 'admin.edit_page.published'
+    | 'admin.edit_page.preview_note'
     | 'admin.edit_page.publishing'
     | 'admin.edit_page.quote'
     | 'admin.edit_page.redo'
@@ -1277,14 +1285,22 @@ export type TranslationKey =
     | 'admin.edit_page.row_remove'
     | 'admin.edit_page.row_removed'
     | 'admin.edit_page.rows_locked'
-    | 'admin.edit_page.saved'
-    | 'admin.edit_page.saving'
+    | 'admin.edit_page.search_preview'
     | 'admin.edit_page.section_title'
+    | 'admin.edit_page.seo_from_basic'
+    | 'admin.edit_page.seo_title_wins'
+    | 'admin.edit_page.share_preview'
     | 'admin.edit_page.show_editable'
+    | 'admin.edit_page.state.changes'
+    | 'admin.edit_page.state.never'
+    | 'admin.edit_page.state.not_saved'
+    | 'admin.edit_page.state.published'
+    | 'admin.edit_page.state.publishing'
+    | 'admin.edit_page.state.saving'
+    | 'admin.edit_page.status'
     | 'admin.edit_page.strip'
     | 'admin.edit_page.subheading'
     | 'admin.edit_page.undo'
-    | 'admin.edit_page.unsaved'
     | 'admin.edit_page.use_video'
     | 'admin.email_brand.add_social'
     | 'admin.email_brand.colors'
@@ -1668,6 +1684,64 @@ export type TranslationKey =
     | 'admin.forms.tags.save_failed'
     | 'admin.forms.tags.title'
     | 'admin.forms.title'
+    | 'admin.hold.added'
+    | 'admin.hold.card_elsewhere'
+    | 'admin.hold.card_everywhere'
+    | 'admin.hold.card_held'
+    | 'admin.hold.card_publish_with'
+    | 'admin.hold.card_publish_with_hint'
+    | 'admin.hold.cards'
+    | 'admin.hold.cards_hint'
+    | 'admin.hold.changed_since'
+    | 'admin.hold.discard'
+    | 'admin.hold.discard_confirm'
+    | 'admin.hold.discard_failed'
+    | 'admin.hold.discard_title'
+    | 'admin.hold.discarded'
+    | 'admin.hold.empty'
+    | 'admin.hold.from_file'
+    | 'admin.hold.held'
+    | 'admin.hold.is_new'
+    | 'admin.hold.kept_discard'
+    | 'admin.hold.kept_failed'
+    | 'admin.hold.kept_of'
+    | 'admin.hold.kept_restore'
+    | 'admin.hold.kept_restore_confirm'
+    | 'admin.hold.kept_restored'
+    | 'admin.hold.kept_takeover'
+    | 'admin.hold.kept_title'
+    | 'admin.hold.last_change'
+    | 'admin.hold.list_ask'
+    | 'admin.hold.list_held'
+    | 'admin.hold.live'
+    | 'admin.hold.lost_words'
+    | 'admin.hold.no'
+    | 'admin.hold.not_read'
+    | 'admin.hold.nothing'
+    | 'admin.hold.now'
+    | 'admin.hold.now_empty'
+    | 'admin.hold.publish_these'
+    | 'admin.hold.put_back'
+    | 'admin.hold.put_back_failed'
+    | 'admin.hold.reading'
+    | 'admin.hold.removed'
+    | 'admin.hold.review'
+    | 'admin.hold.review_mine'
+    | 'admin.hold.review_theirs'
+    | 'admin.hold.rows'
+    | 'admin.hold.same_words'
+    | 'admin.hold.show'
+    | 'admin.hold.show_theirs'
+    | 'admin.hold.take_over'
+    | 'admin.hold.take_over_confirm'
+    | 'admin.hold.take_over_failed'
+    | 'admin.hold.take_over_lost'
+    | 'admin.hold.take_over_now'
+    | 'admin.hold.take_over_title'
+    | 'admin.hold.taken'
+    | 'admin.hold.took_over'
+    | 'admin.hold.view_only'
+    | 'admin.hold.yes'
     | 'admin.media.ai.aspect'
     | 'admin.media.ai.budget_left'
     | 'admin.media.ai.cancel'
@@ -5671,6 +5745,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.add',
     'admin.edit_page.add_first',
     'admin.edit_page.add_picture',
+    'admin.edit_page.address_by_developer',
     'admin.edit_page.alt',
     'admin.edit_page.alt_placeholder',
     'admin.edit_page.back_to_page',
@@ -5715,18 +5790,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.hint_reading',
     'admin.edit_page.hint_shared',
     'admin.edit_page.hint_site',
+    'admin.edit_page.history_publishing',
+    'admin.edit_page.history_words',
     'admin.edit_page.image',
     'admin.edit_page.italic',
     'admin.edit_page.language',
+    'admin.edit_page.last_published',
     'admin.edit_page.link',
     'admin.edit_page.loading',
-    'admin.edit_page.not_saved',
+    'admin.edit_page.never_published',
+    'admin.edit_page.no_description',
+    'admin.edit_page.no_share_image',
+    'admin.edit_page.no_summary',
     'admin.edit_page.numbers',
+    'admin.edit_page.page_cover_hint',
     'admin.edit_page.page_settings',
+    'admin.edit_page.page_summary_hint',
+    'admin.edit_page.page_title_hint',
     'admin.edit_page.picture',
-    'admin.edit_page.publish_many',
-    'admin.edit_page.publish_one',
-    'admin.edit_page.published',
+    'admin.edit_page.preview_note',
     'admin.edit_page.publishing',
     'admin.edit_page.quote',
     'admin.edit_page.redo',
@@ -5743,14 +5825,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.row_remove',
     'admin.edit_page.row_removed',
     'admin.edit_page.rows_locked',
-    'admin.edit_page.saved',
-    'admin.edit_page.saving',
+    'admin.edit_page.search_preview',
     'admin.edit_page.section_title',
+    'admin.edit_page.seo_from_basic',
+    'admin.edit_page.seo_title_wins',
+    'admin.edit_page.share_preview',
     'admin.edit_page.show_editable',
+    'admin.edit_page.state.changes',
+    'admin.edit_page.state.never',
+    'admin.edit_page.state.not_saved',
+    'admin.edit_page.state.published',
+    'admin.edit_page.state.publishing',
+    'admin.edit_page.state.saving',
+    'admin.edit_page.status',
     'admin.edit_page.strip',
     'admin.edit_page.subheading',
     'admin.edit_page.undo',
-    'admin.edit_page.unsaved',
     'admin.edit_page.use_video',
     'admin.email_brand.add_social',
     'admin.email_brand.colors',
@@ -6134,6 +6224,64 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.forms.tags.save_failed',
     'admin.forms.tags.title',
     'admin.forms.title',
+    'admin.hold.added',
+    'admin.hold.card_elsewhere',
+    'admin.hold.card_everywhere',
+    'admin.hold.card_held',
+    'admin.hold.card_publish_with',
+    'admin.hold.card_publish_with_hint',
+    'admin.hold.cards',
+    'admin.hold.cards_hint',
+    'admin.hold.changed_since',
+    'admin.hold.discard',
+    'admin.hold.discard_confirm',
+    'admin.hold.discard_failed',
+    'admin.hold.discard_title',
+    'admin.hold.discarded',
+    'admin.hold.empty',
+    'admin.hold.from_file',
+    'admin.hold.held',
+    'admin.hold.is_new',
+    'admin.hold.kept_discard',
+    'admin.hold.kept_failed',
+    'admin.hold.kept_of',
+    'admin.hold.kept_restore',
+    'admin.hold.kept_restore_confirm',
+    'admin.hold.kept_restored',
+    'admin.hold.kept_takeover',
+    'admin.hold.kept_title',
+    'admin.hold.last_change',
+    'admin.hold.list_ask',
+    'admin.hold.list_held',
+    'admin.hold.live',
+    'admin.hold.lost_words',
+    'admin.hold.no',
+    'admin.hold.not_read',
+    'admin.hold.nothing',
+    'admin.hold.now',
+    'admin.hold.now_empty',
+    'admin.hold.publish_these',
+    'admin.hold.put_back',
+    'admin.hold.put_back_failed',
+    'admin.hold.reading',
+    'admin.hold.removed',
+    'admin.hold.review',
+    'admin.hold.review_mine',
+    'admin.hold.review_theirs',
+    'admin.hold.rows',
+    'admin.hold.same_words',
+    'admin.hold.show',
+    'admin.hold.show_theirs',
+    'admin.hold.take_over',
+    'admin.hold.take_over_confirm',
+    'admin.hold.take_over_failed',
+    'admin.hold.take_over_lost',
+    'admin.hold.take_over_now',
+    'admin.hold.take_over_title',
+    'admin.hold.taken',
+    'admin.hold.took_over',
+    'admin.hold.view_only',
+    'admin.hold.yes',
     'admin.media.ai.aspect',
     'admin.media.ai.budget_left',
     'admin.media.ai.cancel',

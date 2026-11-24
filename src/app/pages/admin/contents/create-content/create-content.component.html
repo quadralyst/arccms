@@ -13,6 +13,9 @@
                 {{ (contentId ? 'admin.contents.editor.heading_edit' : 'admin.contents.editor.heading_add') | transloco: { type: getContentTypeName() } }}
             </span>
             }
+            @if(!contentId || session.entryRead()){
+            <arc-edit-state class="ms-2" [state]="session.editState()" />
+            }
         </div>
 
         <div class="nav-right">
@@ -45,7 +48,7 @@
             }
 
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="saveAsDraft()"
-                [disabled]="isSavingDraft || creating() || !publishForm.valid || !seoForm.valid" [title]="'admin.contents.editor.save_draft' | transloco">
+                [disabled]="!!session.heldBy() || isSavingDraft || creating() || !publishForm.valid || !seoForm.valid" [title]="'admin.contents.editor.save_draft' | transloco">
                 @if(isSavingDraft){
                 <i class="fas fa-spinner fa-spin"></i> <span class="btn-text">{{ 'common.actions.saving' | transloco }}</span>
                 }
@@ -56,12 +59,19 @@
 
             <arc-site-drift-notice [compact]="true" />
 
-            <button type="button" class="btn btn-primary btn-sm" (click)="directPublishContent()"
-                [disabled]="isSavingDraft || creating() || !publishForm.valid || !seoForm.valid">
+            <button type="button" class="btn btn-primary btn-sm" (click)="directPublishContent()" data-testid="publish"
+                [disabled]="!!session.heldBy() || isSavingDraft || creating() || session.nothingToPublish() || !publishForm.valid || !seoForm.valid">
                 <i class="fa-solid fa-upload"></i> <span class="btn-text">{{ 'admin.contents.editor.publish' | transloco }}</span>
             </button>
         </div>
     </nav>
+    }
+
+    <!-- Someone else holds the entry (VE-D79): looked at, not changed. The edit-on-page screen shows the bar itself. -->
+    @if(!pageMode || cardMode){
+    @if(session.heldBy(); as hold){
+    <arc-hold-bar [hold]="hold" [lost]="session.lostWords()" (review)="reviewChanges()" (showTheirs)="session.reloadTheirs()" />
+    }
     }
 
     <!-- What did not land, and what is still going on: lines that stay until
@@ -133,7 +143,7 @@
     }
 
     <!-- Main Content Area -->
-    <div class="main-content">
+    <div class="main-content" (beforeinput)="holdInput($event)" (paste)="holdInput($event)" (drop)="holdInput($event)">
 
         <!-- VERSION PREVIEW MODE: replaces the editor when viewing a historical version -->
         @if(pageMode){
@@ -152,7 +162,7 @@
                         {{ formatVersionDate(previewingVersion()!.publishedOn) }}
                     </span>
                 </div>
-                <button class="btn btn-primary btn-sm" (click)="restoreVersion(previewingVersion()!)">
+                <button class="btn btn-primary btn-sm" (click)="restoreVersion(previewingVersion()!)" [disabled]="!!session.heldBy()">
                     <i class="fa-solid fa-rotate-left me-1"></i> {{ 'admin.contents.editor.restore_version' | transloco }}
                 </button>
             </div>
@@ -294,7 +304,7 @@
             }
 
             <!-- Title Input - Immediately above content -->
-            <div class="title-input-wrapper" id="req-title" [class.has-error]="isRequiredMissing('title')">
+            <div class="title-input-wrapper" id="req-title" [attr.inert]="session.heldBy() && !session.lostWords() ? '' : null" [class.has-error]="isRequiredMissing('title')">
                 <div class="title-input-row">
                     <input type="text"
                         [placeholder]="isTranslating() ? (basePlaceholder('title') || ('admin.contents.editor.title_placeholder' | transloco)) : ('admin.contents.editor.title_placeholder' | transloco)"
@@ -310,7 +320,7 @@
                 }
             </div>
 
-            <div class="editor-wrapper" [class.has-site-look]="!!bodyLook()">
+            <div class="editor-wrapper" [attr.inert]="session.heldBy() && !session.lostWords() ? '' : null" [class.has-site-look]="!!bodyLook()">
                 <app-tiptap-editor [productValue]="publishForm.get('content')?.value" [siteLook]="bodyLook()"
                     [fieldName]="'admin.media.picker.body' | transloco" [places]="fieldPlaces"
                     (textEditorContent)="passEditorContentToParent($event); triggerAutoSave()">
@@ -339,7 +349,7 @@
                     <span class="checks-score-pill" [class.good]="report.score >= 80" [class.warn]="report.score < 80 && report.score >= 50" [class.bad]="report.score < 50">{{ report.score }}</span>
                     }
                 </button>
-                @if(publishedId){
+                @if(contentId){
                 <button class="tab-btn" [class.active]="activeTab === 'history'"
                     (click)="activeTab = 'history'">
                     <i class="fa-solid fa-clock-rotate-left me-1"></i>{{ 'admin.contents.editor.history' | transloco }}
@@ -348,75 +358,46 @@
             </div>
 
             <div class="sidebar-content">
-                <!-- Status info at top of sidebar -->
-                @if(lastDraftSavedDate || lastPublishedDate || contentId){
-                <div class="content-status-info sidebar-status">
-                    <div class="status-badges">
-                        @if(lastDraftSavedDate){
-                        <span class="status-badge draft">
-                            <i class="fa-solid fa-floppy-disk"></i>
-                            {{ 'admin.contents.editor.draft_saved_at' | transloco: { time: (lastDraftSavedDate | arcTime: 'dateTime') } }}
-                        </span>
-                        }
-
-                        @if(lastPublishedDate){
-                        <span class="status-badge published">
-                            <i class="fa-solid fa-globe"></i>
-                            {{ 'admin.contents.editor.published_at' | transloco: { time: (lastPublishedDate | arcTime: 'dateTime') } }}
-                        </span>
-                        }
-
-                        @if(contentId && !lastDraftSavedDate && !lastPublishedDate){
-                        <span class="status-badge id-info">
-                            <i class="fa-solid fa-file"></i>
-                            {{ 'admin.contents.editor.editing_draft' | transloco }}
-                        </span>
-                        }
-
-                        <!-- Auto-save Status -->
-                        @if(justAutoSaved()){
-                        <span class="status-badge auto-saved">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                            {{ 'admin.contents.editor.auto_saved' | transloco }}
-                        </span>
-                        }
-
-                        <!-- Deployment Status -->
-                        @if(deployStatus() === 'pending'){
-                        <span class="status-badge deploying">
-                            <i class="fa-solid fa-spinner fa-spin"></i>
-                            {{ 'admin.contents.editor.publishing' | transloco }}
-                        </span>
-                        }
-                        @if(deployStatus() === 'deployed'){
-                        <span class="status-badge deploy-success">
-                            <i class="fa-solid fa-check-circle"></i>
-                            {{ 'admin.contents.editor.live' | transloco }}
-                        </span>
-                        }
-                        @if(deployStatus() === 'skipped'){
-                        <span class="status-badge deploying">
-                            <i class="fa-solid fa-circle-info"></i>
-                            {{ 'admin.contents.editor.deploy_skipped' | transloco }}
-                        </span>
-                        }
-                        @if(deployStatus() === 'failed'){
-                        <span class="status-badge deploy-failed">
-                            <i class="fa-solid fa-exclamation-triangle"></i>
-                            {{ 'admin.contents.editor.deploy_failed' | transloco }}
-                            <button type="button" class="retry-btn" (click)="retryDeployment()" [disabled]="isSavingDraft" [title]="'admin.contents.editor.publish_again' | transloco" [attr.aria-label]="'admin.contents.editor.publish_again' | transloco">
-                                <i class="fa-solid fa-rotate-right"></i>
-                            </button>
-                        </span>
-                        }
-                    </div>
+                <!-- Where the entry stands, the same on every kind of page (VE-D67, VE-D70). -->
+                <div class="sidebar-status">
+                    @if(!contentId || session.entryRead()){
+                    <arc-page-status [state]="session.editState()" [lastPublished]="lastPublishedDate" />
+                    @if(session.heldBy() || session.editState() === 'changes' || session.editState() === 'never'){
+                    <button type="button" class="btn btn-link btn-sm p-0 mb-2" (click)="reviewChanges()" [disabled]="!contentId" data-testid="review-changes">{{ 'admin.hold.review' | transloco }}</button>
+                    }
+                    }
+                    @if(deployStatus() === 'skipped'){
+                    <small class="text-muted d-block">
+                        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                        {{ 'admin.contents.editor.deploy_skipped' | transloco }}
+                    </small>
+                    }
                 </div>
-                }
 
                 <!-- Basic Tab -->
                 @if(activeTab === 'basic'){
-                <div class="tab-panel">
+                <div class="tab-panel" [attr.inert]="session.heldBy() && !session.lostWords() ? '' : null">
                     <form [formGroup]="publishForm">
+                        @if(pageMode){
+                        <!-- The title on the edit-on-page screen: the same value as on the page (VE-D68). -->
+                        <div class="form-group" id="req-title" [class.has-error]="isRequiredMissing('title')">
+                            <label class="form-label" for="pageTitleInput">
+                                {{ 'admin.contents.editor.title_label' | transloco }} <span class="required-marker" [title]="'admin.contents.editor.required_marker' | transloco">*</span>
+                            </label>
+                            <input type="text" id="pageTitleInput" class="form-control form-control-sm page-title-field" [(ngModel)]="pageTitle" [ngModelOptions]="{ standalone: true }"
+                                [placeholder]="isTranslating() ? (basePlaceholder('title') || ('admin.contents.editor.title_placeholder' | transloco)) : ('admin.contents.editor.title_placeholder' | transloco)"
+                                (input)="createSlag(); triggerAutoSave()" [disabled]="checkingSlug" [attr.aria-required]="true" data-testid="panel-title">
+                            @if (isRequiredMissing('title')) {
+                            <div class="required-error">
+                                {{ 'common.validation.required' | transloco: { field: ('admin.contents.editor.title_label' | transloco) } }}
+                            </div>
+                            }
+                            @if (seoForm.get('seoTitle')?.value && seoForm.get('seoTitle')?.value !== pageTitle) {
+                            <small class="text-muted">{{ 'admin.edit_page.seo_title_wins' | transloco }}</small>
+                            }
+                        </div>
+                        }
+
                         <!-- Cover Image (shared across languages) -->
                         <div class="form-group">
                             <label class="form-label">
@@ -468,7 +449,7 @@
                             <textarea class="form-control form-control-sm" formControlName="summary" rows="3"
                                 id="summaryInput" [placeholder]="isTranslating() ? (basePlaceholder('summary') || ('admin.contents.editor.summary' | transloco)) : ('admin.contents.editor.summary_placeholder' | transloco)"
                                 (input)="triggerAutoSave()"></textarea>
-                            <small class="text-muted">{{ 'admin.contents.editor.summary_hint' | transloco }}</small>
+                            <small class="text-muted">{{ (publishForm.get('summary')?.value || seoForm.get('metaDescription')?.value || isTranslating() ? 'admin.contents.editor.summary_hint' : 'admin.edit_page.no_summary') | transloco }}</small>
                         </div>
 
                         <!-- URL Slug (Read-only display) -->
@@ -1128,7 +1109,7 @@
 
                 <!-- SEO Tab -->
                 @if(activeTab === 'seo'){
-                <div class="tab-panel">
+                <div class="tab-panel" [attr.inert]="session.heldBy() && !session.lostWords() ? '' : null">
                     <form [formGroup]="seoForm">
                         <div class="form-group">
                             <label class="form-label" for="seoTitleInput">{{ 'admin.contents.editor.seo_title' | transloco }}</label>
@@ -1208,45 +1189,16 @@
                             <small class="text-muted d-block mt-1">{{ 'admin.contents.editor.references_hint' | transloco }}</small>
                         </div>
 
-                        <!-- Social Sharing Preview -->
+                        <!-- What goes out, as on every kind of page (VE-D69). -->
                         <hr class="my-3">
-                        <div class="social-preview-section">
-                            <label class="form-label">
-                                <i class="fa-solid fa-share-nodes me-1"></i>
-                                {{ 'admin.contents.editor.social_preview' | transloco }}
-                            </label>
-                            <p class="text-muted small mb-2">{{ 'admin.contents.editor.social_preview_hint' | transloco }}</p>
-
-                            <div class="social-preview-card">
-                                <div class="social-preview-image">
-                                    @if (coverImage) {
-                                    <img [src]="coverImage" [alt]="'admin.contents.editor.cover_image' | transloco">
-                                    } @else {
-                                    <div class="image-placeholder">
-                                        <i class="fa-solid fa-image"></i>
-                                        <span>{{ 'admin.contents.editor.no_cover_image' | transloco }}</span>
-                                    </div>
-                                    }
-                                </div>
-                                <div class="social-preview-content">
-                                    <div class="social-preview-domain">{{ domain || 'yourdomain.com' }}</div>
-                                    <div class="social-preview-title">
-                                        {{ seoForm.get('seoTitle')?.value || pageTitle || ('admin.contents.editor.social_title_fallback' | transloco) }}
-                                    </div>
-                                    <div class="social-preview-description">
-                                        {{ seoForm.get('metaDescription')?.value ||
-                                        ('admin.contents.editor.social_description_fallback' | transloco) }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <arc-share-preview [title]="shareTitle()" [description]="searchDescription()" [image]="coverImage || ''" [url]="pageAddress()" />
                     </form>
                 </div>
                 }
 
                 <!-- Checks Tab (specs/discoverability-spec.md, D-D13, D-D16) -->
                 @if(activeTab === 'checks'){
-                <div class="tab-panel checks-panel">
+                <div class="tab-panel checks-panel" [attr.inert]="session.heldBy() && !session.lostWords() ? '' : null">
                     <div class="d-flex align-items-start justify-content-between gap-2">
                         <div>
                             <h6 class="meta-section-title mb-1"><i class="fa-solid fa-magnifying-glass-chart me-1"></i> {{ 'admin.contents.checklist.title' | transloco }}</h6>
@@ -1303,14 +1255,19 @@
                 }
 
                 <!-- History Tab -->
-                @if(activeTab === 'history' && publishedId){
+                @if(activeTab === 'history' && contentId){
                 <div class="tab-panel history-tab-panel">
+                    <arc-kept-drafts [path]="session.draftPath()" [locked]="!!session.heldBy()" [again]="session.publishesLanded() + '/' + session.keptChanged()" (restore)="restoreKept($event)" />
+                    @if(publishedId){
                     <arc-version-history
                         [publishedId]="publishedId"
                         [contentTypeSlug]="contentTypeSlug"
+                        [landed]="session.publishesLanded()"
+                        [publishing]="deployStatus() === 'pending'"
                         (preview)="previewVersion($event)"
                         (restore)="restoreVersion($event)">
                     </arc-version-history>
+                    }
                 </div>
                 }
             </div>

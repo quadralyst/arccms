@@ -222,6 +222,17 @@
         <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>The page's language and its URL prefix</td></tr>
       </tbody>
     </table>
+    <h4 id="list-page-words">A list page's words</h4>
+    <p>A list page's heading and intro can be words of their own, kept per language, instead of the type's name and description. Mark them in your <code>list.html</code>, as every shipped one does:</p>
+    <pre><code>&lt;h1 data-arc-edit="title"&gt;{{ contentType }}&lt;/h1&gt;
+&lt;p data-arc-edit="intro"&gt;{{ contentTypeDescription }}&lt;/p&gt;</code></pre>
+    <ul>
+      <li><strong>What is stored and filled in.</strong> Saved words are page text, as on the <a href="../website/home-page.html#page-text">home page</a>, under the id <code>list-{slug}</code>: <code>title</code> is the heading and <code>intro</code> the line under it. They are filled in after the bindings, as plain text, so <code>{{ }}</code> in an editor's words is never a binding. With nothing saved, the page is the same as without the marks, byte for byte, and no mark reaches a published page.</li>
+      <li><strong>They are also</strong> the page's browser title, its description for search engines and shares, and the name and description in its structured data; a title or description saved for search engines wins over them there, and a saved share picture is the page's. This holds with no marks in your file too. The type keeps its own name everywhere else: menus, breadcrumbs, the feed, and any other <code>{{ contentType }}</code>.</li>
+      <li><strong>Languages.</strong> A language with no saved words shows the type's name and description in that language (Content types, translations) when it has them, else the default language's saved words.</li>
+      <li><strong>Other areas.</strong> Anything else in the file outside its loops can be marked the same way, every kind of area the home page has. Marks inside a loop, and words marked over one, are ignored: cards are their entries'. An area an editor filled shows even when its <code>data-arc-if</code> would hide it.</li>
+    </ul>
+    <div class="note"><p>This is the data and the publishing. The editors for list pages come in a later version, so there is nothing for an editor to open yet: a list page shows the type's name and description, changed under <strong>Content types</strong>. Adding the two marks to your own <code>list.html</code> now means it is ready then.</p></div>
     <p id="card-bindings">Inside <code>data-arc-loop="items"</code>, one row per published entry, newest first or in the type's own order (see <a href="content.html#your-own-order">Put entries in your own order</a>), at most 100. A list's rows and a partial's cards have the same bindings:</p>
     <table>
       <thead><tr><th>Binding</th><th>Type</th><th>Example</th><th>Notes</th></tr></thead>

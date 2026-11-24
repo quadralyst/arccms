@@ -23,6 +23,8 @@ vi.mock('@angular/fire/firestore', () => ({
     deleteField: () => 'DELETE',
 }));
 vi.mock('@angular/fire/auth', () => ({ Auth: class {} }));
+// Who is signed in is asked of Auth here; the store that knows the name is not needed.
+vi.mock('../../pages/(auth)/auth.store', () => ({ AuthState: class {} }));
 
 import { Firestore } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
@@ -31,7 +33,7 @@ import { PageTextService, hasUnpublishedChanges, type PageTextSession } from './
 
 const auth = { currentUser: { uid: 'editor-uid' } as { uid: string } | null };
 const queue = { publishPageText: vi.fn(async (_id: string) => undefined) };
-const stamp = { updatedAt: 'NOW', updatedBy: 'editor-uid' };
+const stamp = { updatedAt: 'NOW', updatedBy: 'editor-uid', editing: { by: 'editor-uid', name: '', since: 'NOW', at: 'NOW' } };
 const notFound = Object.assign(new Error('No document to update'), { code: 'not-found' });
 
 describe('PageTextService', () => {
@@ -114,6 +116,7 @@ describe('PageTextService', () => {
 
         it('passes on any other failure', async () => {
             fire.updateDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+            fire.getDoc.mockResolvedValue({ exists: () => false, data: () => undefined });
             await expect(session.saveText('en', 'hero', 'Hi')).rejects.toThrow('denied');
             expect(fire.setDoc).not.toHaveBeenCalled();
         });
@@ -168,6 +171,74 @@ describe('PageTextService', () => {
             expect(queue.publishPageText).not.toHaveBeenCalled();
         });
 
+        describe('while someone else holds the page (VE-D76 to VE-D83)', () => {
+            const at = (ms: number) => ({ toMillis: () => ms });
+            const held = { updatedAt: at(9), text: { en: { hero: { value: 'Theirs' } } }, editing: { by: 'priya', name: 'Priya' } };
+            const live = { draftUpdatedAt: at(5), text: { en: { hero: { value: 'Live' } } } };
+
+            it('refuses every save, and says whose it is', async () => {
+                session.draft.set(held as never);
+                session.published = () => live as never;
+                expect(session.heldBy()?.name).toBe('Priya');
+                await expect(session.saveText('en', 'hero', 'Mine')).rejects.toThrow('Priya');
+                await expect(session.restore({})).rejects.toThrow('Priya');
+                await expect(session.removeKey('hero')).rejects.toThrow('Priya');
+                expect(fire.updateDoc).not.toHaveBeenCalled();
+                expect(fire.setDoc).not.toHaveBeenCalled();
+            });
+
+            it('a hold from before a publish is over', async () => {
+                session.draft.set({ ...held, updatedAt: at(5) } as never);
+                session.published = () => live as never;
+                expect(session.heldBy()).toBeNull();
+                await session.saveText('en', 'hero', 'Mine');
+                expect(fire.updateDoc.mock.calls[0][1].editing).toEqual({ by: 'editor-uid', name: '', since: 'NOW', at: 'NOW' });
+            });
+
+            it('lets go when the words are what is live again', async () => {
+                session.draft.set({ updatedAt: at(9), text: { en: { hero: { value: 'Live' } } }, editing: { by: 'editor-uid', name: '' } } as never);
+                session.published = () => live as never;
+                await session.saveText('en', 'hero', 'Live');
+                expect(fire.updateDoc).toHaveBeenLastCalledWith('SitePageTextDrafts/home', { editing: 'DELETE', updatedAt: 'NOW', updatedBy: 'editor-uid' });
+            });
+
+            it('lets go of a page never published once its words are the file\'s again', async () => {
+                session.draft.set({ updatedAt: at(9), text: { en: {} }, editing: { by: 'editor-uid', name: '' } } as never);
+                session.published = () => null;
+                await session.useFileText('en', 'hero');
+                expect(fire.updateDoc).toHaveBeenLastCalledWith('SitePageTextDrafts/home', { editing: 'DELETE', updatedAt: 'NOW', updatedBy: 'editor-uid' });
+            });
+
+            it('keeps a page that did not go live, and says nothing before what is published is read', async () => {
+                session.draft.set({ updatedAt: at(9), text: { en: { hero: { value: 'Live' } } }, editing: { by: 'editor-uid', name: '' } } as never);
+                session.published = () => ({ ...live, draftUpdatedAt: null }) as never;
+                await session.saveText('en', 'hero', 'Live');
+                expect(fire.updateDoc).toHaveBeenCalledTimes(1);
+                session.draft.set(held as never);
+                session.published = () => undefined;
+                expect(session.heldBy()).toBeNull();
+            });
+
+            it('a save refused because someone took the page a moment ago says who', async () => {
+                fire.updateDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+                fire.getDoc.mockResolvedValueOnce({ exists: () => true, data: () => held }).mockResolvedValueOnce({ exists: () => true, data: () => live });
+                await expect(session.saveText('en', 'hero', 'Mine')).rejects.toThrow('Priya');
+            });
+
+            it('puts one change back, and lists what differs', async () => {
+                session.draft.set({ updatedAt: at(9), text: { en: { hero: { value: 'New' }, added: { value: 'x' } } }, editing: { by: 'editor-uid', name: '' } } as never);
+                session.published = () => live as never;
+                vi.spyOn(service, 'history').mockResolvedValue([{ id: 'v1', text: { en: { hero: { value: 'Live', fileText: 'File' } } } } as never]);
+                const changes = session.changes();
+                expect(changes.map((c) => c.field)).toEqual(['text:added', 'text:hero']);
+                await session.putBack(changes[1]);
+                // Whole, with what it was saved against.
+                expect(fire.updateDoc.mock.calls[0][1]['text.en.hero']).toEqual({ value: 'Live', fileText: 'File' });
+                await session.putBack(changes[0]);
+                expect(fire.updateDoc.mock.calls[1][1]['text.en.added']).toBe('DELETE');
+            });
+        });
+
         it('publishes through the publish queue (VE-D57)', async () => {
             await session.publish();
             expect(queue.publishPageText).toHaveBeenCalledWith('home');
@@ -182,8 +253,13 @@ describe('PageTextService', () => {
     it('tells a draft with changes not published (VE-D48)', () => {
         const at = (ms: number) => ({ toMillis: () => ms });
         expect(hasUnpublishedChanges(null, null)).toBe(false);
-        expect(hasUnpublishedChanges({ updatedAt: at(1) }, null)).toBe(true);
-        expect(hasUnpublishedChanges({ updatedAt: at(2) }, { draftUpdatedAt: at(1) })).toBe(true);
+        const words = (value: string) => ({ text: { en: { hero: { value } } } });
+        expect(hasUnpublishedChanges({ updatedAt: at(1), ...words('A') }, null)).toBe(true);
+        expect(hasUnpublishedChanges({ updatedAt: at(2), ...words('B') }, { draftUpdatedAt: at(1), ...words('A') })).toBe(true);
+        // Put back by hand: nothing to publish, whatever the dates say (VE6.B1).
+        expect(hasUnpublishedChanges({ updatedAt: at(2), ...words('A') }, { draftUpdatedAt: at(1), ...words('A') })).toBe(false);
+        // A page that did not go live waits, whatever the words are.
+        expect(hasUnpublishedChanges({ updatedAt: at(2), ...words('A') }, { draftUpdatedAt: null, ...words('A') })).toBe(true);
         expect(hasUnpublishedChanges({ updatedAt: at(2) }, { draftUpdatedAt: at(2) })).toBe(false);
     });
 });

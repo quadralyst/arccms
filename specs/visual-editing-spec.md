@@ -42,7 +42,7 @@ After this work:
    review of that phase with its critical, high and medium findings fixed.
 
 **Out of scope:** editing on a phone; editing the header and footer in place (VE-D20); list pages
-in place (a list shows entries, each edited on its own page); running template scripts on the
+in place until VE6 (planned 2026-11-24, VE-D58); running template scripts on the
 edit screen; the email editors; scheduled publishing; any change to how pages are published,
 other than the strip, the page text of VE5 and the entry marker of VE-D11.
 
@@ -77,7 +77,7 @@ other than the strip, the page text of VE5 and the entry marker of VE-D11.
 | VE-D23 | Who may edit page text | **The same people who may edit drafts**, by the same rule. |
 | VE-D24 | Feature switch | **Part of the Content feature (`content`).** No new switch: with content off there are no pages to edit, and the strip is not drawn. |
 | VE-D25 | Admin language | Every new admin string is a translation key (`npm run i18n:keys`), as the rest of the admin. |
-| VE-D26 | The Page settings panel on the edit screen (agreed 2026-11-18) | **The form editor's own side panel, whole**: the Basic, SEO, Checks and History tabs with the same fields, wording and checks, on the same `EntryDraftSession` (VE-D15), so a change there shows on the page at once and there is one panel to maintain. **It slides over the page from the right and never pushes it aside**, so the page keeps the width a visitor sees; no grey cover, the uncovered page stays usable. It opens and closes from the strip's **Page settings** button, the handle, and Escape (closes), one state for all three; a click on the page does not close it. It keeps the width it was dragged to, as the form editor's panel does. **Closed when the screen opens; once the page is drawn with the draft in place, it peeks** every time the screen opens: about half a second later it slides out about 48 px, holds about a second, and slides back, skipped if the editor has already clicked or typed in the page, and no motion (the handle simply shows) when the computer asks for reduced motion. **The handle**: an arrow alone (‹ closed, › on the panel's left edge when open), drawn as a small raised button (about 24 by 48 px, halfway down, light shadow, a grip look) that sits over the page's right edge, just inside the frame's scrollbar so the scrollbar stays usable. Click toggles the panel; dragging it left pulls the panel out with the pointer, and on release it opens when pulled past a third of its width, else slides back; dragging the open panel's handle right closes it the same way. A real button for the keyboard and screen readers (expanded or not, controls the panel), with "Page settings" as its accessible name and tooltip. |
+| VE-D26 | The Page settings panel on the edit screen (agreed 2026-11-18; Title joins Basic with VE-D68) | **The form editor's own side panel, whole**: the Basic, SEO, Checks and History tabs with the same fields, wording and checks, on the same `EntryDraftSession` (VE-D15), so a change there shows on the page at once and there is one panel to maintain. **It slides over the page from the right and never pushes it aside**, so the page keeps the width a visitor sees; no grey cover, the uncovered page stays usable. It opens and closes from the strip's **Page settings** button, the handle, and Escape (closes), one state for all three; a click on the page does not close it. It keeps the width it was dragged to, as the form editor's panel does. **Closed when the screen opens; once the page is drawn with the draft in place, it peeks** every time the screen opens: about half a second later it slides out about 48 px, holds about a second, and slides back, skipped if the editor has already clicked or typed in the page, and no motion (the handle simply shows) when the computer asks for reduced motion. **The handle**: an arrow alone (‹ closed, › on the panel's left edge when open), drawn as a small raised button (about 24 by 48 px, halfway down, light shadow, a grip look) that sits over the page's right edge, just inside the frame's scrollbar so the scrollbar stays usable. Click toggles the panel; dragging it left pulls the panel out with the pointer, and on release it opens when pulled past a third of its width, else slides back; dragging the open panel's handle right closes it the same way. A real button for the keyboard and screen readers (expanded or not, controls the panel), with "Page settings" as its accessible name and tooltip. |
 | VE-D27 | The selection menu (agreed 2026-11-19) | **One selection menu for both editors**: `SelectionMenuComponent` (`src/shared/components/tiptap-editor/selection-menu/`) holds the buttons the form editor showed in TipTap's bubble menu (text style, marks, quote, blocks and tables, lists, alignment, link, code, undo, redo; with a picture selected, Replace, Remove and alt text). The form editor shows it in the bubble menu as before; the Visual Editor shows it in a box in the admin document placed from the selection's coordinates plus the frame's position, above the text or below it when above would go under the strip, for a non-empty text selection only (a picture keeps its box, a placed field its card). The strip keeps its own buttons for when nothing is selected. Full width and Phone on the strip are a screen and a phone icon, named by their tooltip and accessible name. The strip's **Form** button (VE-D14) is named **Classic editor** (chosen 2026-11-19). |
 | VE-D28 | Custom fields placed in the text (agreed 2026-11-19) | **A field's content stays in the field; the body holds a marker** `<div data-arc-place="{field key}"></div>` where an editor typed `/` and chose **Field: {name}**. Offered for `faq`, `gallery`, `infocard`, `labelvalue`, `maplocation`, `image`, `file` and `richtext`, in the body only, in the form editor and on the Visual Editor. One marker per field: placing it again moves it. In the editor the marker is a card: a **Field** tag, the field's name, **Edit** (opens the field: the form's jump, or Page settings on the Visual Editor), and what the field holds (a few lines in the form; on the Visual Editor the field as the page drew it). On the page, `field-places.ts` (app source, functions mirror, one spec for both) tags the template's block for the field before the template is filled (its outermost `data-arc-if`, else its loop, else its bind, by stored or short key; a plain block in the default template's classes when the template has none) and moves it into the marker after, so the field shows once, in the template's markup. **The FAQ text block goes**: the FAQ is the FAQ field, so a page sends one FAQPage, from the field; `/faq` finds the field, and on a type without one says an admin can add it under Content types. Old bodies with an FAQ block are ignored (they read as plain headings and paragraphs, no FAQPage); the Checks tab's Blocks rule counts FAQ field rows or a Key takeaways block. |
 | VE-D29 | The panel scrolls (2026-11-19) | The form editor fills the Page settings panel's height, so its own list scrolls, and the panel's body clips (`overflow: clip`) so a jump to a field can never scroll it and push the tabs out of sight. A jump to a field (from the page, a card's Edit, the preview) scrolls the box that takes the cursor into view, not the middle of the field, so a tall field's first box shows. |
@@ -102,9 +102,9 @@ other than the strip, the page text of VE5 and the entry marker of VE-D11.
 | VE-D48 | Content, More Pages (agreed 2026-11-19) | **A new admin item, Content → More Pages**, a list: **Home page** always first (its SEO and card blocks are useful before anything is marked), then every static page that has at least one marked area, so an editor never opens a page with nothing to change. Each row: name, address, status (Published, or Changes not published), last published, and Edit and Visual Editor as on content lists. Under the Content feature (VE-D24); the people of VE-D23. |
 | VE-D49 | Addresses (agreed 2026-11-19) | **Classic editor `/admin/more-pages/home` and `/admin/more-pages/p/{name}`; Visual Editor `/admin/edit-page/home` and `/admin/edit-page/p/{name}`**, full screen like `/admin/edit/:type/:id` and listed explicitly in `app.routes.ts`. They can clash neither with that route (where `p/{name}` would read as a type `p`) nor with a static page named `home`. |
 | VE-D50 | The classic editor for a page (agreed 2026-11-19) | **Shaped like the entry editor.** Left: one field per marked area in page order (one-line text, a small rich text editor with bold, italic and link, the media picker with alt text, link text and address, background picture), grouped by the `<section>` around it, named by its `data-arc-label`, else its first heading. Each field shows **From the file** (the file's text faint as its placeholder) or **Edited** with Use the file's text (VE-D46), and the notes of VE-D44 and VE-D45. A card block is a short box ("Testimonials: 3 shown, newest first") with **Edit testimonials** (its entries keep their own editors), and its section title when marked. **No longer on the page** last (VE-D47). Top: the language switch (home page), **Live Preview** (the window of VE1, drawing the page with the draft values), and **Visual Editor**; the two editors are two views of one draft. |
-| VE-D51 | The page's panel (agreed 2026-11-19) | **Basic** (status, Publish), **SEO** (title, description, share image, the file's own as defaults, the entry editor's checks) and **History** (every publish kept; **Restore** puts a version into the draft, which then needs Publish). The same panel is the Visual Editor's Page settings for a page. |
-| VE-D52 | Two editors at once (agreed 2026-11-19) | **Each field saves on its own** (a field-path update of the draft), and others' changes show live in fields not being typed in. The same field changed by two people: the last save wins. No whole-document conflict check. |
-| VE-D53 | What Publish covers (agreed 2026-11-19) | **Classic editor: the page's areas and SEO** (cards publish from their own editors). **Visual Editor: one Publish for the areas and SEO and every card shown with unpublished changes** (a draft whose status is `draft`), saying how many ("Publish 4 changes"). The screen draws such a card from its draft and every other card as published, so what is seen is what Publish makes. Everything is checked first (required fields, `[Replace:`); if anything fails, nothing is published and that card opens on the field. |
+| VE-D51 | The page's panel (agreed 2026-11-19; changes with VE-D67 to VE-D69) | **Basic** (status, Publish), **SEO** (title, description, share image, the file's own as defaults, the entry editor's checks) and **History** (every publish kept; **Restore** puts a version into the draft, which then needs Publish). The same panel is the Visual Editor's Page settings for a page. |
+| VE-D52 | Two editors at once (agreed 2026-11-19; replaced by VE-D76 when VE6 step B is built) | **Each field saves on its own** (a field-path update of the draft), and others' changes show live in fields not being typed in. The same field changed by two people: the last save wins. No whole-document conflict check. |
+| VE-D53 | What Publish covers (agreed 2026-11-19; which cards and the count change with VE-D72 and VE-D73) | **Classic editor: the page's areas and SEO** (cards publish from their own editors). **Visual Editor: one Publish for the areas and SEO and every card shown with unpublished changes** (a draft whose status is `draft`), saying how many ("Publish 4 changes"). The screen draws such a card from its draft and every other card as published, so what is seen is what Publish makes. Everything is checked first (required fields, `[Replace:`); if anything fails, nothing is published and that card opens on the field. |
 | VE-D54 | Cards on the Visual Editor (agreed 2026-11-19) | **A card is edited in place like an entry**, saving its own draft; while one is being edited the panel shows that entry's form with **Back to page**. A small bar on the card: **types without pages** (testimonials, a hero): Add (a draft of the type in the block) and Remove (unpublishes after asking, never deletes); **types with pages** (a blog post): **Open** (its own Visual Editor) instead of Remove, since removing would take the post off the site. **Move** only for a type in its own order, saved as Arrange saves. A type shown newest first says so on hover, and a card that a full block would push out on Publish shows faintly with "Leaves the home page when you publish" (VE2's `cardsWithDraft`). Cards in the header and footer are not edited (VE-D20). |
 | VE-D55 | Scripts and animation (agreed 2026-11-19) | **The page's scripts do not run on the Visual Editor** (VE-D17); animated sections show at rest. The frame sets `class="arc-editing"` on `<html>` so a developer can show what a script would reveal (`.arc-editing .reveal { opacity: 1 }`). An area the page hides (a closed menu, another slide) is reached in the classic editor. |
 | VE-D56 | The strip on the site (agreed 2026-11-19) | **The home page always offers Edit home page; a static page offers Edit this page only when it has marked areas**, told by `data-arc-editable` that publishing adds to its `arc-entry` meta. Both open the Visual Editor (VE-D49). Back to admin goes to More Pages. |
@@ -113,7 +113,7 @@ other than the strip, the page text of VE5 and the entry marker of VE-D11.
 ### Non-goals
 
 - A second data model for page editing: there is one draft, edited two ways.
-- Inline editing of list pages, the header or the footer.
+- Inline editing of the header or the footer (list pages: see VE6).
 - Pixel layout control (moving, resizing, restyling elements).
 
 ---
@@ -359,6 +359,289 @@ then hosting (the admin app and `arc-site.js`); then Republish website, so publi
 **Build note, Live Preview on the page strip (2026-11-22):** the page Visual Editor's strip has Live Preview (`openPreview`, window `arc-page-preview-{pageId}`, shared with the classic page editor) at `pageLivePreviewUrl`: the preview route with `?cards=1`. That provides `PageCardsSource` as in the frame, with `PageCardDrafts.editing = false`, so the card blocks draw the changed cards as Publish would but no leaving cards, no field or card marks, and the page's scripts run. The classic editor's Live Preview stays without cards, as its Publish is the words only. Settles the low item "home page strip has no Live Preview".
 
 **Build note, outlines on a settling page (2026-11-23):** `EditableReveal.flash` measured each part once, so outlines drawn while a web font was still loading or an entrance animation was running stood at the old places for the two seconds (seen on a site with a display serif). It now waits for `document.fonts.ready` while the fonts are `loading` (at most `FONT_WAIT_MS`, 1 s), reads the parts once and keeps one SVG per part, placed again on every `requestAnimationFrame` until the fade ends (moved only when its box changed); the parts are read again on scroll, resize or a redraw of the page.
+---
+
+### VE6: One Page settings panel, one editor at a time, and list pages
+
+**Status:** PLAN, written 2026-11-24; step A (one panel, VE-D67 to VE-D75) and the changes to
+VE-D60, VE-D62 and VE-D63 added the same day after the team's report; step B (one editor at a time,
+VE-D76 to VE-D85) added after that, with VE-D72 changed to fit. Agreed in discussion 2026-11-24 that
+one person holds a page until its changes are published or discarded, and that another person can
+review, publish or take over. Steps A and B and group C (VE6.1, VE6.2) built 2026-11-24 together, see
+the build notes below; merged into `dev` 2026-11-24, not deployed; groups D and E (the list page editors and
+the finish) not built. Built on `feat/visual-editing-ve6`, cut
+from `dev`, in a worktree (`../arccms-visual-editing-ve6`), so the main checkout and its running dev
+server are never switched. Reverses the earlier non-goal "Inline editing of list pages" (VE-D58).
+
+**The job:** a type's list page (`/{type}`, drawn from its `list.html`) is the one public page an
+editor still cannot open in the Visual Editor. The site strip offers only Add new there, and the
+heading and intro come from the type's name and description, set under Content types. Editors
+should change a list page where they see it, the way they change the home page: its words in
+place, its cards in place, the outlines on load showing what can be changed, one Publish.
+
+**The job before it (step A):** the team edits entries and HTML pages side by side and finds two
+different panels. An HTML page (the home page, a static page) has a title, a summary and a picture,
+but in its SEO tab and under other names; an entry has its cover image and summary in Basic and its
+title only on the page. What is live, what the dates mean and what Publish sends also read
+differently. Step A gives both one panel; the list page then gets the same one.
+
+**What the team reported (2026-11-24), checked by reading the code, not reproduced:**
+
+| # | Report | Finding | Answered by |
+|---|--------|---------|-------------|
+| 1 | It is not clear whether the page on screen is the published one | Real gap. "Saved" means the draft is stored. A page says Published only inside Page settings; an entry says nothing, so two dates have to be compared | VE-D70 |
+| 2 | History keeps the old dates after Publish until a reload | Bug on entries: `arc-version-history` loads once, and the Published date is set as soon as the publish is queued (`enqueuePublish`). On a page the list reloads when a publish lands, but not for a publish from another tab or one slower than `PUBLISH_WAIT_MS` | VE-D71 |
+| 2b | (found with it) | Bug: after a reload an entry's Published date is the **first** publish, because the draft keeps its first `publishedOn`; the last publish is `lastPublishedAt` | VE-D71 |
+| 3 | The button always says "Publish 1 change" | As built (VE5.8): all the page's words and SEO count as one. Misleading | VE-D73 |
+| 4 | The title is not in the side panel | Left out because it is typed on the page. Bug when the template does not show the title: it cannot be changed in the Visual Editor, and Publish with no title opens the panel on nothing (`req-title` is not drawn in page mode) | VE-D68 |
+
+**Built from what is there.** A list page is treated as one more page with page text (VE5), with
+its cards edited as the home page's cards are (VE5.7, VE5.8). Nothing new is invented for the
+data, the classic editor, the panel, History or the outlines.
+
+| ID | Decision | Choice |
+|----|----------|--------|
+| VE-D58 | List pages in place (proposed) | **In scope from VE6.** A list page opens in the Visual Editor at `/admin/edit-page/list/{type}` (the page Visual Editor, `PageEditPage`, with a list page loaded), with the strip, the panel, the outlines on load (`EditableReveal`), the outline button and the note on fixed parts, as on the page Visual Editor. Only for a type with public pages (a type without them has no list page). |
+| VE-D59 | Where the list page's words are kept (proposed) | **Page text, with `pageId` `list-{slug}`** in `SitePageTextDrafts` and `SitePageText`, its History included. `isPageTextId` in `firestore.rules` and both page-text copies accept the new id. Draft until Publish, per language, Use the file's text, Check translation: all as for the home page. |
+| VE-D60 | The heading and the intro (changed 2026-11-24) | **They are the list page's Title and Summary** (VE-D68), as an entry's title is its heading: marked in the shipped list templates as `<h1 data-arc-edit="title">{{ contentType }}</h1>` and `<p data-arc-edit="intro">{{ contentTypeDescription }}</p>`, stored as the page text keys `title` and `intro`, changed on the page or in Basic (one value, shown in both at once). The file's text is the type's name and description in that language, so an untouched list page looks as today. They are also the browser tab's title and the description for search engines and shares, unless the SEO tab has its own. With no marks in an app's own `list.html`, Basic still changes the browser tab, search and share text, and says the heading on the page is set by the developer. The type itself is not renamed: its name stays in the admin, in menus and in breadcrumbs. |
+| VE-D61 | Other words on a list page | **Whatever a developer marks in their own `list.html`** with `data-arc-edit`, every kind of area VE5 supports. The page-text values are filled in after the template's bindings, so a file's text that holds `{{ ... }}` shows the bound value as the file's text (checked in VE6.1). |
+| VE-D62 | Cards on the list (changed 2026-11-24) | **As on the home page (VE5.7):** each card is its entry; its title and summary are typed in place on the entry's draft, anything else opens the entry's form in the panel with Back to page; the card bar offers **Open** (the entry's own Visual Editor) and, for a type in its own order, the arrows (Arrange). Which cards show their draft and go out with Publish: VE-D72. **Add new** on the strip starts a new entry at `/admin/edit/{type}/new`, as today. No Remove: an entry with a page is taken off the site from its own editor (as VE5.7 decided for types with pages). The list shows the first 100, as published. Card blocks in the header and footer stay as published (VE-D20). |
+| VE-D63 | One Publish | **The list page's words and the cards changed on this page (VE-D72)**, checked as in VE5.8 (`beforePublish`, `publishWith`, `extraChanges`). The page text goes through the queue's `page-text` action with `docId` `list-{slug}`; the list page rebuild is coalesced (a `list-{slug}` coalesced id beside `home` and `items-from`), so a Publish of five cards and the words makes one release of the list page in every language, and the home page when it shows the type. |
+| VE-D64 | Publishing fills the words in | **`generateAndDeployContentListPage` and the app's `ContentListComponent` apply the list page's published text** (and its SEO title, description and share picture, which then win over the type's) with the same `applyPageText`, so the published page, the page the app draws, the preview and the Visual Editor agree. A type with no page text gives byte-identical output (a spec over the shipped list templates). |
+| VE-D65 | Where it opens from | **Three places:** the site strip on every list page offers **Edit this page** beside Add new (its cards can always be changed, marked areas or not); More Pages lists the list page of every type with public pages, after the home page and before the static pages, with its classic editor (a list with no marked areas still has its SEO there); the type's entries page gets a **Visual Editor** button for its list page. Back to admin on a list page stays the type's entries. |
+| VE-D66 | Outlines on load | **The same `EditableReveal` as the page Visual Editor**, over the list's marked areas and its cards, started once the cards are drawn, with the font wait and per-frame placing of 2026-11-23. A list longer than the window outlines only what is in view, as elsewhere. |
+
+**Step A decisions** (one panel; agreed 2026-11-24 unless marked):
+
+| ID | Decision | Choice |
+|----|----------|--------|
+| VE-D67 | One panel (changes VE-D26, VE-D51) | **Page settings starts the same on an entry, an HTML page and a list page.** Basic, in this order: **Status, Title, Cover image, Summary, Address**; then, on an entry only, Author, Layout, Tags, the type's own fields, Previous and Next. Same labels, width and tab style everywhere. The top part is one shared component (`PageBasics`), shown by `arc-create-content` in page mode and by `arc-page-text-panel`. The tabs stay Basic, SEO, History, with Checks on entries only. |
+| VE-D68 | Title, Cover image, Summary | **Title always has a value; the other two are optional**, with one gentle line when empty ("No summary: search engines choose their own words."). **Entry:** its title, cover image and summary, as stored today; the title field is in Basic in page mode (`req-title`), kept in step with the title on the page, so Publish with no title always has a field to open. The classic editor keeps the title above the body and does not repeat it. **HTML page:** the values of today's SEO tab, moved: `seo.{lang}.title`, `shareImage` and `seo.{lang}.description`. Nothing is stored twice, no field is added and no data is moved. Title says "Shown in the browser tab, search engines and shares. Headings are changed on the page." **List page:** VE-D60, with `shareImage` as the cover image. An empty field shows the file's own value as its placeholder, with Use the file's text as today. A cover image on an HTML page or a list page is for shares only, and says so. |
+| VE-D69 | The SEO tab | **The same search engine and share preview on all three**, drawn from what will go out. **Entry:** its fields as today (SEO title and description win over Title and Summary, and Basic says so when they are filled in). **List page:** SEO title and description only, empty until wanted. **HTML page:** the preview alone, with a line that the words come from Basic. |
+| VE-D70 | One status | **The same words and colours on the strip, on the classic editors' top bars and in Basic: Saving…, Not saved, Saved but not published (amber), Publishing…, Published (green), and Not published yet** for a page or entry that never was. Right when the screen is opened, not only after a publish in this visit. An HTML page keeps its rule (`morePageStatus`; From the file reads Published); an entry uses `deriveContentStatus`, as the entries list does, so the two never disagree. Amber also while a card Publish would take waits (VE-D53 in step A, VE-D72 from step B). The strip names the page or entry being edited instead of "Visual Editor". |
+| VE-D71 | Dates and History | **Last published is the last publish that landed**: `lastPublishedAt`, and `publishedOn` only for an entry published before that field existed. It changes when the publish is confirmed, not when it is asked for. **History reloads whenever the published copy changes while it is open**: on an entry when its publish ends, on a page whenever the followed published copy changes, whoever published and however long it took. While a publish runs, History says so. Cards publish into their own History; the page's History says it holds the page's words only. |
+| VE-D72 | Which cards Publish takes (changes VE-D53, home page included) | **The cards changed on this page that you hold** (VE-D76). A card typed in place or saved in its form here is marked on its draft (`changedOnPage: {pageId}`, beside `addedOnPage`), so it is still included when the editor comes back tomorrow or publishes from another computer; "this visit" alone would make an editor's saved words disappear from the page. Publishing the entry clears the mark, and so does a save in the entry's own editor, because the draft then holds other work too. **A card whose entry you changed elsewhere** shows as published with a **Has unpublished changes** badge; a click opens its form in the panel, which offers **Publish with this page** (sets the mark) after the editor has seen what is in it. **A card someone else holds** shows as published with **{name} is editing this**; it is not typed on, and a click offers Review changes (VE-D79). While you look at a page someone else holds, the cards they changed on it show as they left them. A card added here (`addedOnPage`) is included as today. The reason: one Publish on a list of 100 entries must never send out a colleague's unfinished draft, and publishing a card publishes its **whole entry**. A card's panel says so once it opens: "You are editing this {type}. It changes everywhere it is shown." Draft cards already waiting when this is deployed show as published with the badge. |
+| VE-D73 | The Publish button | **"Publish", with no count**, on every editor. On the strip in the Visual Editor, on the top bar in the classic editors, no longer in the page's Basic tab; a problem with a publish shows beside Status and opens the panel. Greyed out only when the status is Published, nothing is unsaved and the last publish did not fail. Never greyed on an entry without `lastPublishedAt` (changes there cannot be told). A list of what changed is left for later. |
+| VE-D74 | Address | **On all three, with Copy** (the Production URL). Changed on an entry, as today; on an HTML page or a list page shown only, with "Set by your developer" or "Set under Content types". |
+| VE-D75 | What stays different | **On purpose:** an entry saves its whole draft after a pause, a page saves field by field; author, tags, layout and Checks are for entries; HTML pages keep From the file and Edited. The words an editor reads are the same for each. |
+
+**Step A tasks:**
+
+| Task | What |
+|------|------|
+| VE6.A1 | `PageBasics`, the shared top of the panel (VE-D67, VE-D68, VE-D74): Status, Title, Cover image, Summary, Address, hints and placeholders, read-only parts; specs for each kind and for a translation (shared and per-language values as today). |
+| VE6.A2 | The entry editor in page mode uses it (VE-D68): the title in step with the page both ways, `createSlag` and autosave as when typed on the page, required title revealed when the template shows none; the classic form unchanged. |
+| VE6.A3 | The page panel uses it (VE-D67 to VE-D69) in both page editors: SEO values in Basic, saved as they are now; the preview in the SEO tab; Publish moved to the strip and the classic top bar. Specs: the same writes to `SitePageTextDrafts` as before. |
+| VE6.A4 | One status (VE-D70) and the Publish button (VE-D73): one function from a state to the words and colours, used by both strips and both classic bars; specs for every state, on opening and after a publish. |
+| VE6.A5 | Dates and History (VE-D71): specs that a publish while History is open shows the new version, that a failed publish leaves the date alone, and that reopening an entry shows its last publish. |
+| VE6.A6 | Moved to step B (VE6.B6): which cards Publish takes follows who holds them. |
+| VE6.A7 | Docs (`docs/features/content.html`, `docs/website/home-page.html`), CHANGELOG, admin strings (English and Hindi); browser check of an entry, the home page and a static page in both editors: each status, title both ways, a publish with History open. |
+| VE6.A8 | Critical review of step A, fixes, `npm run gate`. |
+
+**Step B decisions** (one editor at a time; VE-D76 agreed 2026-11-24, the rest to confirm):
+
+| ID | Decision | Choice |
+|----|----------|--------|
+| VE-D76 | One person holds a page (agreed; replaces VE-D52's two editors at once, and "Someone else changed this entry" in ordinary use) | **Whoever has unpublished changes holds it, until they are published or discarded, or someone takes over.** Opening holds nothing; the first saved change does. Closing the page, or a week away, does not let go. Changing everything back to what is live lets go (compared after each save). A publish that fails keeps the hold; one that lands clears it, unless something was saved since. A site with one person sees no difference. |
+| VE-D77 | What is held | **One entry, whole** (every field and language, in the Visual Editor, the classic editor and as a card); **one HTML page** (its words, pictures and SEO in every language); **one list page** (its heading, intro and SEO). A card is its entry, held on its own, whichever page shows it. Two people can hold different cards of one page while a third holds its words. Not held: the order of a type, featured, and links kept in step by the CMS (references, previous and next). A new entry is held by its author until first published; an imported draft is held by nobody until someone changes it. |
+| VE-D78 | How it is kept | **`editing: { by, name, since, at }` on the draft** (`arc_{slug}_drafts/{id}`, `SitePageTextDrafts/{pageId}`), written with every save, `at` being the last change; there is no heartbeat, so nothing runs while a page is only open. **Never copied to what the public reads**: the publish function strips `editing` and `changedOnPage` from the published copy and its History. **Firestore rules enforce it**: a write to a draft someone else holds is refused, except a take over (which changes the hold and nothing else, so an old tab's ordinary save can never take one) and the writes not held (VE-D77); translations follow their entry's hold. The hold is cleared by the publish function. A stale tab can still ask the queue to publish a held draft; the app asks first, the rules do not stop it. |
+| VE-D79 | Opening a page someone else holds | **View only, following their work live**, with a bar: "{name} has unpublished changes. Last change {time}." and **Review changes**. Clicks on the page show the bar's words, not an editor; the panel is read-only, its tabs open. Live Preview works. Someone who had the page open when another person made the first change goes view-only at their next change, and is told so. |
+| VE-D80 | Review changes | **A list of what differs from what is live**, by field, language and area, in page order: old and new text (words added and removed marked), picture thumbnails, the body, rows added, removed and changed, SEO, address. The same parts are outlined in amber on the page, and a click in the list scrolls to its part. An entry or page never published says New. On a page it also lists the cards that person changed on it. It offers **Publish these** (as it is, through the same checks as Publish; the History entry names both people), **Take over** and **Close**. The same list opens from the status ("Saved but not published") on your own changes, with Put back on each. What is live is the published entry, and for a page its newest History version, since the published copy holds bare values (VE-D39). |
+| VE-D81 | Take over | **Anyone who can edit can take over** (today every editor is an admin; approval steps are a feature of their own). It asks first, and more strongly when the last change is under five minutes old. The other person's draft is kept (VE-D84) before anything changes hands, in the same write. The taker then edits, with **Put back** on each change in Review and the Publish button as usual. On a page, the review offers the cards changed on it too: the taker chooses which go with it. |
+| VE-D82 | The person taken over from | **Their screen turns view-only at once**: "{name} took over. Your changes are kept in History." What they typed and had not saved stays readable with Copy; it is not saved. They get a notification with a link. An HTML page saves field by field, so at most the field being typed in is lost; an entry saves after a pause. |
+| VE-D83 | Put back, and Discard changes | **Put back** returns one change to what is live: a field, an area, a picture, a whole body, a row list in one step (not single sentences). **Discard changes** (Page settings, beside History; asked first) returns everything and lets go; on something never published it offers Delete as today. Both keep the draft first (VE-D84). |
+| VE-D84 | Nothing is lost | **Before a take over or a Discard, the draft is kept** in `Kept/{id}` under the draft (staff read, created only, never changed; the last ten), and shows in History as "{name}'s draft, {time}", with Restore. Restore puts it into the draft, which then needs Publish and holds it like any change. |
+| VE-D85 | Where else it shows | **Entries lists and More Pages** show who holds a row ("{name}, 2 hours ago"). Unpublish, Delete, Publish and Restore from a list, in bulk too, say who holds it and ask first. The dashboard is unchanged. Reading a hold: the name is kept with it, so no account is read. |
+
+**Step B tasks:**
+
+| Task | What |
+|------|------|
+| VE6.B1 | Compare: one function from a draft and what is live to a list of changes, for entries (fields, translations, body, rows) and for page text (keys, languages, SEO, pictures); unchanged means an empty list, whatever the saved form. Specs. Used by the status of VE-D70, so "Saved but not published" means a real difference. |
+| VE6.B2 | The hold (VE-D76 to VE-D78): the field, set and cleared by both sessions (`EntryDraftSession`, `PageTextSession`) and by the publish function; the published copy and History without it; Firestore rules with rules tests for the holder, another person, a take over, an ordinary save that tries to take one, the not-held writes (with `_ref_*` inside `customFields`), translations; draft rows from before the deploy. |
+| VE6.B3 | View only (VE-D79) on the entry Visual Editor and classic editor, the page Visual Editor and classic editor, and a card's form. |
+| VE6.B4 | Review changes, Publish these, Take over, the kept draft and the notification (VE-D80 to VE-D82, VE-D84). Notifications are written by functions only, so a take over tells a function (its own callable, or a trigger on the hold), settled here. |
+| VE6.B5 | Put back and Discard changes (VE-D83), and the kept drafts in History with Restore; History shown for an entry never published that has kept drafts. |
+| VE6.B6 | Which cards Publish takes (VE-D72): the mark set, kept and cleared (in place, the panel form, the entry's editor, publish, unpublish, a duplicate and a restored version do not carry it), `isPageChange` and `pageCardsOf` on it and on the hold, the badges, Publish with this page, the line on opening a card. Specs, a colleague's draft left out included. |
+| VE6.B7 | Lists and More Pages (VE-D85); docs (`docs/features/content.html`, the data model and security rules pages), CHANGELOG, admin strings (English and Hindi). |
+| VE6.B8 | Browser check with two accounts in two browsers: first change wins, view only, Review, Publish these, Take over with the other screen open, Put back, Discard, a card held by someone else, an entry in two languages. |
+| VE6.B9 | Critical review of step B, fixes, `npm run gate` (rules tests included). |
+
+**List page tasks:**
+
+| Task | What |
+|------|------|
+| VE6.1 | Page text for list pages: `list-{slug}` accepted in `isPageTextId` (rules) and both page-text copies; `applyPageText` run on a list page after its bindings, in `deployContentListPage.ts` and `content-list.component.ts`; SEO from page text; the shipped `list.html` files (default and every shipped folder) mark the heading and intro. Specs: both copies on a list page; byte-identical output with no page text over every shipped list template; rules tests for the new id. |
+| VE6.2 | Publishing: the `page-text` action for `list-{slug}` copies the draft, keeps History and rebuilds the list page through a new coalesced `list-{slug}` item (and the home page when it shows the type); entry publishes from the queue rebuild the list through the same coalesced item. Functions specs. |
+| VE6.3 | More Pages and the classic editor (the panel of step A): list page rows (name from the type, status, last published), the classic editor at `/admin/more-pages/list/{type}`, routes in `app.routes.ts`, Live Preview at `/admin/preview-page/list/{type}`, admin strings as translation keys (English and Hindi). |
+| VE6.4 | The Visual Editor for a list page at `/admin/edit-page/list/{type}` (`PageEditPage`, explicit routes in `app.routes.ts`): the frame is the list's preview with `?edit=1`, scripts off, `arc-editing`; areas in place with Done and Cancel; the strip with Live Preview, Page settings, Classic editor, the outline button; the outlines on load (VE-D66). |
+| VE6.5 | Cards on the list: `PageCardsSource` and `cardsWithDrafts` follow the type's drafts in the list's `items` loop as they do in a card block; cards marked (`data-arc-card-id`, `data-arc-sub`); title and summary typed in place; the card bar with Open and the arrows; Add new on the strip; one Publish (VE-D63) with the failing card opened; the badge and Publish with this page (VE-D72). |
+| VE6.6 | Entry points: the site strip's **Edit this page** on every list page (`stripLinks` in `arc-site.js`), the entries page's Visual Editor button. Specs in `scripts/__tests__/arc-site-js.spec.ts` and the entries page spec. |
+| VE6.7 | Docs: `docs/features/content.html` (Visual Editor, More Pages, the strip), `docs/features/templates.html` (marking a `list.html`, the list page bindings with page text), the data model and rules pages for the new id, CHANGELOG. |
+| VE6.8 | Browser check on the dev project: a list page in two languages, the outlines on load, heading and intro changed and put back with Use the file's text, a card typed in place, a card moved, Add new, one Publish (without pressing Publish on real content: a test type only), the published list page as a visitor, a type with no page text unchanged. |
+| VE6.9 | Critical review of VE6, fixes, `npm run gate` (rules tests included). |
+
+**Built in five groups, in this order** (A and B can each be deployed on its own before the rest is built), each ending with the specs of the files changed, a short browser check
+and a short critical review with its critical, high and medium findings fixed:
+
+| Group | Tasks | Ends with |
+|-------|-------|-----------|
+| A. One panel | VE6.A1 to VE6.A8 | Entries and HTML pages with one panel and one status in both editors; `npm run gate`; ready to merge and deploy. |
+| B. One editor at a time | VE6.B1 to VE6.B9 | Two people on one entry and one page, with review and take over, on the dev project; rules tests; `npm run gate`; ready to merge and deploy. |
+| C. List page data and publishing | VE6.1, VE6.2 | Functions specs, rules tests, a test type's list page published with page text on the dev project. |
+| D. List page editors | VE6.3 to VE6.5 | Both editors on a list page in two languages, cards in place, one Publish. |
+| E. Finish | VE6.6 to VE6.9 | The strip, docs, the full browser check, the critical review of VE6 with `npm run gate`. |
+
+**Deploy of step A on its own:** the website only (`npm run deploy`, the Website option). No Republish.
+
+**Deploy of step B, in this order** (changed 2026-11-24, when it was built): functions
+(`processPublishQueue`, so the published copy never holds the new fields, `onDraftKept`,
+`onContentTypeDeleted`), then the Firestore rules, then the website. The rules come before the website
+because the new website writes `editing` on page drafts, which the old rules refuse (their list of
+allowed fields), so no page could be saved. A tab from before the deploy goes on working with the new
+rules, except on a draft someone else holds. No Republish.
+
+**Deploy of the list pages, in this order:** functions (`processPublishQueue`, `seedStaticPages`, and
+any other function that calls `generateAndDeployContentListPage`, found then), then Firestore rules (the new page-text id), then
+the website (`npm run deploy`, the Website option), then Republish website, so published list
+pages carry the marked heading and intro. Never deploy functions from a worktree.
+
+**Risks:** the list page changes for visitors (answered by the byte-identical spec when there is no
+page text); a binding inside a marked area (VE-D61, checked in VE6.1); every card publish already
+rebuilds the list page, so many changes at once must coalesce (VE-D63); an app's own `list.html`
+has no marks, so its list page opens with only the cards and SEO editable until a developer marks
+the heading and intro (said in the docs, with the two lines to add); an editor looking for a card
+changed elsewhere before step B finds it as published with the badge (VE-D72, said in the CHANGELOG);
+two people used to the old SEO tab look there for a page's title (its preview says the words come
+from Basic, VE-D69); rules that tell the held fields from the rest get long (VE6.B2 measures it; if
+they cannot say it, the app's own transaction holds the line and the rules keep only the take over
+and the hold itself); a reference change bumps `modifiedAt` on an entry nobody edited, which would
+read as unpublished work (VE6.B1 compares words, not times); a page held by someone who has left
+(anyone takes over, VE-D81).
+
+---
+
+**Build notes, steps A, B and C (2026-11-24, nothing deployed):**
+
+*Step A (VE6.A1 to A5).* The shared pieces are three, not one `PageBasics` component: `EditState`
+(`edit-state.ts`, one function from what is known to one of six states), `PageStatus` and
+`EditStateComponent` (Status and Last published at the top of Basic, and the badge on the strips and
+classic bars) and `SharePreview` (how the page looks in search results and shares). Title, Cover
+image, Summary and Address stay in each panel's own form, in the same order and words, since an entry
+stores them in its form and a page field by field. A page shown from its file reads Published, so
+"Not published yet" is for entries. On an entry the state compares words with the published copy once
+it arrives (VE6.B1), so a reference kept in step is not "Saved, not published". The More Pages list
+keeps its own three words (From the file, Published, Changes not published).
+
+*Step B (VE6.B1 to B6).* The comparison is `core/editing/compare.ts`, the hold `core/editing/hold.ts`
+and `hold.service.ts`, the bar, the review, and the kept drafts are in `pages/admin/hold`.
+- **Letting go through unchanged words** is a step of its own, after a save settles, never inside one:
+  `EntryDraftSession.settle` waits until nothing is being saved or left to save, compares every field
+  and language with what is live, and `HoldService.letGo` checks again inside its write, puts
+  `modifiedAt` back to the published one and the status to published, so the entries list says
+  Published. A page lets go after each save; one never published when its words are the file's again.
+  An entry never published keeps its hold until it is published or deleted.
+- **An HTML page's hold counts only while unpublished** (`updatedAt` later than the published copy's
+  `draftUpdatedAt`, which is null when the page did not go live), in the app and in the rules, and the
+  publish removes `editing` in the same transaction, without moving `updatedAt`; when the release then
+  fails, nobody holds the page and its changes wait.
+- **The publish function lets go of an entry by its words, not its dates:** the draft and its
+  translations, read again in the transaction of the stamp, against what it copied. References kept in
+  step (`_ref_*`), order and featured are not words; series links are, by the entry they go to. Other
+  words keep the hold and read as edited: `lastPublishedAt` is the time the draft was read, and
+  `modifiedAt` moves only when it is not already later. An unpublish marks a draft a save left saying it
+  is published.
+- **`lostWords`:** a save refused because someone took over, or made the first change, leaves the
+  typed words on screen to copy, with no more taken and Show theirs; nothing replaces them until then.
+  When the other person lets go, they are saved, or Reload theirs and Keep mine ask.
+- **What a take over takes:** from the person shown, else nothing happens and the review opens again
+  ("Something changed meanwhile"), as it does when what was reviewed is not what is stored.
+- **Not built from VE-D80:** the amber outlines of the changed parts on the page. **Show** in the
+  review scrolls to the part and marks it for two seconds instead. Discard changes is in the review,
+  not beside History (VE-D83), and the bar of a held entry's page opens the review on a click.
+- **VE-D85:** only Unpublish and Delete on the entries list say who holds a row and ask; the list has
+  no Publish, and Restore is in the editor, where it is off while someone else holds the entry.
+- **The notification** is written by a trigger, `onDraftKept`, on `{collection}/{docId}/Kept/{keptId}`:
+  it fires on a kept draft only, never on an ordinary save. Its id is the kept draft's, so an event
+  delivered twice tells the person once. It also prunes to ten.
+- **Rules** beyond the plan: a take over's `Kept` document must be new in the same write and name the
+  actual holder, and is refused unless that write makes the caller the holder and names it, so nobody can
+  be told of a take over that did not happen; `keptAt` is the time of the write. A kept draft's languages
+  are documents of their own under it, written with it (`Kept/{id}/translations/{lang}`). The reads come last, so batches of 400 drafts (references, Arrange) pass. Deleting a held
+  entry is allowed, as agreed (the app asks).
+- **"Someone else changed this entry"** stays, for another tab of the same person and for references
+  kept in step.
+
+*Group C (VE6.1, VE6.2).* `holdListMarks` puts a list template's marks by before its strings, loops and
+bindings, under a name made for that build, and `fillListPage` fills them after (VE-D61), so an
+editor's `{{ }}` is never a binding and an entry's own HTML never passes for an area; `listPageWords`
+gives the browser title, description, shares and CollectionPage. A type named in a language keeps
+that name there over words edited in the default language only (VE-D60).
+- **Departure from VE-D63 and VE6.2:** entry publishes keep building the list page in their own
+  release, so the list shows the entry at once and a failed coalesced run cannot lose it; only the
+  words' publish is the coalesced `list` item. Two guards keep them from overwriting each other: an
+  entry's build makes a list rebuild under way run again, and after its release it queues one when the
+  words were published meanwhile (`publishedPageTextStamp`).
+- `info/list.html` has no description, so only its heading is marked.
+- The list renderer already honours `PAGE_TEXT_PREVIEW` (draft values, marks kept, scripts off), for
+  group D, whose editors must read the file's text from the page after its bindings.
+
+- **Deleting** an entry removes everything under its draft; the app asks the queue for `purge-draft`
+  after deleting one with no live page, since a trigger on every deleted document would run for queue
+  items and the rest too. Data import leaves `editing` and `changedOnPage` behind, and writes a refused
+  batch of drafts one by one.
+
+*The critical review (2026-11-24, two reviews: one of the app, one of the functions and rules): 9 high
+and 15 medium, all fixed.* In short: letting go was part of the save it followed
+and could let go of words not stored yet (now `settle`); a publish that ended after an entry was let go to earlier
+words, or while a translation was saved, said Published (now compared by words); an auto-save during
+an unpublish left the entry saying published; a take over could take from a third person, and a review
+acted on work that had changed since; words refused by a take over could still be typed into, or lost
+when the other person let go; clearing a translation was no change, so it could not be published;
+series links were compared by their copied titles; a kept document carried every language, up to
+Firestore's limit, and could be written without its take over; kept drafts of a deleted entry stayed;
+a leftover hold on a published page made an old tab's save count as another person's; status and
+Publish answered before the published copy was read; an imported draft was held by a person of another
+site; the review showed ids and "true" for values, and nothing where only formatting changed; a
+summary hint was missing on an entry.
+
+*Checked:* app and functions specs, the rules tests (164) and the byte-identical spec over every
+shipped list template. The gate is green on the final code (2026-11-24: 12,069 tests, 164 rules tests, docs, types).
+Browser checks (VE6.A7, VE6.B8) were made the same day with two accounts against local Auth and
+Firestore emulators with the new rules, a stand-in script writing what `processPublishQueue` writes:
+every status, title both ways, a publish with History open, view only, Review, an out of date review,
+Take over of an entry and of the home page with its card, unsaved words kept, Put back, Discard, kept
+drafts, letting go on undo, the two card badges and Publish with this page, the classic page editor.
+Not checked in a browser: the functions themselves, the notification, a static page, two languages,
+list pages with words, Restore of a kept draft, Publish these.
+
+*Low items left:*
+- History does not name both people on Publish these (VE-D80): the queue item carries no name.
+- A hold and a kept draft keep a person's name after their account is deleted (said in the account
+  contract).
+- The media usage check does not look inside `Kept`.
+- A restored kept draft's address is not checked for a clash.
+- Staff can write a `Kept` document of a discard by hand; it shows in History and changes nothing.
+- The pages' editors never use the "took over" wording: their bar always says who has unpublished
+  changes.
+- Each page editor listens to the published copy twice (the panel and the screen).
+- Focus is lost when the area it is in turns inert.
+- The editor offers no Delete on an entry never published (VE-D83); the entries list does.
+- The amber outlines of VE-D80 are not built (above).
+- The entry's form inside a page's card panel is narrower than the panel (from VE5.7).
+- A tab from before the deploy writes no `editing`, so on a held entry it can still change
+  `customFields` alone (the `modifiedAt` check remains).
+- If the stamp after a publish fails after its retries, the entry stays held until its next publish or a
+  take over; and a stale tab can ask the queue to publish a held draft (VE-D78).
+- When the stamp moves `modifiedAt` of an entry open in an editor whose clock is behind the server's, its
+  next save may ask Reload theirs or Keep mine.
+- Republish website skips a type with no published entries, so its list page words go out only with
+  their own publish; `recoverPublishQueue` does not mark words as not live when a crashed run is given
+  up, for the home page as for a list page; "Changes not published" stays on a page whose given-up
+  rebuild a later entry publish repaired, until Publish; words holding a literal `<b>` lose the tag in
+  the browser title and description only; a home page rebuild and a whole-site republish can still
+  cross, as before.
+
 ---
 
 ## 3. Risks

@@ -60,18 +60,25 @@ export function publicPageTextValues(values: PageTextValues): PageTextValues {
     return out;
 }
 
-/** What a page id names: the home page, or the static page `/p/{name}`. */
-export function pageOfPageTextId(pageId: string): { kind: 'home' } | { kind: 'static'; name: string } | null {
-    if (!PAGE_TEXT_ID.test(pageId)) return null;
-    return pageId === 'home' ? { kind: 'home' } : { kind: 'static', name: pageId.slice(2) };
+/**
+ * A mark of a page's published values that changes with every publish, '' when it
+ * has none. Read before and after a page is built and released, it tells whether
+ * words were published meanwhile (processPublishQueue).
+ */
+export async function publishedPageTextStamp(pageId: string): Promise<string> {
+    const snap = await db.collection(PAGE_TEXT_PUBLISHED).doc(pageId).get();
+    const time = snap.exists ? snap.updateTime : undefined;
+    return time ? `${time.seconds}.${time.nanoseconds}` : '';
 }
 
-/**
- * Publishes a page's draft (VE-D57): copies its values into SitePageText (the
- * whole document, so a value the draft no longer has is gone) and keeps the
- * whole draft in History. A page with no draft publishes no values, which brings it
- * back to its file. The caller rebuilds the page.
- */
+/** What a page id names: the home page, the static page `/p/{name}`, or a type's list page `/{slug}`. */
+export function pageOfPageTextId(pageId: string): { kind: 'home' } | { kind: 'static'; name: string } | { kind: 'list'; slug: string } | null {
+    if (!PAGE_TEXT_ID.test(pageId)) return null;
+    if (pageId === 'home') return { kind: 'home' };
+    if (pageId.startsWith('list-')) return { kind: 'list', slug: pageId.slice('list-'.length) };
+    return { kind: 'static', name: pageId.slice('p-'.length) };
+}
+
 /**
  * The published copy's page did not go live (its rebuild or release failed): it
  * no longer says which draft it was made from, so the admin shows "Changes not
@@ -88,23 +95,36 @@ export async function markPageTextUnreleased(pageId: string): Promise<void> {
     }
 }
 
-/** `historyId`: the queue item's id, so the same item delivered twice keeps one History entry. */
+/**
+ * Publishes a page's draft (VE-D57): copies its values into SitePageText (the
+ * whole document, so a value the draft no longer has is gone) and keeps the
+ * whole draft in History. A page with no draft publishes no values, which brings it
+ * back to its file. The caller rebuilds the page.
+ *
+ * The same write lets go of the page (VE-D76): its `editing` goes, and not its
+ * `updatedAt`, so nothing reads as saved. One transaction, so words saved meanwhile are
+ * either in what is published or still held. A page whose release then fails is held
+ * by nobody, with its changes waiting.
+ *
+ * `historyId`: the queue item's id, so the same item delivered twice keeps one History entry.
+ */
 export async function publishPageTextDraft(pageId: string, historyId?: string): Promise<void> {
-    const draft = await db.collection(PAGE_TEXT_DRAFTS).doc(pageId).get();
-    const data = draft.exists ? draft.data() : undefined;
-    const values = pageTextValuesOf(data);
-    const stamp = {
-        publishedAt: FieldValue.serverTimestamp(),
-        // The draft this copy was made from, so the admin can tell a draft changed since (VE-D48).
-        draftUpdatedAt: data?.['updatedAt'] ?? null,
-    };
+    const draftRef = db.collection(PAGE_TEXT_DRAFTS).doc(pageId);
     const ref = db.collection(PAGE_TEXT_PUBLISHED).doc(pageId);
-    const batch = db.batch();
-    // Anyone reads the published copy: the values alone, no account ids.
-    batch.set(ref, { ...publicPageTextValues(values), ...stamp });
-    // History is for Restore (VE-D51): the whole draft, with who saved what and against which text.
-    batch.set(historyId ? ref.collection(PAGE_TEXT_HISTORY).doc(historyId) : ref.collection(PAGE_TEXT_HISTORY).doc(), {
-        ...values, ...stamp, publishedBy: typeof data?.['updatedBy'] === 'string' ? data['updatedBy'] : '',
+    const historyRef = historyId ? ref.collection(PAGE_TEXT_HISTORY).doc(historyId) : ref.collection(PAGE_TEXT_HISTORY).doc();
+    await db.runTransaction(async (tx) => {
+        const draft = await tx.get(draftRef);
+        const data = draft.exists ? draft.data() : undefined;
+        const values = pageTextValuesOf(data);
+        const stamp = {
+            publishedAt: FieldValue.serverTimestamp(),
+            // The draft this copy was made from, so the admin can tell a draft changed since (VE-D48).
+            draftUpdatedAt: data?.['updatedAt'] ?? null,
+        };
+        // Anyone reads the published copy: the values alone, no account ids.
+        tx.set(ref, { ...publicPageTextValues(values), ...stamp });
+        // History is for Restore (VE-D51): the whole draft, with who saved what and against which text.
+        tx.set(historyRef, { ...values, ...stamp, publishedBy: typeof data?.['updatedBy'] === 'string' ? data['updatedBy'] : '' });
+        if (data && 'editing' in data) tx.update(draftRef, { editing: FieldValue.delete() });
     });
-    await batch.commit();
 }

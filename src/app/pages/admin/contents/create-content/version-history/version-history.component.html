@@ -4,6 +4,10 @@
     <arc-loader kind="rows" class="d-block p-3"></arc-loader>
     }
 
+    @if(publishing()){
+    <p class="text-muted small px-3 pt-2 mb-0" role="status" data-testid="history-publishing">{{ 'admin.edit_page.history_publishing' | transloco }}</p>
+    }
+
     <!-- Error State -->
     @if(errorMessage()){
     <div class="error-state">

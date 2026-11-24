@@ -1,9 +1,10 @@
+import { HoldService } from '../../../core/editing/hold.service';
 import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import { Firestore, collection, getDocs } from '@angular/fire/firestore';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { siteManifest, sitePageUrl, layoutLabel } from '../../../core/site/site';
-import { PageTextService, hasUnpublishedChanges, type PageTextDraft, type PublishedPageText } from '../../../core/site/page-text.service';
+import { PageTextService, hasUnpublishedChanges, pageHeldByOther, type PageTextDraft, type PublishedPageText } from '../../../core/site/page-text.service';
 import { hasPageTextMarks, pageTextId } from '../../../core/utils/page-text-model';
 import { readPageFile } from '../../../core/utils/page-text-areas';
 
@@ -27,6 +28,8 @@ export interface MorePageRow {
     status: MorePageStatus;
     /** When it was last published, in ms, or null. */
     lastPublished: number | null;
+    /** The other person who holds its words, or '' (VE-D85). */
+    heldBy?: string;
 }
 
 /** Where a page stands, from its draft and its published copy. */
@@ -80,7 +83,7 @@ export class MorePagesService {
     async list(): Promise<MorePageRow[]> {
         const names = Object.keys(siteManifest().pages).sort();
         const files = await Promise.all(names.map(async (name) => ({ name, html: await this.file(sitePageUrl(name)) })));
-        const pages: Omit<MorePageRow, 'status' | 'lastPublished'>[] = [
+        const pages: Omit<MorePageRow, 'status' | 'lastPublished' | 'heldBy'>[] = [
             { pageId: pageTextId.home(), kind: 'home', name: '', title: '', address: '/' },
             ...files
                 .filter((file) => hasPageTextMarks(file.html) && readPageFile(file.html).areas.length > 0)
@@ -89,9 +92,14 @@ export class MorePagesService {
                     title: readPageFile(file.html).title || layoutLabel(file.name), address: `/p/${file.name}`,
                 })),
         ];
+        const uid = this.injector.get(HoldService).me()?.uid;
         return Promise.all(pages.map(async (page) => {
             const [draft, published] = await Promise.all([this.pageText.draft(page.pageId).catch(() => null), this.pageText.published(page.pageId)]);
-            return { ...page, status: morePageStatus(draft, published), lastPublished: published?.publishedAt?.toMillis?.() ?? null };
+            const hold = pageHeldByOther(draft, published, uid);
+            return {
+                ...page, status: morePageStatus(draft, published), lastPublished: published?.publishedAt?.toMillis?.() ?? null,
+                ...(hold ? { heldBy: hold.name || '?' } : {}),
+            };
         }));
     }
 }

@@ -27,6 +27,7 @@ vi.mock('@angular/fire/firestore', () => ({
 }));
 
 import { Firestore } from '@angular/fire/firestore';
+import { HoldService } from '../../../core/editing/hold.service';
 import { PageCardsSource } from './page-cards';
 
 const docs = (rows: Record<string, any>[]) => ({ docs: rows.map(({ id, ...data }) => ({ id, data: () => data })) });
@@ -42,7 +43,7 @@ describe('PageCardsSource', () => {
         stopped.length = 0;
         getDocMock.mockReset();
         getDocsMock.mockReset();
-        TestBed.configureTestingModule({ providers: [PageCardsSource, { provide: Firestore, useValue: {} }] });
+        TestBed.configureTestingModule({ providers: [PageCardsSource, { provide: HoldService, useValue: { me: () => ({ uid: 'me', name: 'Me' }) } }, { provide: Firestore, useValue: {} }] });
         source = TestBed.inject(PageCardsSource);
         source.start('home');
         source.watch('quotes');
@@ -50,7 +51,7 @@ describe('PageCardsSource', () => {
 
     it('draws a type\'s changed drafts once read', () => {
         expect(source.cardsOf('quotes')).toBeNull();
-        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, title: 'A2' }]));
+        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'A2' }]));
         expect(source.cardsOf('quotes')!.changed.map((c) => c['title'])).toEqual(['A2']);
     });
 
@@ -58,7 +59,7 @@ describe('PageCardsSource', () => {
         snapshots[0](docs([]));
         send({ arcPageCards: 'focus', focus: { type: 'quotes', id: 'a' } });
         send({ arcPageCards: 'hold', on: true });
-        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, title: 'A2' }]));
+        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'A2' }]));
         send({ arcPageCards: 'focus', focus: { type: 'quotes', id: 'b' } });
         expect(source.cardsOf('quotes')!.changed).toEqual([]);
         send({ arcPageCards: 'hold', on: false });
@@ -66,7 +67,7 @@ describe('PageCardsSource', () => {
     });
 
     it('gives a changed card its draft\'s own translation in the page\'s language, followed as it is saved', () => {
-        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, title: 'English' }]));
+        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'English' }]));
         expect(source.cardsOf('quotes', 'hi')!.changed[0]['title']).toBe('English');
         const at = followed.indexOf('arc_quotes_drafts/a/translations/hi');
         expect(at).toBeGreaterThan(0);
@@ -74,7 +75,7 @@ describe('PageCardsSource', () => {
         expect(source.cardsOf('quotes', 'hi')!.changed[0]['title']).toBe('हिन्दी');
         expect(source.cardsOf('quotes')!.changed[0]['title']).toBe('English');
         // Saved again after the draft: the new words show, with no second read.
-        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, title: 'English', modifiedAt: 9 }]));
+        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'English', modifiedAt: 9 }]));
         snapshots[at]({ exists: () => true, data: () => ({ title: 'नया' }) });
         expect(source.cardsOf('quotes', 'hi')!.changed[0]['title']).toBe('नया');
         expect(followed.filter((path) => path.endsWith('/translations/hi'))).toHaveLength(1);
@@ -90,10 +91,20 @@ describe('PageCardsSource', () => {
         expect(source.cardsOf('quotes')!.sortOrder).toEqual({ a: 2, b: 1 });
     });
 
+    it('shows the cards of the person whose page is looked at, and stops when they let go (VE-D72)', () => {
+        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', editing: { by: 'priya', name: 'Priya' } }]));
+        expect(source.cardsOf('quotes')!.notes).toEqual({ a: { held: 'Priya' } });
+        send({ arcPageCards: 'shows', uid: 'priya' });
+        expect(source.cardsOf('quotes')!.changed.map((c) => c['id'])).toEqual(['a']);
+        expect(source.cardsOf('quotes')!.notes).toEqual({ a: { theirs: true } });
+        send({ arcPageCards: 'shows', uid: null });
+        expect(source.cardsOf('quotes')!.changed).toEqual([]);
+    });
+
     it('ignores messages from anything but the screen around it', () => {
         snapshots[0](docs([]));
         window.dispatchEvent(new MessageEvent('message', { data: { arcPageCards: 'hold', on: true }, source: null, origin: window.location.origin }));
-        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true }]));
+        snapshots[0](docs([{ id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home' }]));
         expect(source.cardsOf('quotes')!.changed.length).toBe(1);
     });
 });

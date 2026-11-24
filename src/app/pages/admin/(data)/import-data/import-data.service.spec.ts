@@ -236,6 +236,25 @@ describe('ImportDataService', () => {
             expect(mockBatchCommit).toHaveBeenCalled();
         });
 
+        it('leaves behind who was editing a draft, and one refused draft does not stop the rest (VE-D78)', async () => {
+            const { setDoc } = await import('@angular/fire/firestore');
+            vi.mocked(setDoc).mockClear();
+            mockBatchSet.mockClear();
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            mockBatchCommit.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+            vi.mocked(setDoc).mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+            const data: ExportFormat = {
+                ...validExportData,
+                collections: { arc_blog_drafts: {
+                    d1: { title: 'Held here', editing: { by: 'someone' }, changedOnPage: 'home' }, d2: { title: 'Free', editing: { by: 'someone' } },
+                } },
+            } as any;
+            const result = await service.importCollections(data, ['arc_blog_drafts'], defaultOptions, vi.fn());
+            expect(mockBatchSet.mock.calls.map((call: any[]) => call[1])).toEqual([{ title: 'Held here' }, { title: 'Free' }]);
+            expect(vi.mocked(setDoc)).toHaveBeenCalledTimes(2);
+            expect(result.totalImported).toBe(1);
+        });
+
         it('should preserve document IDs from JSON keys', async () => {
             const { doc: mockDoc } = await import('@angular/fire/firestore');
 

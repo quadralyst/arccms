@@ -17,3 +17,6 @@ export function getPublishedCollectionName(slug: string): string {
 export function getDraftCollectionName(slug: string): string {
   return `arc_${slug}_drafts`;
 }
+
+/** The drafts kept under a draft before work changes hands (specs/visual-editing-spec.md, VE-D84). */
+export const KEPT = 'Kept';

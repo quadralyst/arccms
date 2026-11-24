@@ -44,15 +44,16 @@ describe('PageTextPanelComponent with cards (VE-D53)', () => {
 
     it('is off with nothing to publish', async () => {
         const { fixture } = await make(0);
-        expect((fixture.nativeElement.querySelector('[data-testid="publish"]') as HTMLButtonElement).disabled).toBe(true);
+        expect(fixture.componentInstance.canPublish()).toBe(false);
+        expect(fixture.componentInstance.state()).toBe('published');
     });
 
     it('is on when only cards changed, and runs the checks, then the one Publish', async () => {
         vi.useFakeTimers({ toFake: ['setTimeout'] });
         try {
             const { fixture, session, publishWith, beforePublish } = await make(2);
-            const button = fixture.nativeElement.querySelector('[data-testid="publish"]') as HTMLButtonElement;
-            expect(button.disabled).toBe(false);
+            expect(fixture.componentInstance.canPublish()).toBe(true);
+            expect(fixture.componentInstance.state()).toBe('changes');
             await fixture.componentInstance.publish();
             expect(beforePublish).toHaveBeenCalled();
             expect(publishWith).toHaveBeenCalled();
@@ -65,12 +66,12 @@ describe('PageTextPanelComponent with cards (VE-D53)', () => {
     it('follows the published copy: another editor\'s publish, and a page that did not go live', async () => {
         const { fixture, session } = await make(0);
         const panel = fixture.componentInstance;
-        session.draft.set({ updatedAt: { toMillis: () => 5 } });
+        session.draft.set({ updatedAt: { toMillis: () => 5 }, text: { en: { hero: { value: 'A' } } } });
         expect(panel.status()).toBe('changes');
-        push({ draftUpdatedAt: { toMillis: () => 5 }, publishedAt: { toMillis: () => 6 } });
+        push({ draftUpdatedAt: { toMillis: () => 5 }, publishedAt: { toMillis: () => 6 }, text: { en: { hero: { value: 'A' } } } });
         expect(panel.status()).toBe('published');
 
-        session.draft.set({ updatedAt: { toMillis: () => 7 } });
+        session.draft.set({ updatedAt: { toMillis: () => 7 }, text: { en: { hero: { value: 'B' } } } });
         panel.awaitPublish();
         expect(panel.publishing()).toBe(true);
         push({ draftUpdatedAt: null, publishedAt: { toMillis: () => 8 } });
@@ -78,5 +79,58 @@ describe('PageTextPanelComponent with cards (VE-D53)', () => {
         expect(panel.publishError()).toContain('did not go live');
         fixture.destroy();
         expect(stop).toHaveBeenCalled();
+    });
+
+    it('reads an open History again whenever a new published copy comes, whoever published (VE-D71)', async () => {
+        const { fixture } = await make(0);
+        const history = TestBed.inject(PageTextService).history as ReturnType<typeof vi.fn>;
+        push({ draftUpdatedAt: null, publishedAt: { toMillis: () => 5 } });
+        expect(history).not.toHaveBeenCalled();
+        fixture.componentInstance.showTab('history');
+        expect(history).toHaveBeenCalledTimes(1);
+        push({ draftUpdatedAt: null, publishedAt: { toMillis: () => 9 } });
+        expect(history).toHaveBeenCalledTimes(2);
+        // The same copy drawn again (its stamp cleared, say) is not a new version.
+        push({ draftUpdatedAt: { toMillis: () => 1 }, publishedAt: { toMillis: () => 9 } });
+        expect(history).toHaveBeenCalledTimes(2);
+    });
+
+    it('says nothing and publishes nothing before the draft and the published copy are read (review M8)', async () => {
+        const { fixture, session } = await make(1);
+        const panel = fixture.componentInstance;
+        expect(panel.known()).toBe(true);
+        (session as any).loaded = signal(false);
+        fixture.componentRef.setInput('session', { ...session });
+        fixture.detectChanges();
+        expect(panel.known()).toBe(false);
+        expect(panel.canPublish()).toBe(false);
+        expect(fixture.nativeElement.querySelector('arc-page-status')).toBeNull();
+    });
+
+    it('publishes only Publish these while someone else holds the words, and never the words otherwise', async () => {
+        const { fixture, session } = await make(0);
+        const panel = fixture.componentInstance;
+        await panel.publishWords();
+        expect(session.publish).not.toHaveBeenCalled();
+        fixture.componentRef.setInput('locked', true);
+        fixture.componentRef.setInput('publishWith', null);
+        await panel.publish();
+        expect(session.publish).not.toHaveBeenCalled();
+        vi.useFakeTimers({ toFake: ['setTimeout'] });
+        try {
+            await panel.publishWords();
+        } finally {
+            vi.useRealTimers();
+        }
+        expect(session.publish).toHaveBeenCalledTimes(1);
+    });
+
+    it('says Not saved when a save elsewhere on the screen failed, and Saving while one runs', async () => {
+        const { fixture } = await make(0);
+        fixture.componentRef.setInput('failed', true);
+        expect(fixture.componentInstance.state()).toBe('not_saved');
+        fixture.componentRef.setInput('busy', true);
+        expect(fixture.componentInstance.state()).toBe('saving');
+        expect(fixture.componentInstance.canPublish()).toBe(false);
     });
 });

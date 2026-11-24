@@ -20,6 +20,7 @@ vi.mock('@angular/fire/firestore', () => ({
 }));
 
 import { Firestore } from '@angular/fire/firestore';
+import { HoldService } from '../../../core/editing/hold.service';
 import { PageCardActions } from './page-card-actions';
 import { DraftContentsStore } from '../contents/draft-content-store/draft-contents.store';
 import { PublishQueueService } from '../contents/publish-queue/publish-queue.service';
@@ -30,6 +31,10 @@ describe('PageCardActions writes', () => {
     let actions: PageCardActions;
     const createDraft = vi.fn(() => of('new-id'));
     const enqueue = vi.fn(async () => undefined);
+    const holds = {
+        me: vi.fn(() => ({ uid: 'me', name: 'Me' })), markPublished: vi.fn(async () => undefined), takeOver: vi.fn(async () => true),
+        stamp: vi.fn(() => ({ editing: { by: 'me', name: 'Me' } })),
+    };
     const order = { load: vi.fn(async () => [{ id: 'a', sortOrder: 1 }, { id: 'b', sortOrder: 4 }]), save: vi.fn(async () => undefined) };
 
     beforeEach(() => {
@@ -42,6 +47,7 @@ describe('PageCardActions writes', () => {
                 { provide: DraftContentsStore, useValue: { createDraft } },
                 { provide: PublishQueueService, useValue: { enqueue } },
                 { provide: EntryOrderService, useValue: order },
+                { provide: HoldService, useValue: holds },
             ],
         });
         actions = TestBed.inject(PageCardActions);
@@ -69,7 +75,7 @@ describe('PageCardActions writes', () => {
     });
 
     it('publish: as the entry editor publishes, keeping the first publish date', async () => {
-        const draft = { status: 'draft', publishedStatus: true, publishedOn: '2026-01-01', modifiedAt: 5 };
+        const draft = { status: 'draft', publishedStatus: true, changedOnPage: 'home', publishedOn: '2026-01-01', modifiedAt: 5 };
         stored['arc_quotes_drafts/a'] = draft;
         expect(await actions.publish({ type: 'quotes', id: 'a' }, { ...draft }, 'home')).toBe(true);
         expect(updates[0].data).toEqual(expect.objectContaining({ status: 'publish', publishedStatus: true, publishedOn: '2026-01-01', addedOnPage: '<delete>' }));
@@ -97,6 +103,30 @@ describe('PageCardActions writes', () => {
         enqueue.mockRejectedValueOnce(new Error('offline'));
         await expect(actions.remove({ type: 'quotes', id: 'a' })).rejects.toThrow('offline');
         expect(updates[1].data).toEqual({ status: 'draft', publishedStatus: true });
+    });
+
+    it('publish: never a card someone else holds, nor one changed elsewhere (VE-D72)', async () => {
+        const base = { status: 'draft', publishedStatus: true, modifiedAt: 5 };
+        for (const draft of [{ ...base }, { ...base, changedOnPage: 'home', editing: { by: 'priya', name: 'Priya' } }]) {
+            stored['arc_quotes_drafts/a'] = draft;
+            expect(await actions.publish({ type: 'quotes', id: 'a' }, { ...draft }, 'home')).toBe(false);
+        }
+        expect(updates).toEqual([]);
+    });
+
+    it('Publish with this page marks the entry, and never one someone else holds', async () => {
+        stored['arc_quotes_drafts/a'] = { status: 'draft', publishedStatus: true };
+        await actions.include({ type: 'quotes', id: 'a' }, 'home');
+        expect(updates[0].data).toEqual({ changedOnPage: 'home', editing: { by: 'me', name: 'Me' } });
+        stored['arc_quotes_drafts/a'] = { status: 'draft', publishedStatus: true, editing: { by: 'priya', name: 'Priya' } };
+        await expect(actions.include({ type: 'quotes', id: 'a' }, 'home')).rejects.toThrow('Priya');
+        expect(updates).toHaveLength(1);
+    });
+
+    it('Publish these: the card as it is, through the queue', async () => {
+        await actions.publishTheirs({ type: 'quotes', id: 'a' });
+        expect(holds.markPublished).toHaveBeenCalledWith('arc_quotes_drafts/a');
+        expect(enqueue).toHaveBeenCalledWith('publish', 'quotes', 'a');
     });
 
     it('Move: beside its neighbour, saved as Arrange saves', async () => {

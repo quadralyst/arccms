@@ -73,12 +73,13 @@ vi.mock('../init', () => ({
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: () => ({ seconds: 1705334400, nanoseconds: 0 }) } }));
 
 import {
-    claimCoalesced, coalescedIdFor, finishCoalesced, itemsFromId, MAX_FAILED_RUNS, recoverStaleCoalesced, requestCoalesced,
+    claimCoalesced, coalescedIdFor, finishCoalesced, itemsFromId, listPageId, MAX_FAILED_RUNS, recoverStaleCoalesced, requestCoalesced,
+    rerunCoalesced,
     REDEPLOY_ALL_ID, STALE_MS, HOME_PAGE_ID,
 } from '../publishQueue/coalesced-items.js';
 
 const item = (id: string): Data | undefined => queue.docs.get(id)?.data;
-const ask = (n: number, action: 'redeploy-all' | 'items-from' | 'home' = 'redeploy-all', slug = '') =>
+const ask = (n: number, action: 'redeploy-all' | 'items-from' | 'home' | 'list' = 'redeploy-all', slug = '') =>
     Promise.all(Array.from({ length: n }, () => requestCoalesced(action, slug)));
 
 describe('coalesced queue items', () => {
@@ -95,6 +96,31 @@ describe('coalesced queue items', () => {
         expect(itemsFromId('events')).not.toBe(itemsFromId('news'));
         expect(coalescedIdFor('publish', 'events')).toBe('');
         expect(coalescedIdFor('items-from', '')).toBe('');
+        expect(coalescedIdFor('list', 'events')).toBe('list-events');
+        expect(listPageId('events')).not.toBe(itemsFromId('events'));
+        expect(coalescedIdFor('list', '')).toBe('');
+    });
+
+    // VE-D63: a list page's words published several times over, one rebuild.
+    it('turns requests for one list page into one item, each type its own, and knows it again from its id', async () => {
+        expect((await ask(4, 'list', 'events')).filter((o) => o === 'queued')).toHaveLength(1);
+        expect(await requestCoalesced('list', 'news')).toBe('queued');
+        expect(item('list-events')).toMatchObject({ action: 'list', contentTypeSlug: 'events', state: 'waiting' });
+        await claimCoalesced('list-events');
+        expect(await requestCoalesced('list', 'events')).toBe('dirty');
+        // An item that lost its fields is told by its id.
+        queue.docs.set('list-events', { data: { state: 'running', since: Date.now(), dirty: true }, version: 900 });
+        await finishCoalesced('list-events');
+        expect(item('list-events')).toMatchObject({ action: 'list', contentTypeSlug: 'events', state: 'waiting' });
+    });
+
+    it('asks for another run only when one is waiting or running', async () => {
+        expect(await rerunCoalesced('list', 'events')).toBe(false);
+        expect(item('list-events')).toBeUndefined();
+        await requestCoalesced('list', 'events');
+        await claimCoalesced('list-events');
+        expect(await rerunCoalesced('list', 'events')).toBe(true);
+        expect(item('list-events')).toMatchObject({ state: 'running', dirty: true });
     });
 
     // VE-D57: five cards and the page text published together, one home page release.

@@ -33,6 +33,8 @@ import { DraftContentsStore } from '../draft-content-store/draft-contents.store'
 import { ContentTypesStore } from '../content-types/content-types.store';
 import { ContentTypesService } from '../content-types/content-types.service';
 import { ContentType, ContentTypeField, contentTypeName, contentTypeSingularName } from '../content-types/content-types.model';
+import { heldByOther } from '../../../../core/editing/hold';
+import { HoldService } from '../../../../core/editing/hold.service';
 import {
   CONTENT_STATUS_CLASS,
   CONTENT_STATUS_LABEL_KEY,
@@ -349,6 +351,8 @@ export class DraftContentsTableComponent
     },
   ];
 
+  private holds = inject(HoldService);
+
   // Define standard end columns
   endColumns: TableColumn[] = [
     {
@@ -359,7 +363,9 @@ export class DraftContentsTableComponent
       // draft has moved on is neither. `textFn` puts the badge in multi-state
       // mode, leaving the tone to classFn.
       badgeConfig: {
-        textFn: (row) => this.transloco.translate(CONTENT_STATUS_LABEL_KEY[deriveContentStatus(row)]),
+        // Who holds it, when that is someone else (VE-D85).
+        textFn: (row) => this.transloco.translate(CONTENT_STATUS_LABEL_KEY[deriveContentStatus(row)])
+          + (this.holderOf(row) ? ` · ${this.transloco.translate('admin.hold.list_held', { name: this.holderOf(row) })}` : ''),
       },
       classFn: (row) => CONTENT_STATUS_CLASS[deriveContentStatus(row)],
       titleFn: (row) => this.transloco.translate(CONTENT_STATUS_TOOLTIP_KEY[deriveContentStatus(row)]),
@@ -407,7 +413,7 @@ export class DraftContentsTableComponent
           label: 'admin.contents.list.unpublish',
           class: 'edit',
           hide: (row) => !row.publishedStatus,
-          onAction: (row) => this.confirmUnpublishContent(row.id),
+          onAction: (row) => this.confirmUnpublishContent(row.id, row),
         },
         {
           action: 'history',
@@ -957,11 +963,23 @@ export class DraftContentsTableComponent
     }
   }
 
+  /** The name of the other person who holds an entry, or ''. */
+  private holderOf(row: any): string {
+    const hold = heldByOther(row, this.holds.me()?.uid);
+    return hold ? hold.name || '?' : '';
+  }
+
+  /** What a question about an entry someone else holds says first (VE-D85); plain HTML, its name escaped. */
+  private holdNote(row: any): string {
+    const name = this.holderOf(row);
+    return name ? `<p><b>${this.transloco.translate('admin.hold.list_ask', { name: escapeHtml(name) })}</b></p>` : '';
+  }
+
   public deleteItem(item: any) {
     // The wording says what goes with it: a published entry's live page too (RF4 4.11).
     const live = !!(item.publishedStatus || item.status === this.constantVariables.PUBLISH);
     const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-      this.transloco.translate(
+      this.holdNote(item) + this.transloco.translate(
         live ? 'admin.contents.list.delete_confirm_live' : 'admin.contents.list.delete_confirm_draft',
         { title: escapeHtml(item.title || '') },
       ),
@@ -1001,6 +1019,11 @@ export class DraftContentsTableComponent
       next: () => {
         this.notify.success('admin.contents.list.deleted');
         this.refreshSearch();
+        // Its kept drafts and translations go too; a live entry's go with its page.
+        if (!live) {
+          this.publishQueueService.enqueue('purge-draft', this.contentTypeSlug, item.id)
+            .catch((error) => console.error('Error clearing what the deleted draft kept:', error));
+        }
       },
       error: (error) => {
         // The publish function's delete also removes the draft, so a live
@@ -1070,9 +1093,9 @@ export class DraftContentsTableComponent
     }
   }
 
-  public confirmUnpublishContent(contentId: string) {
+  public confirmUnpublishContent(contentId: string, row?: any) {
     const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-      this.transloco.translate('admin.contents.list.unpublish_confirm'),
+      this.holdNote(row) + this.transloco.translate('admin.contents.list.unpublish_confirm'),
     );
     const dialogRef = this.dialogService.open(ConfirmationPopupComponent, {
       width: '350px',

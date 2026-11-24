@@ -49,6 +49,13 @@ import { PreviewMessage } from '../../../../core/preview/preview-channel';
 import { layoutLabel, siteLayouts } from '../../../../core/site/site';
 import { EntryDraftSession, EntryDraftView, TranslatableValues, isEmptyFieldValue } from '../draft-content-store/entry-draft-session';
 import { SiteLook, SiteLookService } from '../../../../core/site/site-look.service';
+import { EditStateComponent, PageStatusComponent } from '../../edit/page-status.component';
+import { HoldBarComponent } from '../../hold/hold-bar.component';
+import { KeptDraftsComponent } from '../../hold/kept-drafts.component';
+import { ReviewService, sameChanges } from '../../hold/review.service';
+import type { KeptDraft } from '../../../../core/editing/hold.service';
+import type { Change } from '../../../../core/editing/compare';
+import { SharePreviewComponent } from '../../edit/share-preview.component';
 import { SiteLookViewComponent } from '../../../../core/site/site-look-view';
 import { inSentence } from '../../../../core/utils/in-sentence';
 
@@ -129,6 +136,11 @@ export const SLUG_CHECK_DELAY_MS = 300;
     RouterLink,
     SiteDriftNoticeComponent,
     SiteLookViewComponent,
+    EditStateComponent,
+    PageStatusComponent,
+    SharePreviewComponent,
+    HoldBarComponent,
+    KeptDraftsComponent,
   ],
   // One entry's draft per editor (VE-D15).
   providers: [EntryDraftSession],
@@ -300,6 +312,12 @@ export class CreateContentComponent extends BaseComponent {
    * and no title or body column, since those are edited on the page.
    */
   @Input() pageMode = false;
+  /** A card's form in a page's panel: it shows who holds the card itself (VE-D72). */
+  @Input() cardMode = false;
+  /** The page a card's changes go out with, null while it is only looked through (VE-D72). */
+  @Input() set cardOnPage(page: string | null) {
+    this.session.cardOnPage = page;
+  }
   /** What the edit-on-page screen does for fields on the page; null in the form editor. */
   @Input() pageHooks: PageModeHooks | null = null;
 
@@ -1021,7 +1039,8 @@ export class CreateContentComponent extends BaseComponent {
     if (this.isTranslating()) {
       await this.switchLanguage(this.defaultLang());
     }
-    if (first !== 'title') {
+    // The title is above the body in the form editor, and in Basic in page mode (VE-D68).
+    if (first !== 'title' || this.pageMode) {
       this.activeTab = 'basic';
     }
     // On the edit-on-page screen the page shows the field when it can, else the panel opens on it.
@@ -2336,7 +2355,7 @@ export class CreateContentComponent extends BaseComponent {
 
   /** Built-in fields by the element that edits them, and their tab. */
   private static readonly BUILTIN_FIELD_SPOTS: Record<string, { selector: string; tab: 'basic' | 'seo' | null }> = {
-    title: { selector: '.page-title-input', tab: null },
+    title: { selector: '.page-title-input, .page-title-field', tab: null },
     content: { selector: '.editor-wrapper', tab: null },
     summary: { selector: '#summaryInput', tab: 'basic' },
     coverImage: { selector: '.cover-image-upload, .shared-field-preview', tab: 'basic' },
@@ -2359,7 +2378,7 @@ export class CreateContentComponent extends BaseComponent {
     const builtin = CreateContentComponent.BUILTIN_FIELD_SPOTS[key];
     const custom = !builtin && this.currentFields.some((f) => f.key === key);
     if (!builtin && !custom) return;
-    const tab = builtin ? builtin.tab : 'basic';
+    const tab = builtin ? builtin.tab ?? (this.pageMode && key === 'title' ? 'basic' : null) : 'basic';
     if (tab && this.activeTab !== tab) {
       this.activeTab = tab;
       this.cdr.detectChanges();
@@ -2503,6 +2522,20 @@ export class CreateContentComponent extends BaseComponent {
   /**
    * Copy the full URL to clipboard
    */
+  /** What a search result and a share show of this entry, as publishing writes it (VE-D69). */
+  shareTitle(): string {
+    return this.seoForm.get('seoTitle')?.value || this.pageTitle || this.basePlaceholder('title') || '';
+  }
+
+  searchDescription(): string {
+    return this.seoForm.get('metaDescription')?.value || this.publishForm.get('summary')?.value
+      || this.basePlaceholder('metaDescription') || this.basePlaceholder('summary') || '';
+  }
+
+  pageAddress(): string {
+    return this.publicUrlFor(this.publishForm.get('urlSlug')?.value || '');
+  }
+
   async copyUrlToClipboard(): Promise<void> {
     const urlSlug = this.publishForm.get('urlSlug')?.value || '';
     const fullUrl = this.publicUrlFor(urlSlug);
@@ -2513,6 +2546,107 @@ export class CreateContentComponent extends BaseComponent {
     } else {
       this.notify.error('admin.contents.editor.url_copy_failed');
     }
+  }
+
+  // ── Who holds the entry (VE-D79 to VE-D84) ───────────────────────────────
+
+  private review = inject(ReviewService);
+
+  /** Review changes (VE-D80): someone else's, or this person's own. */
+  async reviewChanges(): Promise<void> {
+    const hold = this.session.heldBy();
+    const answer = await this.review.open({
+      title: this.pageTitle || '',
+      hold,
+      isNew: !this.publishedId,
+      load: async () => {
+        // What is typed and not stored yet is part of what Publish sends.
+        if (!hold && this.hasUnsavedChanges()) await this.saveAsDraft();
+        return this.session.changes();
+      },
+      label: (change) => this.changeLabel(change),
+      language: (code) => this.session.enabledLanguages().find((l) => l.code === code)?.label || code,
+      emptyText: this.t('admin.hold.empty'),
+      putBack: hold || !this.publishedId ? undefined : (change) => this.session.putBack(change),
+      canDiscard: !hold && !!this.publishedId,
+    });
+    if (!answer) return;
+    if (answer.action === 'show') return this.showChange(answer.change);
+    if (answer.action === 'discard') return this.discardChanges();
+    // What was reviewed is what goes: someone else since, or another change, is looked at first.
+    if (this.session.heldBy()?.by !== hold?.by || (hold && !sameChanges(await this.session.changes(), answer.seen))) {
+      this.notify.info('admin.hold.changed_since');
+      return this.reviewChanges();
+    }
+    if (answer.action === 'publish') return hold ? this.session.publishTheirs() : this.directPublishContent();
+    return this.takeOver();
+  }
+
+  /** A change's name: the field's own label. */
+  private changeLabel(change: Change): string {
+    if (change.field.startsWith('cf:')) {
+      const field = this.currentFields.find((f) => f.key === change.field.slice(3));
+      return field ? this.fieldLabel(field) : change.field.slice(3);
+    }
+    if (change.field === 'urlSlug') return this.t('admin.contents.editor.address');
+    if (change.field === 'updatedOn') return this.t('admin.contents.editor.updated_on');
+    const key = `admin.preview.fields.${change.field}` as TranslationKey;
+    return this.t(key);
+  }
+
+  /** Show: the change on the page when it is there, else in its place in the form, in its language. */
+  private async showChange(change: Change): Promise<void> {
+    const lang = change.lang || this.session.defaultLang();
+    if (lang && this.session.activeLang() && this.session.activeLang() !== lang) await this.session.switchLanguage(lang);
+    const key = change.field.startsWith('cf:') ? change.field.slice(3) : change.field;
+    if (this.pageHooks?.reveal(key)) return;
+    this.pageHooks?.openPanel();
+    this.focusField(key);
+  }
+
+  /** Words typed here cannot be saved while someone else holds the entry: they stay to copy, and no more go in. */
+  holdInput(event: Event): void {
+    if (this.session.heldBy()) event.preventDefault();
+  }
+
+  /** Take over (VE-D81), asked first. */
+  async takeOver(): Promise<void> {
+    const hold = this.session.heldBy();
+    if (!hold || !(await this.review.askTakeOver(hold, this.session.lostWords()))) return;
+    try {
+      if (await this.session.takeOver()) this.notify.success('admin.hold.taken');
+      else this.notify.info('admin.hold.changed_since');
+    } catch (error) {
+      console.error('Error taking over:', error);
+      this.notify.error('admin.hold.take_over_failed');
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Discard changes (VE-D83), asked first. */
+  async discardChanges(): Promise<void> {
+    if (!(await this.review.askDiscard())) return;
+    try {
+      await this.session.putBack();
+      this.notify.success('admin.hold.discarded');
+    } catch (error) {
+      console.error('Error discarding changes:', error);
+      this.notify.error('admin.hold.discard_failed');
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Restores a kept draft (VE-D84), asked by the list. */
+  async restoreKept(kept: KeptDraft): Promise<void> {
+    try {
+      await this.session.restoreKept(kept);
+      this.activeTab = 'basic';
+      this.notify.success('admin.hold.kept_restored');
+    } catch (error) {
+      console.error('Error restoring a kept draft:', error);
+      this.notify.error('admin.hold.kept_failed');
+    }
+    this.cdr.markForCheck();
   }
 
   /** Open version preview in the main editor area */
@@ -2544,6 +2678,7 @@ export class CreateContentComponent extends BaseComponent {
    * Does NOT auto-publish — the user must review and manually save/publish.
    */
   async restoreVersion(version: VersionHistoryItem): Promise<void> {
+    if (this.session.heldBy()) return;
     const confirmed = await this.askConfirm({
       titleKey: 'admin.contents.editor.restore_title',
       message: this.t('admin.contents.editor.restore_message', { version: version.versionNumber }),

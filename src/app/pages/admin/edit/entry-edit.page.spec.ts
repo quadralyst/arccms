@@ -10,6 +10,7 @@ import { resolve } from 'node:path';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+import { editState } from './edit-state';
 import EntryEditPage, { editFrameKey, editFrameUrl, inSentence, textPos } from './entry-edit.page';
 import { EditableReveal, readShowEditable } from './editable-reveal';
 import { Editor } from '@tiptap/core';
@@ -35,6 +36,19 @@ function fakeEditor() {
         isTranslating: signal(false),
         deployStatus: signal<string | null>(null),
         unsaved: false,
+        publishedState: signal('published'),
+        entryRead: signal(true),
+        heldBy: signal<any>(null),
+        lostWords: signal(false),
+        nothing: false,
+        nothingToPublish() { return this.nothing; },
+        editState() {
+            const failed = this.saveFailed() || this.entryChanged() || this.entryGone();
+            return editState({
+                saving: this.isSavingDraft || this.isAutoSaving || (this.unsaved && !failed), failed,
+                publishing: this.deployStatus() === 'pending', changed: this.publishedState() === 'edited', live: true,
+            });
+        },
         hasUnsavedChanges() { return this.unsaved; },
     };
     const summary = { value: 'Short', setValue: vi.fn(function (this: { value: string }, v: string) { summary.value = v; }) };
@@ -106,19 +120,47 @@ describe('EntryEditPage', () => {
         expect(page.entryId).toBe('doc1');
     });
 
-    it('says Saved, Unsaved changes, Saving and Not saved as the draft is', () => {
+    it('says where the entry stands against the site, and names the entry (VE-D70)', () => {
         page.readStatus();
-        expect(page.status()).toBe('saved');
+        expect(page.status()).toBe('published');
+        expect(page.entryTitle()).toBe('Concert');
         editor.session.unsaved = true;
         page.readStatus();
-        expect(page.status()).toBe('unsaved');
-        editor.session.isAutoSaving = true;
-        page.readStatus();
         expect(page.status()).toBe('saving');
-        editor.session.isAutoSaving = false;
+        editor.session.unsaved = false;
+        editor.session.publishedState.set('edited');
+        page.readStatus();
+        expect(page.status()).toBe('changes');
         editor.session.saveFailed.set(true);
         page.readStatus();
         expect(page.status()).toBe('not_saved');
+    });
+
+    it('is only looked at while someone else holds the entry, and opens for editing when they let go (VE-D79)', () => {
+        const drawn = vi.spyOn(page as any, 'pageDrawn').mockImplementation(() => undefined);
+        vi.spyOn(page as any, 'frameDocument').mockReturnValue(document);
+        page.drawn.set(true);
+        page.readStatus();
+        expect(drawn).not.toHaveBeenCalled();
+        editor.session.heldBy.set({ by: 'priya', name: 'Priya' });
+        page.readStatus();
+        expect(page.heldBy()?.name).toBe('Priya');
+        expect(drawn).toHaveBeenCalledTimes(1);
+        // Another change of theirs is the same hold.
+        editor.session.heldBy.set({ by: 'priya', name: 'Priya' });
+        page.readStatus();
+        expect(drawn).toHaveBeenCalledTimes(1);
+        editor.session.heldBy.set(null);
+        page.readStatus();
+        expect(drawn).toHaveBeenCalledTimes(2);
+    });
+
+    it('turns Publish off only when there is nothing to publish (VE-D73)', () => {
+        page.readStatus();
+        expect(page.nothingToPublish()).toBe(false);
+        editor.session.nothing = true;
+        page.readStatus();
+        expect(page.nothingToPublish()).toBe(true);
     });
 
     it('says Publishing until the page is live, then Published until the next change', () => {
@@ -130,7 +172,7 @@ describe('EntryEditPage', () => {
         expect(page.status()).toBe('published');
         editor.session.unsaved = true;
         page.readStatus();
-        expect(page.status()).toBe('unsaved');
+        expect(page.status()).toBe('saving');
         editor.session.unsaved = false;
     });
 

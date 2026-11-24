@@ -32,6 +32,8 @@ export interface CreateNotificationParams {
   icon?: string;
   createdBy?: NotificationCreatedBy;
   announcementId?: string;
+  /** The notification's own id: the same event delivered twice then makes one (nothing is written the second time). */
+  id?: string;
   /** Force in-app only for this notification (e.g. an announcement with email off). */
   suppressEmail?: boolean;
 }
@@ -96,6 +98,11 @@ export const DEFAULT_NOTIFICATION_TYPES: Record<string, NotificationTypeConfig> 
   admin_account_detached: {
     label: 'Account detached (admin)', description: "An account lost its only sign-in to another account.",
     category: 'transactional', defaultChannels: { inApp: true, email: true },
+    userConfigurable: false, enabled: true,
+  },
+  draft_taken_over: {
+    label: 'Work taken over', description: 'Someone else took over an entry or a page you were editing.',
+    category: 'transactional', defaultChannels: { inApp: true, email: false },
     userConfigurable: false, enabled: true,
   },
   admin_new_feedback: {
@@ -177,6 +184,15 @@ export async function createNotification(params: CreateNotificationParams): Prom
   if (params.announcementId) doc['announcementId'] = params.announcementId;
   if (params.suppressEmail) doc['suppressEmail'] = true;
 
+  if (params.id) {
+    try {
+      await db.collection('Notifications').doc(params.id).create(doc);
+    } catch (error) {
+      const code = (error as { code?: unknown })?.code;
+      if (code !== 6 && code !== 'already-exists') throw error;
+    }
+    return params.id;
+  }
   const ref = await db.collection('Notifications').add(doc);
   return ref.id;
 }

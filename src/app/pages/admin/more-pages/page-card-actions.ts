@@ -7,6 +7,8 @@ import { isEmptyFieldValue } from '../contents/draft-content-store/entry-draft-s
 import { EntryOrderService } from '../contents/entry-order/entry-order.service';
 import { PublishQueueService } from '../contents/publish-queue/publish-queue.service';
 import { hasReplacePrompt } from '../contents/standard-pages/standard-pages';
+import { HeldError, heldByOther } from '../../../core/editing/hold';
+import { HoldService } from '../../../core/editing/hold.service';
 import { isPageChange } from './page-cards';
 
 /** A card on the page: its entry. */
@@ -86,6 +88,7 @@ export class PageCardActions {
     private injector = inject(EnvironmentInjector);
     private drafts = inject(DraftContentsStore);
     private queue = inject(PublishQueueService);
+    private holds = inject(HoldService);
     private order = inject(EntryOrderService);
 
     private ref(card: CardRef) {
@@ -157,6 +160,32 @@ export class PageCardActions {
         }
     }
 
+    /** Publish with this page (VE-D72): the entry's changes, made elsewhere, go out with this page's Publish. */
+    async include(card: CardRef, pageId: string): Promise<void> {
+        const me = this.holds.me();
+        if (!me) return;
+        const ref = this.ref(card);
+        await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (tx) => {
+            const snap = await tx.get(ref);
+            const now = snap.exists() ? (snap.data() as Record<string, any>) : null;
+            if (!now) return;
+            const hold = heldByOther(now, me.uid);
+            if (hold) throw new HeldError(hold);
+            tx.update(ref, { changedOnPage: pageId, ...this.holds.stamp(me, now, false) });
+        }));
+    }
+
+    /** Publish these (VE-D80): someone else's card as it is. Its hold ends when the publish lands. */
+    async publishTheirs(card: CardRef): Promise<void> {
+        await this.holds.markPublished(`arc_${card.type}_drafts/${card.id}`);
+        await this.queue.enqueue('publish', card.type, card.id);
+    }
+
+    /** Take over a card with its page (VE-D81). */
+    takeOver(card: CardRef, from: string): Promise<boolean> {
+        return this.holds.takeOver(`arc_${card.type}_drafts/${card.id}`, from);
+    }
+
     /** Move: the card beside its neighbour on the page, saved and republished as Arrange does. */
     async move(card: CardRef, neighbour: string, after: boolean): Promise<void> {
         const ids = (await this.order.load(card.type)).map((entry) => entry.id);
@@ -176,7 +205,7 @@ export class PageCardActions {
         const before = await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (tx) => {
             const snap = await tx.get(ref);
             const now = snap.exists() ? (snap.data() as Record<string, any>) : null;
-            if (!now || !isPageChange(now, pageId) || !sameTime(now['modifiedAt'], checked['modifiedAt'])) return null;
+            if (!now || !isPageChange(now, pageId, this.holds.me()?.uid ?? null) || !sameTime(now['modifiedAt'], checked['modifiedAt'])) return null;
             tx.update(ref, {
                 status: 'publish',
                 publishedStatus: true,

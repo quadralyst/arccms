@@ -53,9 +53,17 @@ const {
     mockBatchDelete: vi.fn(),
 }));
 
+const { mockRecursiveDelete, mockQueueItems } = vi.hoisted(() => ({
+    mockRecursiveDelete: vi.fn(async (_ref: any) => undefined),
+    // What waits in the queue for one entry.
+    mockQueueItems: vi.fn(async () => ({ docs: [] as any[] })),
+}));
 vi.mock('../init', () => ({
     db: {
         collection: mockCollection,
+        recursiveDelete: (ref: any) => mockRecursiveDelete(ref),
+        // The stamp on the draft, in one transaction.
+        runTransaction: (fn: any) => fn({ get: (ref: any) => ref.get(), update: (ref: any, data: any) => ref.update(data) }),
         batch: () => ({
             set: mockBatchSet,
             update: mockBatchUpdate,
@@ -135,7 +143,9 @@ vi.mock('../pages/card-blocks', () => ({
 
 // Coalesced queue items (coalesced-items.ts, coalescedQueue.spec.ts): asked for,
 // claimed and finished through spies; a claim succeeds unless a test says not.
-const { mockRequestCoalesced, mockClaimCoalesced, mockFinishCoalesced } = vi.hoisted(() => ({
+const { mockRequestCoalesced, mockClaimCoalesced, mockFinishCoalesced, mockRerunCoalesced } = vi.hoisted(() => ({
+    // No list page rebuild under way unless a test says so.
+    mockRerunCoalesced: vi.fn(async (_action: string, _slug?: string) => false),
     mockRequestCoalesced: vi.fn(async (_action: string, _slug?: string) => 'queued'),
     mockClaimCoalesced: vi.fn(async (_id: string): Promise<Record<string, unknown> | null> => ({ state: 'running' })),
     mockFinishCoalesced: vi.fn(async (_id: string, _continuation?: Record<string, unknown>, _outcome?: Record<string, unknown>) => false),
@@ -143,17 +153,21 @@ const { mockRequestCoalesced, mockClaimCoalesced, mockFinishCoalesced } = vi.hoi
 vi.mock('../publishQueue/coalesced-items', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../publishQueue/coalesced-items.js')>()),
     requestCoalesced: (action: string, slug?: string) => mockRequestCoalesced(action, slug),
+    rerunCoalesced: (action: string, slug?: string) => mockRerunCoalesced(action, slug),
     claimCoalesced: (id: string) => mockClaimCoalesced(id),
     finishCoalesced: (...args: [string, Record<string, unknown>?, Record<string, unknown>?]) => mockFinishCoalesced(...args),
 }));
 const requested = (action: string) => mockRequestCoalesced.mock.calls.filter(([a]) => a === action);
 
 // Page text (VE-D57): the draft's publish, as a spy.
-const { mockPublishPageTextDraft, mockMarkUnreleased } = vi.hoisted(() => ({
+const { mockPublishPageTextDraft, mockMarkUnreleased, mockStamp } = vi.hoisted(() => ({
+    // A list page's published words, as a mark that changes with each publish of them.
+    mockStamp: vi.fn(async (_id: string) => ''),
     mockPublishPageTextDraft: vi.fn(async (_id: string) => undefined), mockMarkUnreleased: vi.fn(async (_id: string) => undefined),
 }));
 vi.mock('../pages/page-text-store', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../pages/page-text-store.js')>()),
+    publishedPageTextStamp: (id: string) => mockStamp(id),
     publishPageTextDraft: (id: string) => mockPublishPageTextDraft(id),
     markPageTextUnreleased: (id: string) => mockMarkUnreleased(id),
 }));
@@ -237,6 +251,7 @@ function buildChain(contentTypeData: any = { hasPublicUrl: true }) {
                 }),
             };
         }
+        if (name === '_publish_queue') return { doc: mockDoc, where: () => ({ get: mockQueueItems }) };
         return { doc: mockDoc };
     });
 
@@ -504,6 +519,83 @@ describe('processPublishQueue', () => {
         });
     });
 
+    describe('list action: one list page, coalesced (VE-D63)', () => {
+        const built = () => mockGenerateListPage.mockImplementation(async (_slug: string, batch: any) => { batch.add('/articles/index.html', 'x'); });
+
+        it('joins the one coalesced item of its type when added any other way', async () => {
+            const event = createEvent('list', 'articles', '');
+            await handler(event);
+            expect(mockRequestCoalesced.mock.calls).toEqual([['list', 'articles']]);
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('claims the item, rebuilds the list page in one release, then finishes the item', async () => {
+            built();
+            vi.stubEnv('ARC_HOSTING_SITE', 'my-site');
+            mockDeployBatchToHosting.mockResolvedValueOnce(true);
+            await handler(createEvent('list', 'articles', '', 'list-articles'));
+            vi.unstubAllEnvs();
+            expect(mockClaimCoalesced).toHaveBeenCalledWith('list-articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+            expect(mockSubmitBatchToIndexNow).toHaveBeenCalledWith(['/articles/index.html'], expect.anything());
+            expect(mockFinishCoalesced).toHaveBeenCalledWith('list-articles');
+        });
+
+        it('finishes as failed when it cannot be built, and says the words are not live once given up', async () => {
+            mockGenerateListPage.mockRejectedValue(new Error('no template'));
+            await handler(createEvent('list', 'articles', '', 'list-articles'));
+            expect(mockFinishCoalesced).toHaveBeenCalledWith('list-articles', undefined, { failed: true, error: 'no template' });
+            expect(mockMarkUnreleased).not.toHaveBeenCalled();
+            mockFinishCoalesced.mockResolvedValueOnce(true);
+            await handler(createEvent('list', 'articles', '', 'list-articles'));
+            expect(mockMarkUnreleased).toHaveBeenCalledWith('list-articles');
+        });
+
+        it('builds nothing for a type deleted, or with its public pages turned off, meanwhile', async () => {
+            buildChain(null);
+            await handler(createEvent('list', 'articles', '', 'list-articles'));
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+            expect(mockFinishCoalesced).toHaveBeenCalledWith('list-articles');
+        });
+
+        it('runs nothing when another delivery of the trigger is running it', async () => {
+            mockClaimCoalesced.mockResolvedValueOnce(null);
+            await handler(createEvent('list', 'articles', '', 'list-articles'));
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+            expect(mockFinishCoalesced).not.toHaveBeenCalled();
+        });
+
+        // An entry's list page goes out with the entry; a publish of the page's words is an item of its own.
+        it('an entry\'s own list page makes a rebuild under way run again, before it is built', async () => {
+            const order: string[] = [];
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'A', urlSlug: 'a' }) });
+            mockRerunCoalesced.mockImplementationOnce(async () => { order.push('rerun'); return true; });
+            mockGenerateListPage.mockImplementation(async () => { order.push('built'); });
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(mockRerunCoalesced).toHaveBeenCalledWith('list', 'articles');
+            expect(order).toEqual(['rerun', 'built']);
+            // The words did not change: nothing more is asked for.
+            expect(requested('list')).toHaveLength(0);
+        });
+
+        it('words published while an entry was being released bring the list page out once more', async () => {
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'A', urlSlug: 'a' }) });
+            mockStamp.mockResolvedValueOnce('1.0').mockResolvedValueOnce('2.0');
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(mockRequestCoalesced.mock.calls.filter(([a]) => a === 'list')).toEqual([['list', 'articles']]);
+        });
+
+        it('builds the entry\'s list page even when the check cannot be made', async () => {
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'A', urlSlug: 'a' }) });
+            mockStamp.mockRejectedValue(new Error('offline'));
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
+            mockStamp.mockReset().mockResolvedValue('');
+        });
+    });
+
     // VE-D57: a page's text published, through the queue.
     describe('page-text action', () => {
         it('publishes the home page\'s draft and asks for the coalesced home page rebuild', async () => {
@@ -562,6 +654,33 @@ describe('processPublishQueue', () => {
             expect(mockMarkUnreleased).not.toHaveBeenCalled();
             expect(event.data.ref.delete).toHaveBeenCalled();
         });
+
+        // VE-D63: a list page's words.
+        it('publishes a list page\'s draft and asks for its coalesced rebuild', async () => {
+            const event = createEvent('page-text', '', 'list-articles');
+            await handler(event);
+            expect(mockPublishPageTextDraft).toHaveBeenCalledWith('list-articles');
+            expect(mockRequestCoalesced.mock.calls).toEqual([['list', 'articles']]);
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+            expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('marks the list page\'s copy as not live when its rebuild cannot be asked for', async () => {
+            mockRequestCoalesced.mockRejectedValueOnce(new Error('offline'));
+            await handler(createEvent('page-text', '', 'list-articles'));
+            expect(mockMarkUnreleased).toHaveBeenCalledWith('list-articles');
+        });
+
+        it.each([['no such type', null], ['a type without public pages', { hasPublicUrl: false }]])(
+            'publishes nothing for the list page of %s', async (_name, type) => {
+                buildChain(type);
+                const event = createEvent('page-text', '', 'list-articles');
+                await handler(event);
+                expect(mockPublishPageTextDraft).not.toHaveBeenCalled();
+                expect(requested('list')).toHaveLength(0);
+                expect(event.data.ref.delete).toHaveBeenCalled();
+            });
 
         it('needs a page', async () => {
             const event = createEvent('page-text', '', '');
@@ -1671,3 +1790,204 @@ describe('processPublishQueue: an entry published at a new address (RF4 4.6)', (
     }
 });
 
+// VE-D76 to VE-D78: the person who holds a draft is never copied, and is let go once it is live.
+describe('processPublishQueue: who holds a draft (VE-D76, VE-D78)', () => {
+    const at = (seconds: number) => ({ seconds, nanoseconds: 0 });
+    const HOLD = { by: 'priya-uid', name: 'Priya', since: at(1), at: at(10) };
+    const DRAFT = { title: 'A', urlSlug: 'a', modifiedAt: at(10), editing: HOLD, changedOnPage: 'home' };
+    const stamps = () => mockUpdate.mock.calls.map(([data]) => data).filter((data) => 'lastPublishedAt' in data);
+    /** The draft as it was read to be copied, then as it is when it is stamped. */
+    const stored = (copied: Record<string, unknown>, later: Record<string, unknown> | null = copied) => {
+        let reads = 0;
+        mockGet.mockImplementation(async () => {
+            // Reads: the draft, the live address (publish) or the published copy (update), then the draft again.
+            const data = reads++ < 2 ? copied : later;
+            return { exists: !!data, data: () => data ?? undefined };
+        });
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockGet.mockReset();
+        buildChain();
+        mockSubCollectionGet.mockResolvedValue({ docs: [], empty: true });
+        mockDeployBatchToHosting.mockResolvedValue(true);
+        mockUpdate.mockResolvedValue(undefined);
+        mockGenerateDetailPage.mockResolvedValue(undefined);
+        mockGenerateListPage.mockResolvedValue(undefined);
+        mockStamp.mockResolvedValue('');
+        mockRerunCoalesced.mockResolvedValue(false);
+        mockHomeShowsType.mockResolvedValue(false);
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    it.each(['publish', 'update'])('%s copies neither the hold nor the page a card was changed on, to the published copy or its History', async (action) => {
+        stored(DRAFT);
+        await handler(createEvent(action, 'articles', 'doc1'));
+        const written = [...mockBatchSet.mock.calls, ...mockBatchUpdate.mock.calls].map((call) => call[1]);
+        expect(written.length).toBeGreaterThan(0);
+        expect(JSON.stringify(written)).not.toMatch(/priya|Priya|editing|changedOnPage/);
+    });
+
+    it('update writes a published copy for the first time without them', async () => {
+        let reads = 0;
+        mockGet.mockImplementation(async () => (reads++ === 1 ? { exists: false, data: () => undefined } : { exists: true, data: () => DRAFT }));
+        await handler(createEvent('update', 'articles', 'doc1'));
+        expect(JSON.stringify(mockBatchSet.mock.calls.map((call) => call[1]))).not.toMatch(/priya|changedOnPage/);
+    });
+
+    it.each(['publish', 'update'])('%s lets go of the draft once it is copied', async (action) => {
+        stored(DRAFT);
+        await handler(createEvent(action, 'articles', 'doc1'));
+        expect(stamps()).toEqual([{ lastPublishedAt: expect.anything(), editing: { _delete: true }, changedOnPage: { _delete: true } }]);
+    });
+
+    it('lets go when someone else published it, whoever held it', async () => {
+        // Publish these (VE-D80) marks it published without a new modifiedAt; a take over meanwhile moves only the hold.
+        stored(DRAFT, { ...DRAFT, editing: { by: 'asha-uid', name: 'G', at: at(12) } });
+        await handler(createEvent('publish', 'articles', 'doc1'));
+        expect(stamps()[0]).toMatchObject({ editing: { _delete: true } });
+    });
+
+    const clock = async (...seconds: number[]) => {
+        const { Timestamp } = await import('firebase-admin/firestore');
+        const spy = vi.spyOn(Timestamp, 'now').mockReturnValue(at(seconds[seconds.length - 1]) as any);
+        for (const each of seconds.slice(0, -1)) spy.mockReturnValueOnce(at(each) as any);
+    };
+
+    it('a draft saved while it was published keeps its hold, and is stamped with the time it was read', async () => {
+        await clock(11, 20);
+        stored(DRAFT, { ...DRAFT, title: 'B', status: 'draft', modifiedAt: at(15), editing: { ...HOLD, at: at(15) } });
+        await handler(createEvent('publish', 'articles', 'doc1'));
+        expect(stamps()).toEqual([{ lastPublishedAt: at(11) }]);
+    });
+
+    it('let go to earlier words while later ones went out: it reads as not published, whatever its dates said', async () => {
+        await clock(11, 20);
+        // v1 is back in the draft, with v1's own time and said to be published; v2 is what is live now.
+        const { editing: _e, changedOnPage: _c, ...v1 } = DRAFT;
+        stored({ ...DRAFT, title: 'v2', status: 'publish' }, { ...v1, title: 'v1', status: 'publish', publishedStatus: true, modifiedAt: at(3) });
+        await handler(createEvent('publish', 'articles', 'doc1'));
+        expect(stamps()).toEqual([{ lastPublishedAt: at(11), modifiedAt: at(20), status: 'draft' }]);
+    });
+
+    it('saved meanwhile and then saved back to the very words that went out, it is let go', async () => {
+        stored(DRAFT, { ...DRAFT, modifiedAt: at(15), status: 'draft', editing: { ...HOLD, at: at(15) } });
+        await handler(createEvent('publish', 'articles', 'doc1'));
+        expect(stamps()[0]).toMatchObject({ editing: { _delete: true }, changedOnPage: { _delete: true } });
+    });
+
+    it('what is not words does not count: references kept in step, order, featured, who saved it', async () => {
+        stored({ ...DRAFT, customFields: { price: 5, _ref_x: { id: 'a', title: 'Old' } } }, {
+            ...DRAFT, customFields: { _ref_x: { id: 'a', title: 'New' }, price: 5 }, modifiedAt: at(15), modifiedBy: 'x', sortOrder: 4, isFeatured: true, summary: '',
+        });
+        await handler(createEvent('publish', 'articles', 'doc1'));
+        expect(stamps()[0]).toMatchObject({ editing: { _delete: true } });
+    });
+
+    it('a series link changed meanwhile is words, and shows on the page', async () => {
+        await clock(11, 20);
+        stored(DRAFT, { ...DRAFT, nextContent: { id: 'p2' }, modifiedAt: at(15), status: 'draft' });
+        await handler(createEvent('publish', 'articles', 'doc1'));
+        expect(stamps()).toEqual([{ lastPublishedAt: at(11) }]);
+    });
+
+    describe('translations saved meanwhile', () => {
+        const langs = (...each: Record<string, unknown>[]) => ({ empty: !each.length, docs: each.map((data) => ({ id: data['lang'] as string, ref: { id: data['lang'] }, data: () => data })) });
+
+        it('one saved after it was copied is not live: the entry is not let go, and reads as edited', async () => {
+            await clock(11, 20);
+            stored(DRAFT);
+            mockSubCollectionGet.mockResolvedValueOnce(langs({ lang: 'hi', title: 'क' })).mockResolvedValueOnce(langs())
+                .mockResolvedValue(langs({ lang: 'hi', title: 'ख' }));
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(stamps()).toEqual([{ lastPublishedAt: at(11), modifiedAt: at(20), status: 'draft' }]);
+        });
+
+        it.each([['added', [{ lang: 'hi', title: 'क' }, { lang: 'fr', title: 'x' }]], ['removed', []]])('one %s meanwhile counts too', async (_name, after) => {
+            stored(DRAFT);
+            mockSubCollectionGet.mockResolvedValueOnce(langs({ lang: 'hi', title: 'क' })).mockResolvedValueOnce(langs()).mockResolvedValue(langs(...after));
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(stamps()[0]).not.toHaveProperty('editing');
+        });
+
+        it('the same words, however they are stored, are let go', async () => {
+            stored(DRAFT);
+            mockSubCollectionGet.mockResolvedValueOnce(langs({ lang: 'hi', title: 'क', summary: '' })).mockResolvedValueOnce(langs())
+                .mockResolvedValue(langs({ title: 'क', lang: 'hi' }));
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(stamps()[0]).toMatchObject({ editing: { _delete: true } });
+        });
+
+        it('that could not be copied leave the entry reading as edited', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            stored(DRAFT);
+            mockSubCollectionGet.mockRejectedValueOnce(new Error('denied')).mockResolvedValue(langs());
+            await handler(createEvent('publish', 'articles', 'doc1'));
+            expect(stamps()[0]).not.toHaveProperty('editing');
+        });
+    });
+
+    describe('an entry taken off the site', () => {
+        const marks = () => mockUpdate.mock.calls.map(([data]) => data).filter((data) => 'publishedStatus' in data);
+
+        it('is not left saying it is published by a save that landed before its copy was removed', async () => {
+            stored({ ...DRAFT, publishedStatus: true, status: 'publish' });
+            await handler(createEvent('unpublish', 'articles', 'doc1'));
+            expect(marks()).toEqual([{ publishedStatus: false, status: 'draft' }]);
+        });
+
+        it('is left alone when its draft says so already, or a Publish was asked for since', async () => {
+            stored({ ...DRAFT, publishedStatus: false });
+            await handler(createEvent('unpublish', 'articles', 'doc1'));
+            stored({ ...DRAFT, publishedStatus: true });
+            mockQueueItems.mockResolvedValueOnce({ docs: [{ data: () => ({ action: 'publish', contentTypeSlug: 'articles', docId: 'doc1' }) }] });
+            await handler(createEvent('unpublish', 'articles', 'doc1'));
+            expect(marks()).toEqual([]);
+            // Another type's entry of the same id is another entry.
+            mockQueueItems.mockResolvedValueOnce({ docs: [{ data: () => ({ action: 'publish', contentTypeSlug: 'news', docId: 'doc1' }) }] });
+            await handler(createEvent('unpublish', 'articles', 'doc1'));
+            expect(marks()).toHaveLength(1);
+        });
+    });
+
+    describe('a draft with no live page, deleted (purge-draft)', () => {
+        it('takes what is under it along, and changes nothing on the site', async () => {
+            const { docRef } = buildChain();
+            mockGet.mockResolvedValue({ exists: false, data: () => undefined });
+            const event = createEvent('purge-draft', 'articles', 'doc1');
+            await handler(event);
+            expect(mockRecursiveDelete).toHaveBeenCalledWith(docRef);
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+            expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('touches nothing while the draft is there', async () => {
+            stored(DRAFT);
+            await handler(createEvent('purge-draft', 'articles', 'doc1'));
+            expect(mockRecursiveDelete).not.toHaveBeenCalled();
+        });
+    });
+
+    it('tells the same moment from a Date and a Timestamp copy, and stamps a draft that was never held', async () => {
+        stored({ title: 'A', modifiedAt: at(10) }, { title: 'A', modifiedAt: { seconds: 10, nanoseconds: 0, toMillis: () => 10_000 } });
+        await handler(createEvent('publish', 'articles', 'doc1'));
+        expect(stamps()).toHaveLength(1);
+    });
+
+    it('goes on with the publish when the draft was deleted meanwhile', async () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        stored(DRAFT, null);
+        await handler(createEvent('publish', 'articles', 'doc1'));
+        expect(stamps()).toEqual([]);
+        expect(mockGenerateDetailPage).toHaveBeenCalled();
+    });
+
+    it('deleting an entry deletes what is under its draft, kept drafts and languages', async () => {
+        stored(DRAFT);
+        const { docRef } = buildChain();
+        await handler(createEvent('delete', 'articles', 'doc1'));
+        expect(mockRecursiveDelete).toHaveBeenCalledWith(docRef);
+    });
+});

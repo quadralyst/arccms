@@ -11,7 +11,7 @@ import {
 } from '../shared/content-translation.js';
 import { cardData } from '../shared/content-cards.js';
 import { readPublishedInDisplayOrder } from './published-entries.js';
-import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
+import { contentTypeDescription, contentTypeName, contentTypeNamedIn } from '../shared/content-type-names.js';
 import { buildBreadcrumbList, buildCollectionPage } from '../shared/structured-data.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import {
@@ -35,6 +35,8 @@ import { siteChrome } from './card-blocks.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { arcHostingSite } from '../arc-config.js';
 import { withImageAttributes } from './image-attributes.js';
+import { fillListPage, holdListMarks, listPageWords, pageTextId, PAGE_TEXT_ID, type ListPageTextOptions } from '../shared/page-text.js';
+import { loadPublishedPageText } from './page-text-store.js';
 
 // ─── Exported Functions ─────────────────────────────────────────────────────
 
@@ -60,7 +62,8 @@ export function listPageData(contentType: Record<string, any>, lang: string, pre
  *  3. Load partials + site config
  *  4. Load the list template from the live site (site-files.ts)
  *  5. Build list data with excerpts, tags, dates
- *  6. Hydrate template: process loops, then page-level bindings
+ *  6. Hydrate template: process loops, then page-level bindings, then what
+ *     editors changed on the page (page text, specs/visual-editing-spec.md VE-D64)
  *  7. Replace arc components, extract styles/scripts
  *  8. Build full HTML document with SEO
  *  9. Deploy to hosting at /{slug}/index.html
@@ -108,6 +111,11 @@ export async function generateAndDeployContentListPage(
     //    template, every language. The detail page already stopped a publish
     //    whose folder is missing, with the reason on the item.
     const templateHtml = await loadSiteTemplate(contentType.templateFolder, 'list');
+
+    // What editors changed on the list page, as published (VE-D59): the same in every
+    // language's build. A slug an id cannot name has no words of its own.
+    const pageId = pageTextId.listPage(contentTypeSlug);
+    const pageText = PAGE_TEXT_ID.test(pageId) ? await loadPublishedPageText(pageId) : null;
 
     // 5. Read every item's translations once, up front, so each language pass
     //    is pure assembly.
@@ -177,11 +185,17 @@ export async function generateAndDeployContentListPage(
         // Then the site's own details (SS3) and its standard pages (SS6), before
         // hydration can touch a loop row's {{ url }}.
         const siteInfo = await siteInfoFor(lang, defaultLang);
+        // The marks of the areas editors change are put by first, and filled once the
+        // bindings are in, so an editor's words are never read as one (VE-D61).
+        const textOptions: ListPageTextOptions = { lang, defaultLang, named: contentTypeNamedIn(contentType, lang), strings: uiStrings };
+        const words = listPageWords(pageText, textOptions);
+        const held = holdListMarks(templateHtml, pageText, textOptions);
         const localizedTemplate = TemplateHydrationService.applySiteInfo(
-            TemplateHydrationService.applyStrings(templateHtml, uiStrings), siteInfo);
+            TemplateHydrationService.applyStrings(held.html, uiStrings), siteInfo);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
+        hydratedHtml = fillListPage(hydratedHtml, held.token, pageText, textOptions);
 
         // Replace arc components
         // The partials are one file shared by every language, so their links
@@ -213,8 +227,8 @@ export async function generateAndDeployContentListPage(
             ]),
             buildCollectionPage({
                 url: pageUrl,
-                name: typeName || 'Content',
-                description: typeDescription,
+                name: words.title || typeName || 'Content',
+                description: words.intro || typeDescription,
                 inLanguage: lang,
                 publisherId: site.publisherId,
                 items: listData.map(item => ({ name: item.title, url: `${baseUrl}${item.url}` })),
@@ -222,10 +236,10 @@ export async function generateAndDeployContentListPage(
         ];
 
         const meta: PageMeta = {
-            title: typeName || 'Content',
-            metaDescription: typeDescription || `Browse all ${typeName?.toLowerCase() || 'content'}`,
+            title: words.seoTitle || typeName || 'Content',
+            metaDescription: words.seoDescription || typeDescription || `Browse all ${typeName?.toLowerCase() || 'content'}`,
             canonicalUrl: pageUrl,
-            ogImage: '',
+            ogImage: words.shareImage,
             ogType: 'website',
             siteName: siteConfig.siteName,
             cssUrls: stylesheets,

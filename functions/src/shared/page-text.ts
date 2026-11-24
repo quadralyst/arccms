@@ -86,14 +86,21 @@ export const LAZY_PICTURE_SIZES = ['data-srcset', 'data-lazy-srcset', 'data-size
 /** A usable key: letters, digits, `_` and `-`, so it is a safe Firestore field name. */
 export const PAGE_TEXT_KEY = /^[A-Za-z0-9_-]{1,100}$/;
 
-/** A page's id: `home`, or `p-{name}` for the static page `/p/{name}`. */
-export const PAGE_TEXT_ID = /^(home|p-[A-Za-z0-9_-]{1,100})$/;
+/** A page's id: `home`, `p-{name}` for the static page `/p/{name}`, or `list-{slug}` for a type's list page `/{slug}`. */
+export const PAGE_TEXT_ID = /^(home|(p|list)-[A-Za-z0-9_-]{1,100})$/;
 
-/** The id of a page's values: `home`, or `p-{name}` for a static page. */
+/** The id of a page's values: `home`, `p-{name}` for a static page, or `list-{slug}` for a list page. */
 export const pageTextId = {
     home: (): string => 'home',
     staticPage: (name: string): string => `p-${name}`,
+    listPage: (slug: string): string => `list-${slug}`,
 };
+
+/** The key of a list page's heading, which is its Title (VE-D60). */
+export const LIST_TITLE_KEY = 'title';
+
+/** The key of a list page's intro, which is its Summary (VE-D60). */
+export const LIST_INTRO_KEY = 'intro';
 
 /** Whether a file has any marked area. */
 export function hasPageTextMarks(html: string | null | undefined): boolean {
@@ -371,5 +378,172 @@ export function applyPageText(html: string, values: PageTextValues | null | unde
     if (marked && !options.keepMarks) {
         for (const mark of PAGE_TEXT_MARKS) $(`[${mark}]`).removeAttr(mark);
     }
+    return $.html();
+}
+
+/** What a list page is filled for: its language, and what its type says in that language. */
+export interface ListPageTextOptions {
+    lang: string;
+    defaultLang: string;
+    /**
+     * Whether the type has its own name and description in `lang`
+     * (`nameTranslations`). Those are the file's text of that language (VE-D60),
+     * so they win over words edited in the default language only.
+     */
+    named: { title: boolean; intro: boolean };
+    /** The language's `data-arc-t` strings. */
+    strings?: Record<string, string> | null;
+    /** Keep the `data-arc-edit*` marks, for the Visual Editor. */
+    keepMarks?: boolean;
+}
+
+/** A list page's own words, as published: undefined where the type's name or description stands. */
+export interface ListPageWords {
+    /** The heading, and the collection's name. */
+    title?: string;
+    /** The line under the heading. */
+    intro?: string;
+    /** The browser tab, search engines and shares. */
+    seoTitle?: string;
+    seoDescription?: string;
+    /** The picture of a share, or ''. */
+    shareImage: string;
+}
+
+/** Rich text as plain words, for the title, the description and the JSON-LD. */
+function plainWords(value: string): string {
+    if (!/<\/?(b|strong|i|em|br|a)\b[^<>]*>/i.test(value)) return value.trim();
+    return decodeAttr(value.replace(/<\/?(b|strong|i|em|br|a)\b[^<>]*>/gi, (tag) => (/^<br/i.test(tag) ? ' ' : ''))).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * The words a list page shows in one language beside its marked areas (VE-D60,
+ * VE-D64): the Title and Summary are the heading and intro, and the browser tab
+ * and description too unless the SEO tab has its own. A language with words of
+ * its own, or a type named in it, never takes the default language's.
+ */
+export function listPageWords(values: PageTextValues | null | undefined, options: ListPageTextOptions): ListPageWords {
+    const { lang, defaultLang, named } = options;
+    const pick = (key: string, seo: 'title' | 'description', isNamed: boolean) => {
+        const text = (code: string) => values?.text?.[code]?.[key]?.value;
+        const search = (code: string) => values?.seo?.[code]?.[seo]?.value;
+        const first = (...candidates: Array<string | undefined>) => {
+            const found = candidates.find((value) => typeof value === 'string' && value.trim() !== '');
+            return found === undefined ? undefined : plainWords(found) || undefined;
+        };
+        const fallback = lang !== defaultLang && !isNamed;
+        return {
+            shown: first(text(lang), fallback ? text(defaultLang) : undefined),
+            search: first(search(lang), text(lang), fallback ? search(defaultLang) : undefined, fallback ? text(defaultLang) : undefined),
+        };
+    };
+    const title = pick(LIST_TITLE_KEY, 'title', named.title);
+    const intro = pick(LIST_INTRO_KEY, 'description', named.intro);
+    return {
+        title: title.shown, intro: intro.shown, seoTitle: title.search, seoDescription: intro.search,
+        shareImage: safePageTextUrl(values?.shareImage?.value),
+    };
+}
+
+// ─── List pages (VE-D59 to VE-D61, VE-D64) ──────────────────────────────────
+//
+// A list page is a template: its marked areas may hold bindings ({{ contentType }}),
+// so it is filled after them, and an editor's words are never read as a binding.
+// holdListMarks runs on the file before its strings, loops and bindings;
+// fillListPage runs on the page they made.
+
+/** Repeated elements: what is inside shows entries, or the site's details, never page text. */
+const LIST_LOOPS = '[data-arc-loop], [data-arc-site-loop], [data-arc-repeat]';
+
+/** A list template with its marks put by, and the name they were put by under ('' when it has none). */
+export interface HeldListMarks {
+    html: string;
+    token: string;
+}
+
+/** The attributes put by: the marks, and the strings' keys, which the strings remove. */
+const HELD = [...PAGE_TEXT_MARKS, 'data-arc-t', 'data-arc-t-attr'] as const;
+
+const heldName = (token: string, attr: string): string => `data-arc-held-${token}-${attr.slice('data-arc-'.length)}`;
+
+/** The values of a list page's marked areas in one language: no SEO (the page builder's), and no default words over a type named in the language. */
+function listAreaValues(values: PageTextValues | null | undefined, options: ListPageTextOptions): PageTextValues {
+    const text = { ...(values?.text || {}) };
+    if (options.lang !== options.defaultLang && text[options.defaultLang]) {
+        const fallback = { ...text[options.defaultLang] };
+        if (options.named.title) delete fallback[LIST_TITLE_KEY];
+        if (options.named.intro) delete fallback[LIST_INTRO_KEY];
+        text[options.defaultLang] = fallback;
+    }
+    return { text, urls: values?.urls };
+}
+
+function areaOptions(options: ListPageTextOptions): PageTextOptions {
+    return {
+        lang: options.lang, defaultLang: options.defaultLang, ownFile: options.lang === options.defaultLang,
+        strings: options.strings, keepMarks: options.keepMarks,
+    };
+}
+
+/**
+ * Puts a list template's marks by, before its strings, loops and bindings: under a
+ * name made for this build, so nothing a card shows can pass for one of the file's
+ * areas. Marks inside a loop, and words marked over one, are removed: cards are
+ * their entries'. An area an editor filled shows whatever its `data-arc-if` says
+ * (an intro of a type with no description). A file with no marks comes back as it is.
+ */
+export function holdListMarks(html: string, values: PageTextValues | null | undefined, options: ListPageTextOptions): HeldListMarks {
+    if (!hasPageTextMarks(html)) return { html, token: '' };
+    const token = Math.random().toString(36).slice(2, 10) || 'held';
+    const $ = loadHtml(html, { xmlMode: false });
+    for (const mark of PAGE_TEXT_MARKS) $(LIST_LOOPS).find(`[${mark}]`).removeAttr(mark);
+    const saved = listAreaValues(values, options);
+    $('[data-arc-edit]').each((_, element) => {
+        const $el = $(element);
+        const kind = pageTextKind((element as any).tagName || '', $el.attr('data-arc-edit-kind'), $el.attr('name'));
+        if ((kind === 'text' || kind === 'rich') && ($el.is(LIST_LOOPS) || $el.find(LIST_LOOPS).length)) {
+            $el.removeAttr('data-arc-edit').removeAttr('data-arc-edit-kind');
+            return;
+        }
+        const key = ($el.attr('data-arc-edit') || '').trim();
+        if (!PAGE_TEXT_KEY.test(key) || $el.attr('data-arc-if') === undefined) return;
+        const words = pageTextWords((lang) => saved.text?.[lang]?.[key], $el.attr('data-arc-t') || '', areaOptions(options));
+        if (words !== undefined || safePageTextUrl(saved.urls?.[key]?.value)) $el.removeAttr('data-arc-if');
+    });
+    $(PAGE_TEXT_MARKS.map((mark) => `[${mark}]`).join(', ')).each((_, element) => {
+        const $el = $(element);
+        for (const attr of HELD) {
+            const value = $el.attr(attr);
+            if (value === undefined) continue;
+            $el.attr(heldName(token, attr), value);
+            // The strings still need their keys.
+            if (!attr.startsWith('data-arc-t')) $el.removeAttr(attr);
+        }
+    });
+    return { html: $.html(), token };
+}
+
+/**
+ * Fills the marked areas of a list page its bindings have made, with what was put
+ * by (holdListMarks), and removes the marks unless `keepMarks`. Its title,
+ * description and share picture are the page builder's (listPageWords).
+ */
+export function fillListPage(html: string, token: string, values: PageTextValues | null | undefined, options: ListPageTextOptions): string {
+    if (!token) return html;
+    const $ = loadHtml(html, { xmlMode: false });
+    // Marks a card brought in (an entry's own HTML) are not the file's.
+    for (const mark of PAGE_TEXT_MARKS) $(`[${mark}]`).removeAttr(mark);
+    for (const attr of HELD) {
+        const held = heldName(token, attr);
+        $(`[${held}]`).each((_, element) => {
+            const $el = $(element);
+            $el.attr(attr, $el.attr(held) || '').removeAttr(held);
+        });
+    }
+    const saved = listAreaValues(values, options);
+    $('[data-arc-edit]').each((_, element) => applyArea($, element, saved, areaOptions(options)));
+    // The strings ran before: what is left of their keys was put back for the rule above only.
+    $(PAGE_TEXT_MARKS.map((mark) => `[${mark}]`).join(', ')).removeAttr('data-arc-t').removeAttr('data-arc-t-attr');
+    if (!options.keepMarks) for (const mark of PAGE_TEXT_MARKS) $(`[${mark}]`).removeAttr(mark);
     return $.html();
 }

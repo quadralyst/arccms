@@ -41,6 +41,8 @@ vi.mock('../../../../../shared/services/search-queue', () => ({ draftQueueEntry:
 import { Firestore } from '@angular/fire/firestore';
 import { DraftContentsService } from './draft-contents.service';
 import { isEntryGone } from './entry-changed';
+import { isHeld } from '../../../../core/editing/hold';
+import { HoldService } from '../../../../core/editing/hold.service';
 
 // The editor's writes (RF4 review H1, L1, L3, M6; server review M1).
 describe('DraftContentsService writes', () => {
@@ -63,6 +65,35 @@ describe('DraftContentsService writes', () => {
     it('says an entry deleted since it was opened is gone', async () => {
         const error = await service.saveDraft('blog', 'missing', { title: 'A' }, null).catch((e) => e);
         expect(isEntryGone(error)).toBe(true);
+    });
+
+    describe('someone holds the draft (VE-D78)', () => {
+        const path = 'arc_blog_drafts/d1';
+        beforeEach(() => {
+            vi.spyOn(TestBed.inject(HoldService), 'me').mockReturnValue({ uid: 'me', name: 'Me' });
+            fs.state.docs[path] = { title: 'Theirs', modifiedAt: 1, editing: { by: 'priya', name: 'Priya' } };
+        });
+
+        it('refuses a save, also one told to overwrite, and a translation written or removed', async () => {
+            for (const write of [
+                () => service.saveDraft('blog', 'd1', { title: 'Mine' }, 1),
+                () => service.saveDraft('blog', 'd1', { title: 'Mine' }, null),
+                () => service.saveTranslation('blog', 'd1', { lang: 'hi', title: 'x' } as any),
+                () => service.deleteTranslation('blog', 'd1', 'hi'),
+            ]) {
+                const error = await write().catch((e) => e);
+                expect(isHeld(error)).toBe(true);
+            }
+            expect(fs.state.writes).toEqual([]);
+        });
+
+        it('writes for the holder, and for anyone once it is let go', async () => {
+            fs.state.docs[path] = { title: 'Mine', modifiedAt: 1, editing: { by: 'me', name: 'Me' } };
+            await service.saveDraft('blog', 'd1', { title: 'Mine 2' }, 1);
+            fs.state.docs[path] = { title: 'Free', modifiedAt: 1 };
+            await service.saveDraft('blog', 'd1', { title: 'Mine 3' }, 1);
+            expect(fs.state.writes).toHaveLength(2);
+        });
     });
 
     it('counts an address held by a live page as taken, the entry itself aside', async () => {

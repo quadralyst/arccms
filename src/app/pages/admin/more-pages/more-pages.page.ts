@@ -38,7 +38,7 @@ import { MorePagesService, type MorePageRow } from './more-pages.service';
                                 </a>
                                 <code class="page-address">{{ row.address }}</code>
                             </div>
-                            <span class="page-status" [class]="'page-status status-' + row.status">{{ ('admin.more_pages.status.' + row.status) | transloco }}</span>
+                            <span class="page-status" [class]="'page-status status-' + row.status">{{ ('admin.more_pages.status.' + row.status) | transloco }}@if (row.heldBy) { · {{ 'admin.hold.list_held' | transloco: { name: row.heldBy } }} }</span>
                             <span class="page-published text-muted">
                                 @if (row.lastPublished) {
                                     {{ 'admin.more_pages.last_published' | transloco }} {{ row.lastPublished | arcTime }}

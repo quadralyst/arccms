@@ -3,7 +3,9 @@ import { TranslocoService } from '@jsverse/transloco';
 import { LocalizationService } from '../../../core/services/localization.service';
 import { UiStringsService } from '../../../core/services/ui-strings.service';
 import { siteManifest, sitePageUrl } from '../../../core/site/site';
-import { PageTextService, type PageTextSession } from '../../../core/site/page-text.service';
+import { PageTextService, pageHeldByOther, type PageTextSession, type PublishedPageText } from '../../../core/site/page-text.service';
+import { SiteIdentityService } from '../../../core/services/site-identity.service';
+import { HoldService } from '../../../core/editing/hold.service';
 import { pageTextId } from '../../../core/utils/page-text-model';
 import { readPageFile, type PageFile } from '../../../core/utils/page-text-areas';
 import { MorePagesService, type CardTypeInfo } from './more-pages.service';
@@ -45,6 +47,15 @@ export class PageEditorData {
         return this.sessionRef();
     }
     readonly draft = computed(() => this.sessionRef()?.draft() ?? null);
+    /** What is published, followed; undefined until the first answer. */
+    readonly published = signal<PublishedPageText | null | undefined>(undefined);
+    private stopPublished: (() => void) | null = null;
+    /** Someone else holds the page's words: they are looked at, not changed (VE-D79). */
+    readonly heldBy = computed(() => {
+        const published = this.published();
+        if (published === undefined) return null;
+        return pageHeldByOther(this.draft(), published, this.injector.get(HoldService).me()?.uid);
+    });
 
     readonly context = computed<EditorContext | null>(() => {
         const files = this.files();
@@ -65,6 +76,13 @@ export class PageEditorData {
         return ctx ? seoView(ctx) : null;
     });
     readonly gone = computed<GoneKey[]>(() => goneKeys(this.draft(), Object.values(this.files()), this.defaultLang()));
+    /** The site's public address with no slash at its end; the admin's own until it is read. */
+    private readonly origin = signal(typeof window === 'undefined' ? '' : window.location.origin);
+    /** The page's public address in the language chosen (VE-D74). */
+    readonly url = computed(() => {
+        const prefix = this.lang() && this.lang() !== this.defaultLang() ? `/${this.lang()}` : '';
+        return this.isHome ? `${this.origin()}${prefix}/` : `${this.origin()}/p/${this.name}`;
+    });
     readonly isDefaultLang = computed(() => this.lang() === this.defaultLang());
     /** The static page's title from its file, else its name; '' for the home page. */
     readonly fileTitle = computed(() => (this.isHome ? '' : this.files()[this.defaultLang()]?.title || this.name));
@@ -91,8 +109,11 @@ export class PageEditorData {
             if (!this.lang() || !list.some((l) => l.code === this.lang())) this.lang.set(defaultLang);
             await this.loadFiles(list.map((l) => l.code), defaultLang);
             const session = this.injector.get(PageTextService).session(this.pageId);
+            session.published = () => this.published();
+            this.stopPublished = this.injector.get(PageTextService).followPublished(this.pageId, (published) => this.published.set(published));
             session.open();
             this.sessionRef.set(session);
+            void this.loadOrigin();
             this.cardTypes.set(await this.injector.get(MorePagesService).cardTypes());
         } catch (error: any) {
             console.error('[PageEditor] Could not open the page:', error);
@@ -123,7 +144,16 @@ export class PageEditorData {
         this.strings.set(strings);
     }
 
+    /** The Production URL, so a local admin shows the live address, as an entry's. */
+    private async loadOrigin(): Promise<void> {
+        const about = await this.injector.get(SiteIdentityService).load().catch(() => null);
+        const url = (about?.finalUrl || '').trim().replace(/\/+$/, '');
+        if (url) this.origin.set(url);
+    }
+
     close(): void {
+        this.stopPublished?.();
+        this.stopPublished = null;
         this.session?.close();
     }
 }

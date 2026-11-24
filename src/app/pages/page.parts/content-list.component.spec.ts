@@ -20,6 +20,7 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { setSiteManifestForTesting } from '../../core/site/site';
 import { coreSiteManifest } from '../../../test/core-site';
+import { PageTextService } from '../../core/site/page-text.service';
 
 /** Arc CMS's own manifest plus a folder of the test's own. */
 function withFolder(name: string): void {
@@ -37,6 +38,8 @@ describe('ContentListComponent', () => {
     let mockTitleService: any;
     let mockMetaService: any;
     let mockGaTrackingService: any;
+    /** What editors published on the list page (VE-D64). */
+    let mockPublishedText: ReturnType<typeof vi.fn>;
 
     beforeEach(async () => {
         mockContentsStore = {
@@ -79,9 +82,12 @@ describe('ContentListComponent', () => {
             trackPublicPageView: vi.fn()
         };
 
+        mockPublishedText = vi.fn(async () => null);
+
         await TestBed.configureTestingModule({
             imports: [ContentListComponent],
             providers: [
+                { provide: PageTextService, useValue: { published: mockPublishedText } },
                 { provide: ContentsStore, useValue: mockContentsStore },
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: TagsStore, useValue: mockTagsStore },
@@ -114,6 +120,8 @@ describe('ContentListComponent', () => {
 
         fixture = TestBed.createComponent(ContentListComponent);
         component = fixture.componentInstance;
+        // Nothing changed on the page, already read: the tests of it are their own (VE-D64).
+        component['pageText'].set(null);
         // Do not call detectChanges here to allow individual tests to set up state
     });
 
@@ -570,6 +578,76 @@ describe('ContentListComponent', () => {
 
             // runTemplateScripts should be called via setTimeout in browser env
             expect(runScriptsSpy).toHaveBeenCalled();
+        });
+    });
+
+    // VE-D60, VE-D64: what editors changed on the list page, as published.
+    describe('what editors changed on the page', () => {
+        const TEMPLATE = '<h1 data-arc-edit="title">{{ contentType }}</h1><p data-arc-edit="intro">{{ contentTypeDescription }}</p>'
+            + '<ul data-arc-loop="items"><li>{{ title }}</li></ul><script>window.x = 1</script>';
+        const VALUES = {
+            text: { en: { title: { value: 'Our stories' }, intro: { value: 'Told by us' } } },
+            seo: { en: { description: { value: 'All of them' } } }, shareImage: { value: 'https://x.test/s.jpg' },
+        };
+
+        beforeEach(() => {
+            mockHttpClient.get.mockReturnValue(of(TEMPLATE));
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', description: 'News' }]);
+            mockContentsStore.items.set([{ id: '1', type: 'articles', publishedStatus: true, title: 'First', tags: [] }]);
+            component['pageText'].set(undefined);
+        });
+        const settle = async () => {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            fixture.detectChanges();
+        };
+
+        it('waits for the words, so the type\'s name never shows first, then draws the page with them', async () => {
+            mockPublishedText.mockResolvedValue(VALUES);
+            fixture.detectChanges();
+            expect(component.templateHtml()).toBe('');
+            expect(mockTitleService.setTitle).not.toHaveBeenCalled();
+            await settle();
+            expect(mockPublishedText).toHaveBeenCalledWith('list-articles');
+            expect(component.templateHtml()).toContain('<h1>Our stories</h1><p>Told by us</p>');
+            expect(component.templateHtml()).toContain('<li>First</li>');
+            expect(component.templateHtml()).not.toContain('data-arc-');
+            expect(mockTitleService.setTitle).toHaveBeenCalledWith('Our stories');
+            expect(mockMetaService.updateTag).toHaveBeenCalledWith({ name: 'description', content: 'All of them' });
+            expect(mockMetaService.updateTag).toHaveBeenCalledWith({ property: 'og:image', content: 'https://x.test/s.jpg' });
+            fixture.destroy();
+            expect(mockMetaService.removeTag).toHaveBeenCalledWith("property='og:image'");
+        });
+
+        it('shows the type\'s own name and description when nothing was changed, or it cannot be read', async () => {
+            mockPublishedText.mockRejectedValue(new Error('offline'));
+            fixture.detectChanges();
+            await settle();
+            expect(component.templateHtml()).toContain('<h1>Articles</h1><p>News</p>');
+            expect(mockTitleService.setTitle).toHaveBeenCalledWith('Articles');
+        });
+
+        it('reads nothing on the server, which draws no template', () => {
+            component['platformId'] = 'server' as any;
+            component['loadPageText']('articles');
+            expect(mockPublishedText).not.toHaveBeenCalled();
+            expect(component['pageText']()).toBeNull();
+        });
+
+        it('on the Visual Editor, shows the draft with its marks, runs no script, and names itself to nobody', async () => {
+            // As the preview window provides it (PAGE_TEXT_PREVIEW).
+            component['textPreview'] = { values: () => VALUES, editing: true };
+            component['pageText'].set(VALUES);
+            const run = vi.spyOn(component as any, 'runTemplateScripts');
+            fixture.detectChanges();
+            await new Promise((resolve) => setTimeout(resolve, 120));
+            expect(mockPublishedText).not.toHaveBeenCalled();
+            expect(component.templateHtml()).toContain('<h1 data-arc-edit="title">Our stories</h1>');
+            expect(document.documentElement.classList.contains('arc-editing')).toBe(true);
+            expect(run).not.toHaveBeenCalled();
+            expect(mockGaTrackingService.trackContentListView).not.toHaveBeenCalled();
+            expect(mockMetaService.updateTag).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'arc-entry' }));
+            expect(mockMetaService.updateTag).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'robots' }));
+            document.documentElement.classList.remove('arc-editing');
         });
     });
 });

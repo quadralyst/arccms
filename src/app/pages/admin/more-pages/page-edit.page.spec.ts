@@ -8,13 +8,13 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import PageEditPage, { pageCardsIn, pageEditFrameUrl, pageLivePreviewUrl, pageValuesHaveReplace, publishCount, siteAddressOpenedFrom } from './page-edit.page';
+import PageEditPage, { pageCardsIn, pageEditFrameUrl, pageLivePreviewUrl, pageValuesHaveReplace, siteAddressOpenedFrom } from './page-edit.page';
 import { PageCardActions } from './page-card-actions';
 import { NotifyService } from '../../../../shared/services/notify.service';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 
-describe('pageCardsIn and publishCount', () => {
+describe('pageCardsIn', () => {
     const doc = new DOMParser().parseFromString(`<body>
         <div data-arc-card-id="a" data-arc-card-type="quotes" data-arc-changed></div>
         <div data-arc-card-id="b" data-arc-card-type="quotes"></div>
@@ -29,13 +29,6 @@ describe('pageCardsIn and publishCount', () => {
             { type: 'quotes', id: 'b', changed: true, leaving: false },
             { type: 'quotes', id: 'c', changed: false, leaving: true },
         ]);
-    });
-
-    it('counts the page as one change, then each changed card', () => {
-        const cards = pageCardsIn(doc);
-        expect(publishCount(true, cards)).toBe(3);
-        expect(publishCount(false, cards)).toBe(2);
-        expect(publishCount(false, [])).toBe(0);
     });
 });
 
@@ -113,8 +106,8 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
         open.mockRestore();
     });
 
-    it('says Not saved, never Saved, when what was saved for the page could not be read (review L)', () => {
-        expect(page.status()).toBe('saved');
+    it('says Not saved, never Published, when what was saved for the page could not be read (review L)', () => {
+        expect(page.status()).toBe('published');
         (page.data as any).sessionRef.set({ error: signal('Missing or insufficient permissions.'), draft: signal(null), close: vi.fn() });
         expect(page.status()).toBe('not_saved');
     });
@@ -122,7 +115,7 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
     const changed = (...ids: string[]) => page.cards.set(ids.map((id) => ({ type: 'quotes', id, changed: true, leaving: false })));
 
     it('checks every changed card, then publishes each', async () => {
-        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, title: 'A', customFields: { person: 'Asha' } };
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'A', customFields: { person: 'Asha' } };
         drafts['b'] = { id: 'b', status: 'draft', publishedStatus: false, addedOnPage: 'home', title: 'B', customFields: { person: 'Ravi' } };
         changed('a', 'b');
         expect(await page.beforePublish()).toBe(true);
@@ -133,8 +126,8 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
     });
 
     it('publishes nothing when a card fails, and opens that card', async () => {
-        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, title: 'A', customFields: { person: 'Asha' } };
-        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, title: 'B', customFields: {} };
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'A', customFields: { person: 'Asha' } };
+        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'B', customFields: {} };
         changed('a', 'b');
         expect(await page.beforePublish()).toBe(false);
         expect(notify.error).toHaveBeenCalledWith('admin.edit_page.card_problem', { type: 'Quotes', field: 'Person' });
@@ -170,8 +163,8 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
     });
 
     it('publishes the other cards when one fails, and says which did not go out', async () => {
-        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, title: 'First', customFields: { person: 'Asha' } };
-        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, title: 'Second', customFields: { person: 'Ravi' } };
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'First', customFields: { person: 'Asha' } };
+        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'Second', customFields: { person: 'Ravi' } };
         changed('a', 'b');
         actions.publish.mockImplementation(async (card: { id: string }) => {
             if (card.id === 'a') throw new Error('offline');
@@ -184,8 +177,8 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
     });
 
     it('names a card someone saved or unpublished after the check, and publishes the rest', async () => {
-        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, title: 'Changed since', customFields: { person: 'Asha' } };
-        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, title: 'Second', customFields: { person: 'Ravi' } };
+        drafts['a'] = { id: 'a', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'Changed since', customFields: { person: 'Asha' } };
+        drafts['b'] = { id: 'b', status: 'draft', publishedStatus: true, changedOnPage: 'home', title: 'Second', customFields: { person: 'Ravi' } };
         changed('a', 'b');
         actions.publish.mockImplementation(async (card: { id: string }) => card.id !== 'a');
         expect(await page.beforePublish()).toBe(true);

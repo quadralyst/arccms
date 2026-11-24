@@ -17,6 +17,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { Firestore } from '@angular/fire/firestore';
 import { ContentTypesService } from '../content-types/content-types.service';
 import { DatePipe } from '@angular/common';
+import { HoldService } from '../../../../core/editing/hold.service';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { DraftContentsService } from '../draft-content-store/draft-contents.service';
 
@@ -793,6 +794,23 @@ describe('DraftContentsTableComponent', () => {
             expect(mockDraftContentsStore.delete).not.toHaveBeenCalled();
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
                 expect.stringContaining('Nothing was deleted'), 'error', expect.anything());
+        });
+
+        it('clears what a deleted draft kept, and says who is editing it before asking (VE-D84, VE-D85)', async () => {
+            const queue = TestBed.inject(PublishQueueService) as any;
+            queue.enqueue.mockClear();
+            vi.spyOn(TestBed.inject(HoldService), 'me').mockReturnValue({ uid: 'me', name: 'Me' });
+            mockMatDialog.open.mockClear();
+            mockMatDialog.open.mockReturnValue({ afterClosed: () => of(true) });
+            mockDraftContentsStore.delete.mockReturnValueOnce(of(undefined));
+            component.deleteItem({ id: 'n1', title: 'New', publishedStatus: false, status: 'draft', editing: { by: 'p', name: '<b>Priya</b>' } });
+            await fixture.whenStable();
+            await new Promise((resolve) => setTimeout(resolve));
+            const message = mockMatDialog.open.mock.calls[0][1].data.dialogMessage;
+            const text = String(message?.changingThisBreaksApplicationSecurity ?? message);
+            expect(text).toContain('has unpublished changes here');
+            expect(text).not.toContain('<b>Priya');
+            expect(queue.enqueue).toHaveBeenCalledWith('purge-draft', expect.anything(), 'n1');
         });
 
         it('should not delete when cancelled', async () => {

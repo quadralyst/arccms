@@ -117,7 +117,13 @@ describe('firestore.rules: content writes are staff only', () => {
     });
 
     it('arc_* and Tags_* writes need isEditor()', () => {
-        expect(rules).toMatch(/collection\.matches\('arc_\.\*'\) \|\| collection\.matches\('Tags_\.\*'\)\)\s*&& isEditor\(\);/);
+        expect(rules).toMatch(/allow write: if \(isPublishedCollection\(\) \|\| collection\.matches\('Tags_\.\*'\)\)\s*&& isEditor\(\);/);
+        // Drafts have a rule of their own (VE-D78): staff, one person at a time.
+        for (const op of ['create', 'update', 'delete']) {
+            expect(rules).toMatch(new RegExp(`allow ${op}: if isDraftCollection\\(\\) && isEditor\\(\\)`));
+        }
+        expect(rules).toMatch(/!heldByOther\(resource\.data\) \|\| !touchesHeld\(\) \|\| takesOver\(draftPath\(\)\)/);
+        expect(rules).not.toMatch(/allow write: if[^;]*collection\.matches\('arc_\.\*'\)/);
     });
 
     it('isEditor() is built on the arccms_role claim only', () => {

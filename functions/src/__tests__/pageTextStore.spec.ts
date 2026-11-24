@@ -27,10 +27,18 @@ function docRef(path: string): any {
 vi.mock('../init', () => ({
     db: {
         collection: (name: string) => ({ doc: (id: string) => docRef(`${name}/${id}`) }),
-        batch: () => ({ set: (ref: { path: string }, data: Record<string, unknown>) => batchSets.push([ref.path, data]), commit: mockCommit }),
+        // Everything in one transaction, which commits once.
+        runTransaction: async (fn: any) => {
+            await fn({
+                get: (ref: any) => ref.get(),
+                set: (ref: { path: string }, data: Record<string, unknown>) => batchSets.push([ref.path, data]),
+                update: (ref: { path: string }, data: Record<string, unknown>) => updates.push([ref.path, data]),
+            });
+            await mockCommit();
+        },
     },
 }));
-vi.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => 'SERVER_TIME' } }));
+vi.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => 'SERVER_TIME', delete: () => 'DELETED' } }));
 
 import { loadPublishedPageText, markPageTextUnreleased, pageOfPageTextId, pageTextValuesOf, publishPageTextDraft } from '../pages/page-text-store.js';
 
@@ -79,6 +87,42 @@ describe('page text store', () => {
         expect((batchSets[1][1] as any).text.hi.hero).toEqual(hero);
     });
 
+    it('never copies who holds the page (VE-D78), to the copy or its History', async () => {
+        docs.set('SitePageTextDrafts/home', {
+            text: { en: {} }, updatedAt: 'T1', updatedBy: 'editor-uid', editing: { by: 'priya-uid', name: 'Priya' },
+        });
+        await publishPageTextDraft('home');
+        expect(JSON.stringify(batchSets)).not.toMatch(/priya|Priya|editing/);
+    });
+
+    it('lets go of the page in the same write, its updatedAt untouched, and writes nothing to a draft nobody holds', async () => {
+        docs.set('SitePageTextDrafts/home', { text: {}, updatedAt: 'T1', editing: { by: 'priya-uid' } });
+        await publishPageTextDraft('home');
+        expect(updates).toEqual([['SitePageTextDrafts/home', { editing: 'DELETED' }]]);
+        expect(mockCommit).toHaveBeenCalledTimes(1);
+        updates.length = 0;
+        docs.set('SitePageTextDrafts/home', { text: {}, updatedAt: 'T1' });
+        await publishPageTextDraft('home');
+        await publishPageTextDraft('p-no-draft');
+        expect(updates).toEqual([]);
+    });
+
+    it('copies what is stored when the write lands, not what was read before someone saved', async () => {
+        // The transaction runs again on a draft that changed under it, and reads it anew.
+        docs.set('SitePageTextDrafts/home', { text: { en: { hero: { value: 'Old' } } }, updatedAt: 'T1' });
+        const { db } = await import('../init.js') as any;
+        const run = db.runTransaction;
+        vi.spyOn(db, 'runTransaction').mockImplementation(async (fn: any) => {
+            await fn({ get: (ref: any) => ref.get(), set: () => undefined, update: () => undefined });
+            docs.set('SitePageTextDrafts/home', { text: { en: { hero: { value: 'New' } } }, updatedAt: 'T2', editing: { by: 'priya-uid' } });
+            return run(fn);
+        });
+        await publishPageTextDraft('home');
+        expect(batchSets[0][1]).toMatchObject({ text: { en: { hero: { value: 'New' } } }, draftUpdatedAt: 'T2' });
+        expect(updates).toEqual([['SitePageTextDrafts/home', { editing: 'DELETED' }]]);
+        vi.restoreAllMocks();
+    });
+
     it('publishes no values when there is no draft, which brings the page back to its file', async () => {
         await publishPageTextDraft('p-about-us');
         expect(batchSets[0]).toEqual(['SitePageText/p-about-us', { publishedAt: 'SERVER_TIME', draftUpdatedAt: null }]);
@@ -97,9 +141,16 @@ describe('page text store', () => {
         expect(pageTextValuesOf(undefined)).toEqual({});
     });
 
-    it('tells the home page from a static page, and refuses anything else', () => {
+    it('tells the home page, a static page and a list page apart, and refuses anything else', () => {
         expect(pageOfPageTextId('home')).toEqual({ kind: 'home' });
         expect(pageOfPageTextId('p-about-us')).toEqual({ kind: 'static', name: 'about-us' });
+        expect(pageOfPageTextId('list-articles')).toEqual({ kind: 'list', slug: 'articles' });
+        expect(pageOfPageTextId('list-my_type-2')).toEqual({ kind: 'list', slug: 'my_type-2' });
+        // A static page called list, and one called list-x, stay static pages.
+        expect(pageOfPageTextId('p-list')).toEqual({ kind: 'static', name: 'list' });
+        expect(pageOfPageTextId('p-list-x')).toEqual({ kind: 'static', name: 'list-x' });
+        expect(pageOfPageTextId('list-')).toBeNull();
+        expect(pageOfPageTextId('list-a/b')).toBeNull();
         expect(pageOfPageTextId('p-../x')).toBeNull();
         expect(pageOfPageTextId('about')).toBeNull();
     });

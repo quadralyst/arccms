@@ -1,16 +1,19 @@
 import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
-import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
+import { KEPT, getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
 import { arcDocument } from '../arc-config.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { removeCollectionEntries } from '../search/writer.js';
 import { deleteContentListIndexes } from './contentListIndexes.js';
+import { PAGE_TEXT_DRAFTS, PAGE_TEXT_PUBLISHED } from '../pages/page-text-store.js';
+import { PAGE_TEXT_ID, pageTextId } from '../shared/page-text.js';
 
 const BATCH_LIMIT = 400;
-// What lives under an entry: its other languages (drafts and published), and on a
-// published copy its past versions and deploy logs. Firestore names are
+// What lives under an entry: its other languages (drafts and published), on a draft
+// the drafts kept before work changed hands (VE-D84), and on a published copy its past
+// versions and deploy logs. Firestore names are
 // case-sensitive: the publisher writes `PublishedHistory`.
-const ENTRY_SUBCOLLECTIONS = ['translations', 'PublishedHistory', 'DeploymentLogs'];
+const ENTRY_SUBCOLLECTIONS = ['translations', KEPT, 'PublishedHistory', 'DeploymentLogs'];
 
 export const onContentTypeDeleted = onDocumentDeleted(
     arcDocument('ContentTypes/{contentTypeId}'),
@@ -31,6 +34,7 @@ export const onContentTypeDeleted = onDocumentDeleted(
             deleteCollection(getDraftCollectionName(slug)),
             deleteCollection(`Tags_${slug}`),
             deleteContentListIndexes(getDraftCollectionName(slug)),
+            deleteListPageText(slug),
         ]);
         // Nothing watches these collections' writes (specs/feature-flags-spec.md 6.5),
         // so their search entries go here.
@@ -48,6 +52,19 @@ async function slugStillUsed(slug: string, deletedId: string): Promise<boolean> 
     return snap.docs.some((doc) => doc.id !== deletedId);
 }
 
+/**
+ * What editors changed on the type's list page (specs/visual-editing-spec.md, VE-D59),
+ * its draft, its published copy and what is kept under them: a later type of the same
+ * slug must not open with another's words.
+ */
+async function deleteListPageText(slug: string) {
+    const pageId = pageTextId.listPage(slug);
+    if (!PAGE_TEXT_ID.test(pageId)) return;
+    for (const collection of [PAGE_TEXT_DRAFTS, PAGE_TEXT_PUBLISHED]) {
+        await db.recursiveDelete(db.collection(collection).doc(pageId));
+    }
+}
+
 async function deleteCollection(collectionName: string) {
     const snap = await db.collection(collectionName).get();
 
@@ -62,6 +79,11 @@ async function deleteCollection(collectionName: string) {
             const subSnap = await doc.ref.collection(sub).get();
 
             for (const subDoc of subSnap.docs) {
+                // A kept draft holds its own other languages (VE-D84).
+                if (sub === KEPT) {
+                    await db.recursiveDelete(subDoc.ref);
+                    continue;
+                }
                 batch.delete(subDoc.ref);
                 opCount++;
 

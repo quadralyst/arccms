@@ -70,14 +70,21 @@ export const LAZY_PICTURE_SIZES = ['data-srcset', 'data-lazy-srcset', 'data-size
 /** A usable key: letters, digits, `_` and `-`, so it is a safe Firestore field name. */
 export const PAGE_TEXT_KEY = /^[A-Za-z0-9_-]{1,100}$/;
 
-/** A page's id: `home`, or `p-{name}` for the static page `/p/{name}`. */
-export const PAGE_TEXT_ID = /^(home|p-[A-Za-z0-9_-]{1,100})$/;
+/** A page's id: `home`, `p-{name}` for the static page `/p/{name}`, or `list-{slug}` for a type's list page `/{slug}`. */
+export const PAGE_TEXT_ID = /^(home|(p|list)-[A-Za-z0-9_-]{1,100})$/;
 
-/** The id of a page's values: `home`, or `p-{name}` for a static page. */
+/** The id of a page's values: `home`, `p-{name}` for a static page, or `list-{slug}` for a list page. */
 export const pageTextId = {
     home: (): string => 'home',
     staticPage: (name: string): string => `p-${name}`,
+    listPage: (slug: string): string => `list-${slug}`,
 };
+
+/** The key of a list page's heading, which is its Title (VE-D60). */
+export const LIST_TITLE_KEY = 'title';
+
+/** The key of a list page's intro, which is its Summary (VE-D60). */
+export const LIST_INTRO_KEY = 'intro';
 
 /** Whether a file has any marked area. */
 export function hasPageTextMarks(html: string | null | undefined): boolean {
@@ -147,4 +154,68 @@ export function sanitizeRichText(html: string): string {
         out += url ? `<a href="${escapeAttr(url)}">` : '<a>';
     }
     return out + escapeHtmlText(html.slice(last));
+}
+
+/** What a list page is filled for: its language, and what its type says in that language. */
+export interface ListPageTextOptions {
+    lang: string;
+    defaultLang: string;
+    /**
+     * Whether the type has its own name and description in `lang`
+     * (`nameTranslations`). Those are the file's text of that language (VE-D60),
+     * so they win over words edited in the default language only.
+     */
+    named: { title: boolean; intro: boolean };
+    /** The language's `data-arc-t` strings. */
+    strings?: Record<string, string> | null;
+    /** Keep the `data-arc-edit*` marks, for the Visual Editor. */
+    keepMarks?: boolean;
+}
+
+/** A list page's own words, as published: undefined where the type's name or description stands. */
+export interface ListPageWords {
+    /** The heading, and the collection's name. */
+    title?: string;
+    /** The line under the heading. */
+    intro?: string;
+    /** The browser tab, search engines and shares. */
+    seoTitle?: string;
+    seoDescription?: string;
+    /** The picture of a share, or ''. */
+    shareImage: string;
+}
+
+/** Rich text as plain words, for the title, the description and the JSON-LD. */
+function plainWords(value: string): string {
+    if (!/<\/?(b|strong|i|em|br|a)\b[^<>]*>/i.test(value)) return value.trim();
+    return decodeAttr(value.replace(/<\/?(b|strong|i|em|br|a)\b[^<>]*>/gi, (tag) => (/^<br/i.test(tag) ? ' ' : ''))).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * The words a list page shows in one language beside its marked areas (VE-D60,
+ * VE-D64): the Title and Summary are the heading and intro, and the browser tab
+ * and description too unless the SEO tab has its own. A language with words of
+ * its own, or a type named in it, never takes the default language's.
+ */
+export function listPageWords(values: PageTextValues | null | undefined, options: ListPageTextOptions): ListPageWords {
+    const { lang, defaultLang, named } = options;
+    const pick = (key: string, seo: 'title' | 'description', isNamed: boolean) => {
+        const text = (code: string) => values?.text?.[code]?.[key]?.value;
+        const search = (code: string) => values?.seo?.[code]?.[seo]?.value;
+        const first = (...candidates: Array<string | undefined>) => {
+            const found = candidates.find((value) => typeof value === 'string' && value.trim() !== '');
+            return found === undefined ? undefined : plainWords(found) || undefined;
+        };
+        const fallback = lang !== defaultLang && !isNamed;
+        return {
+            shown: first(text(lang), fallback ? text(defaultLang) : undefined),
+            search: first(search(lang), text(lang), fallback ? search(defaultLang) : undefined, fallback ? text(defaultLang) : undefined),
+        };
+    };
+    const title = pick(LIST_TITLE_KEY, 'title', named.title);
+    const intro = pick(LIST_INTRO_KEY, 'description', named.intro);
+    return {
+        title: title.shown, intro: intro.shown, seoTitle: title.search, seoDescription: intro.search,
+        shareImage: safePageTextUrl(values?.shareImage?.value),
+    };
 }

@@ -43,3 +43,13 @@ export function contentTypeDescription(type: NameSource, lang?: string): string 
     const translated = lang ? type.nameTranslations?.[lang]?.description : '';
     return translated?.trim() || type.description || '';
 }
+
+/**
+ * Whether the type has its own name and description in a language, rather than
+ * the default language's: what a list page in it says until an editor changes
+ * it (specs/visual-editing-spec.md, VE-D60).
+ */
+export function contentTypeNamedIn(type: NameSource, lang: string): { title: boolean; intro: boolean } {
+    const own = type.nameTranslations?.[lang];
+    return { title: !!own?.name?.trim(), intro: !!own?.description?.trim() };
+}

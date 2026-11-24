@@ -8,6 +8,8 @@ import {
     Output,
     signal,
     OnInit,
+    effect,
+    untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ContentsService } from '../../content-store/published-contents.service';
@@ -48,6 +50,11 @@ export class VersionHistoryComponent implements OnInit {
     /** The content type slug */
     contentTypeSlug = input.required<string>();
 
+    /** Counts the publishes that landed while the list is open: it reads itself again (VE-D71). */
+    landed = input(0);
+    /** A publish is under way: the list says a new version is coming. */
+    publishing = input(false);
+
     /** Emits the selected version's data when "Restore" is clicked */
     @Output() restore = new EventEmitter<VersionHistoryItem>();
 
@@ -60,6 +67,16 @@ export class VersionHistoryComponent implements OnInit {
     selectedVersion = signal<VersionHistoryItem | null>(null);
     isLoading = signal<boolean>(false);
     errorMessage = signal<string>('');
+
+    private shownFor: number | null = null;
+
+    constructor() {
+        effect(() => {
+            const landed = this.landed();
+            if (this.shownFor !== null && this.shownFor !== landed) untracked(() => this.loadHistory());
+            this.shownFor = landed;
+        });
+    }
 
     ngOnInit(): void {
         this.loadHistory();
@@ -74,7 +91,8 @@ export class VersionHistoryComponent implements OnInit {
             return;
         }
 
-        this.isLoading.set(true);
+        // A list already on screen stays while it is read again.
+        this.isLoading.set(!this.versions().length);
         this.errorMessage.set('');
 
         this.contentsService.getPublishedHistory(pubId, slug).subscribe({

@@ -2,6 +2,9 @@ import { Injectable, Injector, inject, runInInjectionContext, signal } from '@an
 import { Firestore, collection, deleteField, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { PublishQueueService } from '../../pages/admin/contents/publish-queue/publish-queue.service';
+import { pageChanges, type Change } from '../editing/compare';
+import { HeldError, heldByOther, type EditingHold } from '../editing/hold';
+import { HoldService } from '../editing/hold.service';
 import { PAGE_TEXT_ID, PAGE_TEXT_KEY, type PageTextValues } from '../utils/page-text-model';
 
 /**
@@ -36,6 +39,8 @@ export interface PageTextVersion extends PageTextValues {
 export interface PageTextDraft extends PageTextValues {
     updatedAt?: { toMillis?: () => number } | null;
     updatedBy?: string;
+    /** Who holds the page's words (VE-D76); counts only while they are not published. */
+    editing?: unknown;
 }
 
 /** What a saved value remembers besides itself (VE-D44, VE-D45). */
@@ -48,14 +53,27 @@ export interface PageTextSaveContext {
 
 const millis = (time: { toMillis?: () => number } | null | undefined): number => time?.toMillis?.() ?? 0;
 
-/**
- * Whether a draft has changes not published (VE-D48): it was saved after the
- * draft the published copy was made from.
- */
-export function hasUnpublishedChanges(draft: PageTextDraft | null, published: PublishedPageText | null): boolean {
+/** Whether a draft was saved after the draft the published copy was made from. */
+export function savedSincePublished(draft: PageTextDraft | null, published: PublishedPageText | null): boolean {
     if (!draft) return false;
     if (!published) return true;
     return millis(draft.updatedAt) > millis(published.draftUpdatedAt);
+}
+
+/**
+ * Whether a draft has changes not published (VE-D48): saved since, and its words
+ * differ (VE6.B1). A published copy that names no draft did not go live, so its
+ * page waits whatever the words are.
+ */
+export function hasUnpublishedChanges(draft: PageTextDraft | null, published: PublishedPageText | null): boolean {
+    if (!savedSincePublished(draft, published)) return false;
+    if (published && !published.draftUpdatedAt) return true;
+    return pageChanges(draft, published).length > 0;
+}
+
+/** Someone else holds a page's words: they saved changes that are not published (VE-D77). */
+export function pageHeldByOther(draft: PageTextDraft | null, published: PublishedPageText | null, uid: string | null | undefined): EditingHold | null {
+    return savedSincePublished(draft, published) ? heldByOther(draft, uid) : null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -121,10 +139,9 @@ export class PageTextService {
 }
 
 /**
- * The editors' draft of one page (VE-D52): every field saves on its own, as a
- * field-path update, so two people editing different fields never overwrite
- * each other; the same field saved by two, the last save wins. Others' saves
- * arrive live in `draft`.
+ * The editors' draft of one page: every field saves on its own, as a field-path
+ * update. One person holds the page's words at a time (VE-D76): a save by anyone
+ * else is refused, here and by the rules. Their saves arrive live in `draft`.
  */
 export class PageTextSession {
     /** The draft as last read, live; null before the first read or when there is none. */
@@ -133,6 +150,9 @@ export class PageTextSession {
     readonly loaded = signal(false);
     /** Why the draft could not be read, if it could not. */
     readonly error = signal<string | null>(null);
+
+    /** What is published, as the editor follows it (undefined until it is read); tells whose hold counts and when to let go. */
+    published: () => PublishedPageText | null | undefined = () => null;
 
     private unsubscribe: (() => void) | null = null;
 
@@ -176,6 +196,54 @@ export class PageTextSession {
         this.unsubscribe = null;
     }
 
+    private get holds(): HoldService {
+        return this.injector.get(HoldService);
+    }
+
+    /** The draft's path, as a hold names it. */
+    get path(): string {
+        return `${PAGE_TEXT_DRAFTS}/${this.pageId}`;
+    }
+
+    /** Who else holds the page, or null. */
+    heldBy(): EditingHold | null {
+        const published = this.published();
+        // Not read yet: a hold from before a publish must not stop a save; the rules decide, and throwIfHeld says who.
+        if (published === undefined) return null;
+        return pageHeldByOther(this.draft(), published, this.injector.get(Auth).currentUser?.uid);
+    }
+
+    /** What every save stamps: when, by whom, and the hold. Refused while someone else holds the page. */
+    private stamp(): Record<string, unknown> {
+        const hold = this.heldBy();
+        if (hold) throw new HeldError(hold);
+        const uid = this.uid();
+        const me = this.holds.me() ?? { uid, name: '' };
+        // A hold left from before a publish is over: this one starts now.
+        const published = this.published();
+        const before = published !== undefined && savedSincePublished(this.draft(), published) ? this.draft() : null;
+        return { updatedAt: serverTimestamp(), updatedBy: uid, ...this.holds.stamp(me, before as Record<string, any> | null, false) };
+    }
+
+    /** A save refused: someone else took the page a moment ago, before this screen heard. */
+    private async throwIfHeld(): Promise<void> {
+        const service = this.injector.get(PageTextService);
+        const [stored, published] = await Promise.all([service.draft(this.pageId).catch(() => null), service.published(this.pageId)]);
+        const hold = pageHeldByOther(stored, published, this.injector.get(Auth).currentUser?.uid);
+        if (hold) throw new HeldError(hold);
+    }
+
+    /** Everything is as it is live again: the page is let go (VE-D76). */
+    private async letGo(): Promise<void> {
+        const draft = this.draft();
+        const published = this.published();
+        if (!draft?.editing || published === undefined) return;
+        // A published copy that names no draft did not go live: its words still wait. A page never published has its file's.
+        if ((published && !published.draftUpdatedAt) || pageChanges(draft, published).length) return;
+        const uid = this.uid();
+        await this.run(() => updateDoc(this.ref, { editing: deleteField(), updatedAt: serverTimestamp(), updatedBy: uid }));
+    }
+
     /** One value, with what it was saved against and who saved it. */
     private entry(value: string, context: PageTextSaveContext): Record<string, unknown> {
         const entry: Record<string, unknown> = { value, by: this.uid(), at: serverTimestamp() };
@@ -191,10 +259,12 @@ export class PageTextSession {
      */
     private async write(path: string[], value: unknown, removal = false): Promise<void> {
         for (const part of path) if (!/^[A-Za-z0-9_-]{1,100}$/.test(part)) throw new Error(`Not a field: ${path.join('.')}`);
-        const stamp = { updatedAt: serverTimestamp(), updatedBy: this.uid() };
+        const stamp = this.stamp();
         try {
             await this.run(() => updateDoc(this.ref, { [path.join('.')]: value, ...stamp }));
+            await this.letGo();
         } catch (error: any) {
+            if (error?.code === 'permission-denied') await this.throwIfHeld();
             if (error?.code !== 'not-found') throw error;
             if (removal) return;
             const nested = path.reduceRight<unknown>((inner, key) => ({ [key]: inner }), value) as Record<string, unknown>;
@@ -260,16 +330,64 @@ export class PageTextSession {
         }
         if (draft.urls && key in draft.urls) paths[`urls.${key}`] = deleteField();
         if (!Object.keys(paths).length) return;
-        const uid = this.uid();
-        await this.run(() => updateDoc(this.ref, { ...paths, updatedAt: serverTimestamp(), updatedBy: uid }));
+        const stamp = this.stamp();
+        await this.run(() => updateDoc(this.ref, { ...paths, ...stamp }));
+        await this.letGo();
     }
 
     /** Restore (VE-D51): a published version becomes the draft, which then needs Publish. */
     async restore(version: PageTextValues): Promise<void> {
-        const uid = this.uid();
+        const stamp = this.stamp();
         const values: Record<string, unknown> = {};
         for (const field of ['text', 'urls', 'seo', 'shareImage'] as const) if (version[field]) values[field] = version[field];
-        await this.run(() => setDoc(this.ref, { ...values, updatedAt: serverTimestamp(), updatedBy: uid }));
+        await this.run(() => setDoc(this.ref, { ...values, ...stamp }));
+        await this.letGo();
+    }
+
+    /** What differs from what is live (VE-D80). */
+    changes(): Change[] {
+        return pageChanges(this.draft(), this.published() ?? null);
+    }
+
+    /**
+     * The live values whole, with what each was saved against: the newest version in
+     * History, since the published copy holds bare values. The bare ones when the
+     * newest version is not what is live.
+     */
+    private async liveValues(): Promise<PageTextValues> {
+        const published = this.published();
+        const [newest] = await this.injector.get(PageTextService).history(this.pageId, 1).catch(() => [] as PageTextVersion[]);
+        if (newest && !pageChanges(newest, published).length) return newest;
+        return published ?? {};
+    }
+
+    /** Puts one change back to what is live (VE-D83). */
+    async putBack(change: Change): Promise<void> {
+        const live = await this.liveValues();
+        const [kind, key] = change.field.split(/:(.*)/s);
+        const write = (path: string[], value: unknown) => this.write(path, value ?? deleteField(), value === undefined);
+        if (kind === 'text') return write(['text', change.lang, key], live.text?.[change.lang]?.[key]);
+        if (kind === 'url') return write(['urls', key], live.urls?.[key]);
+        if (kind === 'seo') return write(['seo', change.lang, key], live.seo?.[change.lang]?.[key as 'title' | 'description']);
+        return write(['shareImage'], live.shareImage);
+    }
+
+    /** Discard changes (VE-D83): the draft is kept, then goes back to what is live. */
+    async discard(): Promise<void> {
+        const live = await this.liveValues();
+        await this.holds.keep(this.path, 'discard');
+        await this.restore(live);
+    }
+
+    /** Restores a kept draft (VE-D84); what is there now is kept first. */
+    async restoreKept(values: PageTextValues): Promise<void> {
+        await this.holds.keep(this.path, 'discard');
+        await this.restore(values);
+    }
+
+    /** Take over (VE-D81) from the person shown. */
+    takeOver(from: string): Promise<boolean> {
+        return this.holds.takeOver(this.path, from);
     }
 
     /** Publishes the draft through the publish queue (VE-D57). */

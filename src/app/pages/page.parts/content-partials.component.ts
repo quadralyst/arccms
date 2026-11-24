@@ -24,7 +24,7 @@ import { IContentTranslation, mergeTranslation } from '../admin/contents/draft-c
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { siteTemplateUrl } from '../../core/site/site';
 import { ArcZones } from '../../core/time/arc-zones.service';
-import { CardDraft, cardsWithDraft, cardsWithDrafts, PageCardDrafts } from './card-draft';
+import { type PageCardNote, CardDraft, cardsWithDraft, cardsWithDrafts, PageCardDrafts } from './card-draft';
 
 /** The most entries a card block shows, as when published (functions/src/pages/card-blocks.ts). */
 export const MAX_CARD_BLOCK_COUNT = 50;
@@ -234,7 +234,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         if (!page) return null;
         const shown = cardsWithDrafts(this.publishedCards() as unknown as Record<string, any>[], page,
             entryOrderOf(this.currentContentType()), this.shownCount());
-        return { ...shown, cards: shown.cards as unknown as IContents[], leaving: shown.leaving as unknown as IContents[] };
+        return { ...shown, notes: page.notes ?? {}, cards: shown.cards as unknown as IContents[], leaving: shown.leaving as unknown as IContents[] };
     });
 
     /** The cards shown, with the preview's draft among them when it is of this type. */
@@ -431,7 +431,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
 
         if (this.pageEditing && !this.inChrome() && isPlatformBrowser(this.platformId)) {
             const page = untracked(() => this.pageShown());
-            if (page) setTimeout(() => this.markPageCards(page.cards, page.leaving, page.changedIds, page.tookLastPlace), 0);
+            if (page) setTimeout(() => this.markPageCards(page.cards, page.leaving, page.changedIds, page.tookLastPlace, page.notes), 0);
         }
 
         // The page's scripts do not run on the Visual Editor (VE-D55).
@@ -460,7 +460,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
      * (`data-arc-draft="last"`, as VE2) and one Publish
      * would push out (`data-arc-leaving`), for the screen's card bar.
      */
-    private markPageCards(cards: IContents[], leaving: IContents[], changed: Set<string>, tookLastPlace: boolean): void {
+    private markPageCards(cards: IContents[], leaving: IContents[], changed: Set<string>, tookLastPlace: boolean, notes: Readonly<Record<string, PageCardNote>> = {}): void {
         const host = this.host.nativeElement as HTMLElement;
         const type = this.contentType();
         [...cards, ...leaving].forEach((entry, index) => {
@@ -469,7 +469,13 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             card.setAttribute('data-arc-card-id', entry.id);
             card.setAttribute('data-arc-card-type', type);
             card.toggleAttribute('data-arc-leaving', index >= cards.length);
-            card.toggleAttribute('data-arc-changed', changed.has(entry.id));
+            const note = notes[entry.id];
+            // Only this person's own changes on the page are Publish's to take (VE-D72).
+            card.toggleAttribute('data-arc-changed', changed.has(entry.id) && !note);
+            card.toggleAttribute('data-arc-theirs', !!note?.theirs);
+            card.toggleAttribute('data-arc-elsewhere', !!note?.elsewhere);
+            if (note?.held) card.setAttribute('data-arc-held', note.held);
+            else card.removeAttribute('data-arc-held');
             if (tookLastPlace && index === cards.length - 1) card.setAttribute('data-arc-draft', 'last');
             else card.removeAttribute('data-arc-draft');
         });

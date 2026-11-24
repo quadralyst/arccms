@@ -3875,6 +3875,29 @@ describe('CreateContentComponent', () => {
             expect(el.querySelector('.settings-sidebar .sidebar-tabs')).not.toBeNull();
         });
 
+        it('has the title in Basic, the same value as on the page, and opens on it when it is missing (VE-D68)', async () => {
+            fixture.componentRef.setInput('pageMode', true);
+            fixture.componentRef.setInput('pageHooks', { reveal: () => false, openPanel: vi.fn() });
+            component.activeTab = 'seo';
+            fixture.detectChanges();
+            await (component as any).revealMissingRequired(['title']);
+            expect(component.activeTab).toBe('basic');
+            component.cdr.detectChanges();
+            const input = fixture.nativeElement.querySelector('#req-title [data-testid="panel-title"]') as HTMLInputElement;
+            expect(input).not.toBeNull();
+            input.value = 'Typed in the panel';
+            input.dispatchEvent(new Event('input'));
+            expect(component.pageTitle).toBe('Typed in the panel');
+            component.focusField('title');
+            expect(component.activeTab).toBe('basic');
+        });
+
+        it('keeps the title above the body in the form editor, once', () => {
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelectorAll('#req-title')).toHaveLength(1);
+            expect(fixture.nativeElement.querySelector('[data-testid="panel-title"]')).toBeNull();
+        });
+
         it('offers Edit on the page for an entry of a type with pages, on the form editor only', () => {
             expect(component.canEditOnPage()).toBe(false);
             component.session.typeSlug.set('article');

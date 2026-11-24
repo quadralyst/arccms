@@ -14,14 +14,11 @@
     &.active { color: var(--arc-admin-accent); border-bottom-color: currentColor; font-weight: 600; }
 }
 .panel-body { padding: 16px; }
-.panel-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.9rem; }
+.panel-field { margin-bottom: 16px; }
+.address { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 6px; font-size: 0.85rem; overflow-wrap: anywhere; a { flex: 1; min-width: 0; } }
 .panel-label { font-size: 0.85rem; font-weight: 600; }
 .form-control::placeholder { color: #9aa0a6; opacity: 1; }
 .counter { font-size: 0.75rem; color: var(--bs-secondary-color, #6c757d); margin-top: 2px; &.over { color: #b02a37; } }
 .share-image { display: block; max-width: 100%; max-height: 140px; border-radius: 6px; margin-bottom: 6px; }
 .version { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; font-size: 0.9rem; }
 .version + .version { border-top: 1px solid var(--bs-border-color-translucent, #eee); }
-.page-status { font-size: 0.8rem; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
-.status-file { background: #eef0f2; color: #495057; }
-.status-published { background: #e3f4e8; color: #1e6b34; }
-.status-changes { background: #fff3cd; color: #7a5a00; }

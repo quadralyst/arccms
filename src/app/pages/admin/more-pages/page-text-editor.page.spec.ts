@@ -203,17 +203,23 @@ describe('PageTextEditorPage', () => {
         pushPublished({ draftUpdatedAt: { toMillis: () => 5 }, publishedAt: { toMillis: () => 6 } });
         await vi.advanceTimersByTimeAsync(0);
         fixture.detectChanges();
-        expect(el.querySelector('.panel .page-status')?.textContent).toContain('Published');
+        expect(el.querySelector('.panel [data-testid="edit-state"]')?.textContent).toContain('Published');
+        expect(el.querySelector('.editor-bar [data-testid="edit-state"]')?.textContent).toContain('Published');
     });
 
-    it('edits the title and description in the SEO tab', async () => {
+    it('edits the title and summary in Basic, saved as the SEO values, and shows them in the SEO tab (VE-D68, VE-D69)', async () => {
         const el = await open();
-        Array.from(el.querySelectorAll<HTMLButtonElement>('.panel-tab')).find((b) => b.textContent?.trim() === 'SEO')!.click();
-        fixture.detectChanges();
-        expect(input(el, 'seo-title').placeholder).toBe('Bakery');
-        type(input(el, 'seo-title'), 'Fresh bread');
+        expect(input(el, 'page-title').placeholder).toBe('Bakery');
+        type(input(el, 'page-title'), 'Fresh bread');
+        type(input(el, 'page-summary'), 'Baked daily');
         await vi.advanceTimersByTimeAsync(800);
         expect(session['saveSeo']).toHaveBeenCalledWith('en', 'title', 'Fresh bread');
+        expect(session['saveSeo']).toHaveBeenCalledWith('en', 'description', 'Baked daily');
+        Array.from(el.querySelectorAll<HTMLButtonElement>('.panel-tab')).find((b) => b.textContent?.trim() === 'SEO')!.click();
+        fixture.detectChanges();
+        const seo = el.querySelector('[data-testid="seo-panel"]')!;
+        expect(seo.querySelector('input, textarea')).toBeNull();
+        expect(seo.querySelector('[data-testid="search-preview"]')?.textContent).toContain('Fresh bread');
     });
 
     it('restores a version from History into the draft (VE-D51)', async () => {

@@ -1,3 +1,4 @@
+import { REPLACE_MARKER } from '../contents/standard-pages/standard-pages';
 import type { PageTextDraft } from '../../../core/site/page-text.service';
 import type { PageTextEntry } from '../../../core/utils/page-text-model';
 import type { PageCardBlock, PageFile, PageTextArea } from '../../../core/utils/page-text-areas';
@@ -164,4 +165,14 @@ export function seoView(ctx: EditorContext): SeoView {
         description: own('description'), descriptionFallback: fallback('description'),
         shareImage: usable(ctx.draft?.shareImage?.value) ? ctx.draft!.shareImage!.value : '',
     };
+}
+
+/** Text still to replace in what editors saved for the page (the values, not the file's words kept beside them). */
+export function pageValuesHaveReplace(draft: unknown): boolean {
+    const walk = (node: unknown, key: string): boolean => {
+        if (typeof node === 'string') return key === 'value' && node.includes(REPLACE_MARKER);
+        if (!node || typeof node !== 'object') return false;
+        return Object.entries(node as Record<string, unknown>).some(([k, v]) => walk(v, k));
+    };
+    return walk(draft, '');
 }

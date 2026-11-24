@@ -90,7 +90,8 @@ a[data-arc-edit], a[data-arc-edit] * { cursor: pointer; }
 [data-arc-card-id] [data-arc-sub]:hover { outline: 1px dotted var(--arc-edit-accent); outline-offset: 1px; }
 [data-arc-card-id] [data-arc-editing] { outline: 2px solid var(--arc-edit-accent); outline-offset: 2px; cursor: text; }
 [data-arc-leaving] { opacity: .45; }
-[data-arc-leaving][data-arc-note]::after { content: attr(data-arc-note); display: block; margin-top: 4px; padding: 2px 6px; border-radius: 4px;
+[data-arc-card-id]:is([data-arc-held], [data-arc-elsewhere], [data-arc-theirs]) { outline: 2px dashed #b45309; outline-offset: 4px; }
+:is([data-arc-leaving], [data-arc-held], [data-arc-elsewhere])[data-arc-note]::after { content: attr(data-arc-note); display: block; margin-top: 4px; padding: 2px 6px; border-radius: 4px;
   font: 600 12px/1.4 system-ui, sans-serif; color: #fff; background: #333; opacity: 1; }
 arc-header [data-arc-card-id], arc-footer [data-arc-card-id] { cursor: auto; outline: none; }
 `;

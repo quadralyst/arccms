@@ -1,4 +1,5 @@
 import { computed, inject, Injectable, NgZone, OnDestroy, signal, untracked } from '@angular/core';
+import { deleteField } from '@angular/fire/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import { TranslocoService } from '@jsverse/transloco';
 import { Subject, Subscription, firstValueFrom } from 'rxjs';
@@ -15,6 +16,9 @@ import { TranslationKey } from '../../../../core/i18n/translation-keys';
 import {
   PreviewChannel, PreviewMessage, previewSessionKey, previewUrl, previewWindowName,
 } from '../../../../core/preview/preview-channel';
+import { entryChanges, type Change } from '../../../../core/editing/compare';
+import { HeldError, heldByOther, holdOf, isHeld, type EditingHold } from '../../../../core/editing/hold';
+import { HoldService, type KeptDraft } from '../../../../core/editing/hold.service';
 import { LocalizationService } from '../../../../core/services/localization.service';
 import { AuthState } from '../../../(auth)/auth.store';
 import { CollectionRefSyncService } from '../content-store/collection-ref-sync.service';
@@ -30,9 +34,11 @@ import {
   translatableHeadingKey,
   translatableRepeaterKeys,
 } from './content-translation.model';
+import { ContentPublishState, deriveContentStatus, toDate } from './content-status';
 import { DraftContentsService } from './draft-contents.service';
 import { DraftContentsStore } from './draft-contents.store';
-import { isEntryChanged, isEntryGone } from './entry-changed';
+import { editState, type EditState } from '../../edit/edit-state';
+import { changedSinceOpened, isEntryChanged, isEntryGone } from './entry-changed';
 import { BACKLINK_FIELD, BacklinkChange, SERIES_FIELDS, SeriesField, SeriesLinks, linkedId, planBacklinks, seriesReference } from './series-links';
 
 /** How long after the last edit an entry saves itself. */
@@ -173,6 +179,24 @@ export class EntryDraftSession implements OnDestroy {
   readonly entryChanged = signal(false);
   /** The save that found the change, run again over theirs by Keep mine. */
   private overwriteAction: (() => void) | null = null;
+  // ── One person holds an entry (VE-D76 to VE-D82) ───────────────────────
+  private holds = inject(HoldService);
+  /** Someone else holds the entry: it is shown, and follows their work, but nothing can be changed. */
+  readonly heldBy = signal<EditingHold | null>(null);
+  /** The entry was taken over with words here not saved: they stay on screen to copy, and nothing replaces them. */
+  readonly lostWords = signal(false);
+  /** The stored draft and the published copy, followed while the entry is open. */
+  private storedDraft: Record<string, any> | null = null;
+  readonly publishedCopy = signal<Record<string, any> | null>(null);
+  /**
+   * Where the entry is being changed, for which page's Publish takes it (VE-D72):
+   * a page's id for a card that goes out with that page, null for a card only
+   * looked through there, undefined in the entry's own editors, where a change
+   * belongs to no page.
+   */
+  cardOnPage: string | null | undefined = undefined;
+  private followedPath = '';
+  private stopFollowing: (() => void)[] = [];
   /** The last write failed. Stays until a write works (4.4). */
   readonly saveFailed = signal(false);
   /** What Retry runs: the write that failed. */
@@ -194,6 +218,19 @@ export class EntryDraftSession implements OnDestroy {
   /** Publishing could not start, or no answer came: the failure line stays (4.3). */
   readonly publishProblem = signal<'' | 'start' | 'no_answer' | 'template' | 'build'>('');
   readonly deployStatus = signal<DeployStatusUpdate['deployStatus']>(null);
+  /** Where the stored draft stands against what is published, as the entries list says it (VE-D70). */
+  readonly publishedState = signal<ContentPublishState>('draft');
+  /**
+   * Whether `publishedState` can be told: an entry published before
+   * `lastPublishedAt` existed may hold changes nobody can see from the dates.
+   */
+  readonly publishedStateKnown = signal(true);
+  /** A stored entry was read: its state can be shown. A new entry's is "Not published yet" from the start. */
+  readonly entryRead = signal(false);
+  /** Counts the publishes that landed while the entry is open: History reads itself again (VE-D71). */
+  readonly publishesLanded = signal(0);
+  /** A save went through after Publish was asked for, so what lands is not what is stored. */
+  private savedSincePublish = false;
   readonly deployError = signal<string>('');
   private deployStatusSubscription: Subscription | null = null;
 
@@ -264,7 +301,7 @@ export class EntryDraftSession implements OnDestroy {
     this.autoSaveSubscription = this.autoSaveTrigger$.pipe(
       debounceTime(AUTO_SAVE_DELAY_MS),
       filter(() => !!this.contentId),
-      filter(() => !this.isSavingDraft && !this.isAutoSaving && !this.creating() && !this.entryChanged()),
+      filter(() => !this.isSavingDraft && !this.isAutoSaving && !this.creating() && !this.entryChanged() && !this.heldBy()),
       // Never rewrite an unchanged document: that bumps modifiedAt and makes
       // the list report the item as edited-since-publish when it is not.
       filter(() => this.hasUnsavedDraftChanges() || this.dirtyTranslations.size > 0),
@@ -301,6 +338,18 @@ export class EntryDraftSession implements OnDestroy {
 
   /** A stored entry arrived or was replaced: the screen shows it and it is the clean state. */
   load(contentData: any): void {
+    this.entryRead.set(!!contentData?.id);
+    // The published collection uses the same document id as the draft, so
+    // once the entry has been published its id IS the publishedId (History).
+    if (contentData?.publishedStatus && contentData?.id) {
+      this.publishedId = contentData.id;
+    }
+    if (contentData?.id) this.follow(contentData.id);
+    // A publish still running answers for itself.
+    if (this.deployStatus() !== 'pending') {
+      this.publishedState.set(deriveContentStatus(contentData));
+      this.publishedStateKnown.set(!contentData?.publishedStatus || !!contentData?.lastPublishedAt);
+    }
     // The stored entry as opened: a later save checks it is still this one (4.5).
     this.openedModifiedAt = contentData?.modifiedAt ?? null;
     if (contentData?.id) {
@@ -327,16 +376,8 @@ export class EntryDraftSession implements OnDestroy {
       return;
     }
 
-    // The published collection uses the same document id as the draft, so
-    // once the entry has been published its id IS the publishedId (History).
-    if (contentData?.publishedStatus && contentData?.id) {
-      this.publishedId = contentData.id;
-    }
-    if (contentData?.publishedOn) {
-      this.lastPublishedDate = contentData.publishedOn?.seconds
-        ? new Date(contentData.publishedOn.seconds * 1000)
-        : new Date(contentData.publishedOn);
-    }
+    // The last publish that landed. The draft keeps its first `publishedOn` (VE-D71).
+    this.lastPublishedDate = toDate(contentData?.lastPublishedAt) ?? toDate(contentData?.publishedOn);
 
     this.view.fill(contentData);
 
@@ -550,7 +591,20 @@ export class EntryDraftSession implements OnDestroy {
    */
   private async persistPendingTranslations(docId: string, retry?: () => void): Promise<boolean> {
     if (!docId || !this.typeSlug() || this.dirtyTranslations.size === 0) return true;
+    this.savingTranslations = true;
+    try {
+      return await this.writePendingTranslations(docId, retry);
+    } finally {
+      this.savingTranslations = false;
+      // A language is a change like any other; whether it differs from what is live is looked at once it is stored.
+      if (this.publishedState() === 'published' && this.deployStatus() !== 'pending') this.publishedState.set('edited');
+      void this.settle();
+    }
+  }
 
+  private savingTranslations = false;
+
+  private async writePendingTranslations(docId: string, retry?: () => void): Promise<boolean> {
     const languages = [...this.dirtyTranslations];
     let failure: unknown = null;
     let typedMeanwhile = false;
@@ -572,7 +626,7 @@ export class EntryDraftSession implements OnDestroy {
         if (isTranslationEmpty(translation)) {
           // Nothing left in this language: drop the variant so it falls back
           // to the default language instead of publishing an empty page.
-          await this.draftContentsService.deleteTranslation(this.typeSlug(), docId, lang);
+          this.openedModifiedAt = await this.draftContentsService.deleteTranslation(this.typeSlug(), docId, lang) ?? this.openedModifiedAt;
           this.translatedLanguages.update(langs => langs.filter(l => l !== lang));
         } else {
           await this.draftContentsService.saveTranslation(this.typeSlug(), docId, translation);
@@ -766,12 +820,13 @@ export class EntryDraftSession implements OnDestroy {
 
   /** Deletes the active translation, reverting the language to base content. */
   async clearTranslation(): Promise<void> {
-    if (!this.isTranslating() || !this.contentId) return;
+    if (!this.isTranslating() || !this.contentId || this.heldBy()) return;
     const lang = this.activeLang();
 
     this.isSavingTranslation.set(true);
     try {
-      await this.draftContentsService.deleteTranslation(this.typeSlug(), this.contentId, lang);
+      this.openedModifiedAt = await this.draftContentsService.deleteTranslation(this.typeSlug(), this.contentId, lang) ?? this.openedModifiedAt;
+      this.writeWorked();
       this.translatedLanguages.update((langs) => langs.filter((l) => l !== lang));
       this.translationEdits.delete(lang);
       this.loadedTranslations.delete(lang);
@@ -785,6 +840,7 @@ export class EntryDraftSession implements OnDestroy {
       this.notify.error('admin.contents.editor.translation_clear_failed');
     } finally {
       this.isSavingTranslation.set(false);
+      void this.settle();
       this.view.refresh();
     }
   }
@@ -840,7 +896,7 @@ export class EntryDraftSession implements OnDestroy {
   // ── Save and Publish ─────────────────────────────────────────────────────
 
   async saveAsDraft(afterSave?: () => void, overwrite = false): Promise<void> {
-    if (this.saveInFlight || this.entryGone()) return;
+    if (this.saveInFlight || this.entryGone() || this.heldBy()) return;
     // A first write still under way: wait for it, then save as an update, so
     // Save never makes a second entry (RF4 review H1).
     if (await this.firstWriteDone()) return;
@@ -900,7 +956,7 @@ export class EntryDraftSession implements OnDestroy {
   }
 
   async directPublishContent(overwrite = false): Promise<void> {
-    if (this.saveInFlight || this.entryGone()) return;
+    if (this.saveInFlight || this.entryGone() || this.heldBy()) return;
     if (await this.firstWriteDone()) return;
     // Publishing acts on the whole item: the default language and every
     // translation go live together, from whichever language is on screen.
@@ -1030,7 +1086,13 @@ export class EntryDraftSession implements OnDestroy {
    */
   private writeFailed(error: unknown, retry: () => void, overwrite?: () => void): void {
     this.saveStatusMessage = '';
-    if (isEntryGone(error)) {
+    if (isHeld(error)) {
+      // Someone else made the first change, or took over: their work is theirs, the words here stay to copy.
+      this.heldBy.set((error as HeldError).hold);
+      this.lostWords.set(true);
+      this.saveFailed.set(false);
+      this.retryAction = null;
+    } else if (isEntryGone(error)) {
       // Deleted by someone else: no Retry would ever work (RF4 review L3).
       this.entryGone.set(true);
       this.saveFailed.set(false);
@@ -1048,6 +1110,8 @@ export class EntryDraftSession implements OnDestroy {
 
   /** A write landed: whatever failed before is behind us. */
   private writeWorked(): void {
+    this.savedSincePublish = true;
+    if (this.publishedState() === 'published') this.publishedState.set('edited');
     this.saveFailed.set(false);
     this.retryAction = null;
   }
@@ -1072,7 +1136,9 @@ export class EntryDraftSession implements OnDestroy {
   async reloadTheirs(): Promise<void> {
     this.overwriteAction = null;
     this.entryChanged.set(false);
-    this.writeWorked();
+    this.lostWords.set(false);
+    this.saveFailed.set(false);
+    this.retryAction = null;
     if (this.isTranslating()) await this.switchLanguage(this.defaultLang());
     this.baseStash = null;
     this.translationEdits.clear();
@@ -1130,6 +1196,9 @@ export class EntryDraftSession implements OnDestroy {
     this.contentId = newId;
     this.draftContentStore.adoptCreated({ ...data, id: newId });
     this.storedEcho = untracked(() => this.draftContentStore.currentItem());
+    // Not through a load: what that would set is set here.
+    this.entryRead.set(true);
+    this.follow(newId);
     this.openedModifiedAt = stamp;
     this.lastDraftSavedDate = new Date();
     // See updateContentInDraft: what was written is the clean state.
@@ -1186,7 +1255,7 @@ export class EntryDraftSession implements OnDestroy {
     const written = this.stamped(this.withChangedSeriesLinks(formValues));
 
     try {
-      await this.writeDraft(id, written, overwrite);
+      await this.writeDraft(id, this.marked(written), overwrite);
     } catch (error) {
       // A retry never reruns a Preview's window.open (RF4 review L6).
       const again = (force: boolean) => isPublish ? this.directPublishContent(force) : this.saveAsDraft(undefined, force);
@@ -1240,6 +1309,7 @@ export class EntryDraftSession implements OnDestroy {
     this.publishProblem.set('');
     this.deployError.set('');
     this.deployStatus.set('pending');
+    this.savedSincePublish = false;
     this.view.refresh();
     try {
       await this.publishQueueService.enqueue('publish', this.typeSlug(), id);
@@ -1254,7 +1324,6 @@ export class EntryDraftSession implements OnDestroy {
     this.slugFollowsTitle = false;
     this.publishedSlug.set(this.view.address());
     this.redirectOldAddress.set(true);
-    this.lastPublishedDate = new Date();
     this.startDeployStatusPolling(id);
   }
 
@@ -1285,6 +1354,7 @@ export class EntryDraftSession implements OnDestroy {
             this.deployStatus.set(status.deployStatus);
             this.deployError.set(status.deployError || '');
 
+            if (status.deployStatus === 'deployed' || status.deployStatus === 'skipped') this.publishLanded(docId);
             if (status.deployStatus === 'deployed') {
               this.notify.success('admin.contents.editor.deployed_success');
             } else if (status.deployStatus === 'skipped') {
@@ -1306,6 +1376,294 @@ export class EntryDraftSession implements OnDestroy {
           this.view.refresh();
         },
       });
+  }
+
+  /** The save with the page the change was made on (VE-D72), kept out of what the screen compares. */
+  private marked(written: any): any {
+    if (typeof this.cardOnPage === 'string') return { ...written, changedOnPage: this.cardOnPage };
+    if (this.cardOnPage === undefined && this.storedDraft?.['changedOnPage']) return { ...written, changedOnPage: deleteField() };
+    return written;
+  }
+
+  // ── The hold ─────────────────────────────────────────────────────────────
+
+  /** The entry's draft, as a hold names it. */
+  draftPath(): string {
+    return this.contentId ? `arc_${this.typeSlug()}_drafts/${this.contentId}` : '';
+  }
+
+  /** Follows who holds the entry, and what is published, once per entry. */
+  private follow(id: string): void {
+    const path = `arc_${this.typeSlug()}_drafts/${id}`;
+    if (!this.typeSlug() || this.followedPath === path) return;
+    for (const stop of this.stopFollowing) stop();
+    this.stopFollowing = [];
+    this.followedPath = path;
+    this.storedDraft = null;
+    this.heldBy.set(null);
+    this.lostWords.set(false);
+    this.publishedCopy.set(null);
+    this.followsPublished = '';
+    this.stopFollowing.push(this.holds.follow(path, (data, pending) => this.draftChanged(data, pending)));
+    this.followPublished(id);
+  }
+
+  private followsPublished = '';
+
+  private followPublished(id: string): void {
+    if (!this.publishedId || this.followsPublished === id) return;
+    this.followsPublished = id;
+    this.stopFollowing.push(this.holds.follow(`arc_${this.typeSlug()}/${id}`, (data) => {
+      const before = this.publishedCopy();
+      this.publishedCopy.set(data);
+      // Someone else's publish: History and the date follow it (VE-D71). One pressed here answers when its page is live.
+      const at = toDate(data?.['publishedOn']);
+      if (before && at && at.getTime() !== toDate(before['publishedOn'])?.getTime() && this.deployStatus() !== 'pending') {
+        this.lastPublishedDate = at;
+        this.publishesLanded.update((n) => n + 1);
+        this.view.refresh();
+      }
+      void this.settle();
+    }));
+  }
+
+  /** The stored draft changed: here, by someone else, or who holds it did. */
+  private draftChanged(data: Record<string, any> | null, pending: boolean): void {
+    const me = this.holds.me();
+    // Our own write on its way: the answer follows.
+    if (!data || pending || !me) return;
+    const stored = this.storedDraft;
+    this.storedDraft = data;
+    const hold = heldByOther(data, me.uid);
+    const was = this.heldBy();
+    // The publish function moved the mark and no words: not someone else's save.
+    if (!hold && !was && stored && !entryChanges({ draft: data, published: stored, fields: this.view.fields() }).length) {
+      this.openedModifiedAt = data['modifiedAt'] ?? this.openedModifiedAt;
+    }
+    const theirs = changedSinceOpened(this.openedModifiedAt, data['modifiedAt']);
+    this.heldBy.set(hold);
+    if (hold && !was && this.hasWordsToLose()) {
+      this.lostWords.set(true);
+    } else if (!hold && was && this.lostWords()) {
+      this.wordsFree(theirs);
+    } else if ((hold || was) && !this.lostWords() && theirs) {
+      // View only: the screen follows their work (VE-D79), and shows it once they let go.
+      void this.showStored(data);
+    }
+    void this.settle();
+    this.view.refresh();
+  }
+
+  /** They let go while words here were not saved: ask which to keep when theirs differ, else save these. */
+  private wordsFree(theirs: boolean): void {
+    this.lostWords.set(false);
+    if (!theirs) {
+      this.rescheduleIfEdited();
+      return;
+    }
+    this.overwriteAction = () => void this.performAutoSave(true);
+    this.entryChanged.set(true);
+  }
+
+  /** Words on screen that no save has written. */
+  private hasWordsToLose(): boolean {
+    return this.hasBaseline() && (this.hasUnsavedDraftChanges() || this.translationDirty() || this.dirtyTranslations.size > 0);
+  }
+
+  /**
+   * The stored entry on screen again, in the language being read. The default
+   * language is filled first, then the language: a translation opened over the
+   * old screen would keep its words and write them back later.
+   */
+  private async showStored(stored?: Record<string, any>): Promise<void> {
+    const id = this.contentId;
+    const data = stored ?? await this.holds.read(this.draftPath());
+    if (!data || this.contentId !== id) return;
+    const lang = this.activeLang();
+    if (this.isTranslating()) await this.switchLanguage(this.defaultLang());
+    this.overwriteAction = null;
+    this.entryChanged.set(false);
+    this.lostWords.set(false);
+    this.saveFailed.set(false);
+    this.retryAction = null;
+    this.baseStash = null;
+    this.translationEdits.clear();
+    this.loadedTranslations.clear();
+    this.dirtyTranslations.clear();
+    this.translationDirty.set(false);
+    const item = { ...data, id } as any;
+    this.draftContentStore.adoptCreated(item);
+    this.storedEcho = untracked(() => this.draftContentStore.currentItem());
+    this.load(item);
+    void this.refreshTranslatedLanguages();
+    if (lang && lang !== this.defaultLang()) {
+      // After the load has settled, so what it filled is what the language goes over.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await this.switchLanguage(lang);
+    }
+    this.view.refresh();
+  }
+
+  /** Something is being saved or is still to save, so what is stored is not the last word yet. */
+  private unsettled(): boolean {
+    return this.isSavingDraft || this.isAutoSaving || this.creating() || this.savingTranslations || this.isSavingTranslation()
+      || this.dirtyTranslations.size > 0 || this.translationDirty() || this.deployStatus() === 'pending'
+      || (this.hasBaseline() && this.hasUnsavedDraftChanges());
+  }
+
+  private settling = false;
+  private settleAgain = false;
+
+  /**
+   * Once nothing is left to save: whether the stored words are what is live, every
+   * language, whatever the dates say (VE6.B1). When they are, this person lets go of
+   * the entry (VE-D76). One at a time; a change while it reads asks again.
+   */
+  private async settle(): Promise<void> {
+    if (this.settling) {
+      this.settleAgain = true;
+      return;
+    }
+    this.settling = true;
+    try {
+      do {
+        this.settleAgain = false;
+        await this.settleOnce();
+      } while (this.settleAgain);
+    } catch (error) {
+      // The dates say where it stands; the next save looks again.
+      console.error('[EntryDraft] Could not compare with what is live:', error);
+    } finally {
+      this.settling = false;
+    }
+  }
+
+  private async settleOnce(): Promise<void> {
+    const published = this.publishedCopy();
+    const draft = this.storedDraft;
+    if (!published || !draft || this.publishedState() === 'draft' || this.unsettled()) return;
+    const mine = !this.heldBy() && holdOf(draft)?.by === this.holds.me()?.uid;
+    // Nobody has changes and the dates agree: nothing to read.
+    if (this.publishedState() === 'published' && !mine) return;
+    const base = entryChanges({ draft, published, fields: this.view.fields() });
+    const changed = base.length > 0 || (await this.changes()).length > 0;
+    // Something moved while the languages were read: another settle follows it.
+    if (this.storedDraft !== draft || this.unsettled()) return;
+    this.publishedState.set(changed ? 'edited' : 'published');
+    if (!changed) {
+      this.publishedStateKnown.set(true);
+      if (mine) {
+        const stamp = await this.holds.letGo(this.typeSlug(), this.contentId, this.view.fields());
+        if (stamp) this.openedModifiedAt = stamp;
+      }
+    }
+    this.view.refresh();
+  }
+
+  /** What differs from what is live: every field, every language (VE-D80). Everything, when nothing is. */
+  async changes(): Promise<Change[]> {
+    if (!this.draftPath()) return [];
+    return this.holds.entryChanges(this.typeSlug(), this.contentId, this.view.fields());
+  }
+
+  /** Counts what adds a kept draft, so History reads them again. */
+  readonly keptChanged = signal(0);
+
+  /** Take over (VE-D81) from the person shown: their draft is kept, and the entry is this person's to change. */
+  async takeOver(): Promise<boolean> {
+    const hold = this.heldBy();
+    if (!hold) return false;
+    const taken = await this.holds.takeOver(this.draftPath(), hold.by);
+    if (!taken) return false;
+    this.heldBy.set(null);
+    this.lostWords.set(false);
+    this.keptChanged.update((n) => n + 1);
+    await this.showStored();
+    return true;
+  }
+
+  /**
+   * Publish these (VE-D80): someone else's changes as they are, through the same
+   * checks. Their hold ends when the publish lands; nothing of theirs is written.
+   */
+  async publishTheirs(): Promise<void> {
+    if (!this.heldBy() || this.saveInFlight || this.entryGone()) return;
+    const validation = this.validateForPublish();
+    if (!validation.valid) {
+      this.toastService.openCustomSnackbar(validation.errors[0], 'error', 'error');
+      return;
+    }
+    if (hasReplacePrompt(this.buildDraftFormValues()) && !(await this.askConfirm({
+      titleKey: 'admin.contents.editor.replace_prompt_title',
+      message: this.t('admin.contents.editor.replace_prompt_confirm'),
+      button: this.t('admin.contents.editor.publish_anyway'),
+    }))) return;
+    this.saveInFlight = true;
+    try {
+      await this.holds.markPublished(this.draftPath());
+    } catch (error) {
+      console.error('Error publishing:', error);
+      this.deployStatus.set('failed');
+      this.publishProblem.set('start');
+      this.view.refresh();
+      return;
+    } finally {
+      this.saveInFlight = false;
+    }
+    await this.enqueuePublish(this.contentId);
+  }
+
+  /** What is on screen and not stored goes first, so nothing is half put back or lost. Throws when it cannot. */
+  private async storeScreen(): Promise<void> {
+    if (this.heldBy()) throw new HeldError(this.heldBy()!);
+    if (this.hasUnsavedChanges()) await this.saveAsDraft();
+    if (this.heldBy() || this.hasUnsavedChanges()) throw new Error('What is on screen could not be saved.');
+  }
+
+  /** Puts one change back to what is live (VE-D83); without one, everything: Discard changes. */
+  async putBack(change?: Change): Promise<void> {
+    await this.storeScreen();
+    if (!change) await this.holds.keep(this.draftPath(), 'discard');
+    await this.holds.restorePublished(this.typeSlug(), this.contentId, this.view.fields(), change);
+    this.keptChanged.update((n) => n + 1);
+    await this.showStored();
+  }
+
+  /** Restores a kept draft (VE-D84): it becomes the draft, which then needs Publish. */
+  async restoreKept(kept: KeptDraft): Promise<void> {
+    await this.storeScreen();
+    await this.holds.restoreKept(this.typeSlug(), this.contentId, kept);
+    this.keptChanged.update((n) => n + 1);
+    await this.showStored();
+  }
+
+  /** The entry's state in the words every editor uses (VE-D70). */
+  editState(): EditState {
+    return editState({
+      saving: this.isSavingDraft || this.isAutoSaving || this.creating()
+        || (!this.heldBy() && !this.offline() && this.hasUnsavedChanges() && !this.saveFailed() && !this.entryChanged() && !this.entryGone()),
+      failed: this.saveFailed() || this.entryChanged() || this.entryGone() || this.lostWords()
+        || (this.offline() && !this.heldBy() && this.hasUnsavedChanges()),
+      publishing: this.deployStatus() === 'pending',
+      changed: this.publishedState() === 'edited',
+      live: this.publishedState() !== 'draft',
+    });
+  }
+
+  /** Publish has nothing to do: what is stored is live, and the dates can tell (VE-D73). */
+  nothingToPublish(): boolean {
+    return this.editState() === 'published' && this.publishedStateKnown() && this.deployStatus() !== 'failed';
+  }
+
+  /** The published copy is this draft, unless something was saved since Publish was asked for. */
+  private publishLanded(id: string): void {
+    this.publishedId = id;
+    this.followPublished(id);
+    this.lastPublishedDate = new Date();
+    this.publishedState.set(this.savedSincePublish ? 'edited' : 'published');
+    this.publishedStateKnown.set(true);
+    this.publishesLanded.update((n) => n + 1);
+    void this.settle();
   }
 
   /**
@@ -1331,7 +1689,7 @@ export class EntryDraftSession implements OnDestroy {
    * writes over someone else's save: it stops and asks (4.5).
    */
   async performAutoSave(overwrite = false): Promise<void> {
-    if (!this.contentId || this.isSavingDraft || this.isAutoSaving || this.creating() || this.entryGone()) return;
+    if (!this.contentId || this.isSavingDraft || this.isAutoSaving || this.creating() || this.entryGone() || this.heldBy()) return;
     if (this.entryChanged() && !overwrite) return;
 
     // Fold whatever language is on screen into its stash first. The base
@@ -1354,7 +1712,7 @@ export class EntryDraftSession implements OnDestroy {
     // Series links the editor did not change are left as they are stored.
     const written = this.stamped(this.withChangedSeriesLinks(formValues));
     try {
-      await this.writeDraft(id, written, overwrite);
+      await this.writeDraft(id, this.marked(written), overwrite);
     } catch (error) {
       this.isAutoSaving = false;
       this.writeFailed(error, () => void this.performAutoSave(), () => void this.performAutoSave(true));
@@ -1779,6 +2137,9 @@ export class EntryDraftSession implements OnDestroy {
     this.frameChannel?.close();
     this.frameChannel = null;
     if (typeof window !== 'undefined') window.removeEventListener('pagehide', this.previewLeaving);
+    for (const stop of this.stopFollowing) stop();
+    this.stopFollowing = [];
+    this.followedPath = '';
     this.deployStatusSubscription?.unsubscribe();
     this.autoSaveSubscription?.unsubscribe();
   }

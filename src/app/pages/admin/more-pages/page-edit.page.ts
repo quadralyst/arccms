@@ -1,4 +1,5 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { isHeld } from '../../../core/editing/hold';
 import {
     ChangeDetectionStrategy, Component, ElementRef, HostListener, Injector, OnDestroy, OnInit, PLATFORM_ID, ViewChild,
     computed, effect, inject, signal, untracked, viewChild,
@@ -17,8 +18,16 @@ import { CreateContentComponent, type PageModeHooks } from '../contents/create-c
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 import type { ContentType } from '../contents/content-types/content-types.model';
 import { PageCardActions, cardHasReplace, cardProblem, type CardRef } from './page-card-actions';
+import type { EditState } from '../edit/edit-state';
+import { EditStateComponent } from '../edit/page-status.component';
+import type { Change } from '../../../core/editing/compare';
+import { HoldService } from '../../../core/editing/hold.service';
+import { HoldBarComponent } from '../hold/hold-bar.component';
+import type { ReviewCard } from '../hold/review-changes-dialog.component';
+import { PageReview } from './page-review';
+import { pageValuesHaveReplace } from './page-text-editor.model';
+export { pageValuesHaveReplace };
 import { isPageChange, type PageCardsMessage } from './page-cards';
-import { REPLACE_MARKER } from '../contents/standard-pages/standard-pages';
 import MediaManagerComponent from '../(media)/media.page';
 import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
 import { PagePanel } from '../edit/page-panel';
@@ -38,16 +47,6 @@ const CARD_BAR_WIDTH = 300;
 
 function cssEscape(value: string): string {
     return typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(value) : value.replace(/["\\]/g, '\\$&');
-}
-
-/** Text still to replace in what editors saved for the page (the values, not the file's words kept beside them). */
-export function pageValuesHaveReplace(draft: unknown): boolean {
-    const walk = (node: unknown, key: string): boolean => {
-        if (typeof node === 'string') return key === 'value' && node.includes(REPLACE_MARKER);
-        if (!node || typeof node !== 'object') return false;
-        return Object.entries(node as Record<string, unknown>).some(([k, v]) => walk(v, k));
-    };
-    return walk(draft, '');
 }
 
 /** A type's name inside a sentence ("new testimonial"): its first letter small, unless it starts an acronym. */
@@ -90,6 +89,8 @@ export function pageLivePreviewUrl(name: string, lang: string, defaultLang: stri
 export interface PageCard extends CardRef {
     /** Drawn from a draft with unpublished changes: Publish takes it (VE-D53). */
     changed: boolean;
+    /** Changed on this page by the person whose page is being looked at (VE-D81). */
+    theirs?: boolean;
     /** Publish would push it out of a full block. */
     leaving: boolean;
 }
@@ -103,19 +104,15 @@ export function pageCardsIn(doc: Document): PageCard[] {
         const key = `${found.card.type}/${found.card.id}`;
         const changed = el.hasAttribute('data-arc-changed');
         const leaving = el.hasAttribute('data-arc-leaving');
+        const theirs = el.hasAttribute('data-arc-theirs');
         const known = cards.find((card) => `${card.type}/${card.id}` === key);
         if (known) {
             known.changed ||= changed;
             continue;
         }
-        cards.push({ ...found.card, changed, leaving });
+        cards.push({ ...found.card, changed, leaving, ...(theirs ? { theirs } : {}) });
     }
     return cards;
-}
-
-/** How many changes the one Publish takes: the page's words and SEO count as one, then each card (VE-D53). */
-export function publishCount(pageChanged: boolean, cards: readonly PageCard[]): number {
-    return (pageChanged ? 1 : 0) + cards.filter((card) => card.changed).length;
 }
 
 /** The card bar (VE-D54): the card it is for, where it goes and what it offers. */
@@ -130,6 +127,8 @@ export interface CardBar {
     /** Shown newest first: said on hover. */
     newest: boolean;
     leaving: boolean;
+    /** Someone else is editing the entry: it is not removed from here. */
+    locked?: boolean;
     typeName: string;
 }
 
@@ -151,7 +150,7 @@ interface Box {
 @Component({
     selector: 'arc-page-edit',
     standalone: true,
-    imports: [TranslocoPipe, PageTextPanelComponent, CreateContentComponent],
+    imports: [TranslocoPipe, EditStateComponent, HoldBarComponent, PageTextPanelComponent, CreateContentComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     styleUrls: ['../edit/edit-screen.css'],
     styles: [`
@@ -161,13 +160,16 @@ interface Box {
         .page-card-body { width: min(420px, 100vw - 24px); }
         .page-card-body > arc-create-content { overflow-x: hidden; }
         .page-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--bs-border-color, #dee2e6); }
+        .page-card-note { padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid var(--bs-border-color, #dee2e6); }
         .page-card-type { font-size: .8rem; color: var(--bs-secondary-color, #6c757d); }
         .arc-ed-bar-text { width: auto; padding: 0 8px; font-size: 12px; }
     `],
     template: `
     <div class="arc-ed-strip" role="region" [attr.aria-label]="'admin.edit_page.strip' | transloco" data-testid="page-edit-strip">
-        <span class="arc-ed-title">{{ pageTitle() }}</span>
-        <span [class]="'arc-ed-status arc-ed-' + status()" role="status" data-testid="page-edit-status">{{ ('admin.edit_page.' + status()) | transloco }}</span>
+        <span class="arc-ed-title arc-ed-name" [title]="pageTitle()">{{ pageTitle() }}</span>
+        @if (panelRef()?.known() || data.session?.error()) {
+        <arc-edit-state [state]="status()" [dark]="true" data-testid="page-edit-status" />
+        }
         @if (typingRich()) {
         <span class="arc-ed-group arc-ed-format" role="toolbar" [attr.aria-label]="'admin.edit_page.formatting' | transloco">
             <button type="button" class="arc-ed-btn arc-ed-fmt" (mousedown)="$event.preventDefault()" (click)="format('bold')" [attr.aria-label]="'admin.more_pages.editor.bold' | transloco"><b>B</b></button>
@@ -199,8 +201,8 @@ interface Box {
         <button type="button" class="arc-ed-btn" (click)="toClassic()" [title]="'admin.edit_page.form_title' | transloco" data-testid="page-edit-classic">{{ 'admin.edit_page.form' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="panel.toggle()" [class.arc-ed-on]="panel.open()"
             [attr.aria-expanded]="panel.open()" aria-controls="arc-ed-panel" data-testid="page-edit-settings">{{ 'admin.edit_page.page_settings' | transloco }}</button>
-        <button type="button" class="arc-ed-btn arc-ed-primary" (click)="publish()" [disabled]="!panelRef() || saving() > 0 || publishing() || checking() || changeCount() === 0"
-            [attr.aria-busy]="checking() || publishing()" data-testid="page-edit-publish">{{ publishLabel() }}</button>
+        <button type="button" class="arc-ed-btn arc-ed-primary" (click)="publish()" [disabled]="!panelRef()?.canPublish() || checking()"
+            [attr.aria-busy]="checking() || publishing()" data-testid="page-edit-publish">{{ 'admin.contents.editor.publish' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="close()" data-testid="page-edit-close">{{ 'common.actions.close' | transloco }}</button>
     </div>
     @if (data.loadError()) {
@@ -211,6 +213,9 @@ interface Box {
     }
     @if (saveError()) {
     <div class="alert alert-danger m-0 rounded-0 py-2" role="alert">{{ 'admin.more_pages.editor.not_saved_detail' | transloco }}</div>
+    }
+    @if (data.heldBy(); as hold) {
+    <arc-hold-bar [hold]="hold" (review)="review()" />
     }
     <div class="arc-ed-stage">
         @if (frameUrl(); as url) {
@@ -236,14 +241,24 @@ interface Box {
                         <i class="bi bi-arrow-left" aria-hidden="true"></i> {{ 'admin.edit_page.back_to_page' | transloco }}</button>
                     <span class="page-card-type">{{ typeName(open.type) }}</span>
                 </div>
+                @if (cardAside()) {
+                <div class="page-card-note" data-testid="page-edit-card-aside">
+                    <p class="small mb-1">{{ 'admin.hold.card_publish_with_hint' | transloco }}</p>
+                    <button type="button" class="btn btn-outline-primary btn-sm" (click)="includeCard(open)" data-testid="page-edit-card-include">{{ 'admin.hold.card_publish_with' | transloco }}</button>
+                </div>
+                } @else {
+                <p class="page-card-note small mb-0">{{ 'admin.hold.card_everywhere' | transloco: { type: singularName(open.type) } }}</p>
+                }
                 @for (each of [open]; track each.type + '/' + each.id) {
-                <arc-create-content [contentTypeSlug]="each.type" [contentId]="each.id" [pageMode]="true" [pageHooks]="cardHooks" />
+                <arc-create-content [contentTypeSlug]="each.type" [contentId]="each.id" [pageMode]="true" [cardMode]="true"
+                    [cardOnPage]="cardAside() ? null : data.pageId" [pageHooks]="cardHooks" />
                 }
                 }
                 <div class="page-text-panel-box" [hidden]="!!card()">
                 @if (data.session; as session) {
                 <arc-page-text-panel #panelRef [session]="session" [lang]="data.lang()" [defaultLang]="data.defaultLang()" [seo]="data.seo()"
-                    [busy]="saving() > 0" [beforePublish]="beforePublish" [publishWith]="publishWith" [extraChanges]="changedCards().length" />
+                    [busy]="saving() > 0" [failed]="!!saveError()" [url]="data.url()" [beforePublish]="beforePublish" [publishWith]="publishWith" [extraChanges]="changedCards().length"
+                    [locked]="!!data.heldBy()" (review)="review()" />
                 }
                 </div>
             </div>
@@ -271,7 +286,7 @@ interface Box {
         @if (b.hasPages) {
         <button type="button" class="arc-ed-bar-btn arc-ed-bar-text" (click)="openCardPage(b)" [title]="'admin.edit_page.card_open_title' | transloco"
             data-testid="page-edit-card-open">{{ 'admin.edit_page.card_open' | transloco }}</button>
-        } @else {
+        } @else if (!b.locked) {
         <button type="button" class="arc-ed-bar-btn" (click)="removeCard(b)" [title]="'common.actions.remove' | transloco"
             [attr.aria-label]="'common.actions.remove' | transloco" data-testid="page-edit-card-remove"><i class="bi bi-trash" aria-hidden="true"></i></button>
         }
@@ -379,16 +394,14 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     /** The cards on the page, read from the frame's marks. */
     readonly cards = signal<PageCard[]>([]);
     readonly changedCards = computed(() => this.cards().filter((card) => card.changed));
+    /** The open card was changed elsewhere: its changes stay out of this page's Publish until it is included (VE-D72). */
+    readonly cardAside = signal(false);
+    private reviews = inject(PageReview);
+    private holds = inject(HoldService);
     readonly cardBar = signal<CardBar | null>(null);
     readonly publishing = computed(() => this.panelRef()?.publishing() ?? false);
     /** The one Publish is saving and checking the cards (VE-D53). */
     readonly checking = signal(false);
-    readonly changeCount = computed(() => publishCount(this.panelRef()?.status() === 'changes', this.cards()));
-    readonly publishLabel = computed(() => {
-        const count = this.changeCount();
-        if (count === 1) return this.t('admin.edit_page.publish_one');
-        return count > 1 ? this.t('admin.edit_page.publish_many', { count }) : this.t('admin.more_pages.editor.publish');
-    });
     /** What the card form in page mode asks of the screen. */
     readonly cardHooks: PageModeHooks = {
         reveal: () => false,
@@ -410,7 +423,11 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     private drawTimer: ReturnType<typeof setTimeout> | null = null;
 
     readonly pageTitle = computed(() => (this.data.isHome ? this.t('admin.more_pages.home_page') : this.data.fileTitle()));
-    readonly status = computed(() => (this.saveError() || this.data.session?.error() ? 'not_saved' : this.saving() > 0 ? 'saving' : 'saved'));
+    /** The panel says it, the same there and on the strip (VE-D70); until it is there the page is opening. */
+    readonly status = computed<EditState>(() => {
+        if (this.saveError() || this.data.session?.error()) return 'not_saved';
+        return this.checking() ? 'publishing' : this.panelRef()?.state() ?? 'published';
+    });
     readonly frameUrl = computed<SafeResourceUrl | null>(() => {
         if (!isPlatformBrowser(this.platformId) || this.data.loading() || this.data.loadError()) return null;
         return this.sanitizer.bypassSecurityTrustResourceUrl(pageEditFrameUrl(this.data.name, this.data.lang(), this.data.defaultLang()));
@@ -422,6 +439,19 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         effect(() => {
             const views = this.views();
             if (this.drawn()) this.inPlace?.patch(views);
+        });
+        // Someone else's page is drawn with the cards they changed on it, and its own areas only looked at (VE-D72, VE-D79).
+        effect(() => {
+            const by = this.data.heldBy()?.by ?? null;
+            if (!this.drawn()) return;
+            untracked(() => {
+                this.post({ arcPageCards: 'shows', uid: by });
+                this.showReveal();
+                if (by) {
+                    this.leaveSpot();
+                    this.closeBox();
+                }
+            });
         });
         // The frame draws the open card from its form, as typed (VE-D54).
         effect(() => {
@@ -475,15 +505,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         this.inPlace?.detach();
         this.inPlace = new PageInPlace(doc, this);
         this.inPlace.attach();
-        this.reveal?.detach();
-        this.reveal = new EditableReveal(doc, {
-            selector: '[data-arc-edit]:not([data-arc-fixed]), [data-arc-card-id]',
-            outlineSelector: '[data-arc-edit]:not([data-arc-fixed]), [data-arc-card-id]:not(:is(arc-header, arc-footer) *)',
-            // Cards in the header and footer are not edited here (VE-D20).
-            skip: (el) => el.hasAttribute('data-arc-card-id') && !el.hasAttribute('data-arc-edit') && !!el.closest('arc-header, arc-footer'),
-        });
-        this.reveal.attach();
-        this.reveal.setShown(this.showEditable());
+        this.showReveal();
         doc.defaultView?.addEventListener('scroll', () => this.place(), { passive: true });
         this.drawn.set(false);
         const started = Date.now();
@@ -506,6 +528,22 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             this.drawTimer = setTimeout(wait, 200);
         };
         wait();
+    }
+
+    /** The outlines of what can be changed: the cards alone while someone else holds the page's words. */
+    private showReveal(): void {
+        const doc = this.frameDoc;
+        if (!doc) return;
+        const areas = this.data.heldBy() ? '' : '[data-arc-edit]:not([data-arc-fixed]), ';
+        this.reveal?.detach();
+        this.reveal = new EditableReveal(doc, {
+            selector: `${areas}[data-arc-card-id]`,
+            outlineSelector: `${areas}[data-arc-card-id]:not(:is(arc-header, arc-footer) *)`,
+            // Cards in the header and footer are not edited here (VE-D20).
+            skip: (el) => el.hasAttribute('data-arc-card-id') && !el.hasAttribute('data-arc-edit') && !!el.closest('arc-header, arc-footer'),
+        });
+        this.reveal.attach();
+        this.reveal.setShown(this.showEditable());
     }
 
     /** Where an element of the frame is on this screen. */
@@ -539,6 +577,8 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     // ── PageInPlaceHost ────────────────────────────────────────────────────
 
     areaFor(key: string): AreaView | null {
+        // Someone else holds the page's words: looked at, not changed.
+        if (this.data.heldBy()) return null;
         return this.views().find((view) => view.area.key === key) ?? null;
     }
 
@@ -582,6 +622,8 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             await save();
             this.saveError.set('');
         } catch (error: any) {
+            // Someone else made the first change: the bar says who, and the page shows theirs.
+            if (isHeld(error)) return;
             console.error('[PageEdit] Could not save:', error);
             this.saveError.set(error?.message || String(error));
         } finally {
@@ -766,7 +808,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             return false;
         }
         const toPublish = read.filter((each): each is { card: CardRef; draft: Record<string, any> } =>
-            !!each.draft && isPageChange(each.draft, this.data.pageId));
+            !!each.draft && isPageChange(each.draft, this.data.pageId, this.holds.me()?.uid ?? null));
 
         for (const each of toPublish) {
             const type = this.typeOf(each.card.type);
@@ -780,7 +822,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         }
 
         const replace = toPublish.find((each) => cardHasReplace(each.draft));
-        const pageChanged = this.panelRef()?.status() === 'changes';
+        const pageChanged = !this.data.heldBy() && this.panelRef()?.status() === 'changes';
         if (replace || (pageChanged && pageValuesHaveReplace(this.data.draft()))) {
             const ok = await this.confirm.ask({
                 titleKey: 'admin.contents.editor.replace_prompt_title',
@@ -799,7 +841,8 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
     /** The one Publish (VE-D53): the page's words and SEO when they changed, then each card checked. */
     readonly publishWith = async (): Promise<void> => {
         const session = this.data.session;
-        if (session && this.panelRef()?.status() === 'changes') await session.publish();
+        // Someone else's words stay theirs to publish; this person's cards on the page go out.
+        if (session && !this.data.heldBy() && this.panelRef()?.status() === 'changes') await session.publish();
         const cards = this.toPublish;
         this.toPublish = [];
         const failed: string[] = [];
@@ -851,6 +894,8 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             if (this.frameDoc !== doc) return;
             const cards = pageCardsIn(doc);
             if (JSON.stringify(cards) !== JSON.stringify(this.cards())) this.cards.set(cards);
+            // Said again as cards are drawn: the first may come before the frame listens.
+            this.post({ arcPageCards: 'shows', uid: this.data.heldBy()?.by ?? null });
             this.decorateCards();
         };
         const view = doc.defaultView as (Window & typeof globalThis) | null;
@@ -859,19 +904,25 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             if (!this.scanTimer) this.scanTimer = setTimeout(scan, 120);
         });
         this.cardsObserver.observe(doc.body, {
-            childList: true, subtree: true, attributes: true, attributeFilter: ['data-arc-card-id', 'data-arc-changed', 'data-arc-leaving'],
+            childList: true, subtree: true, attributes: true, attributeFilter: ['data-arc-card-id', 'data-arc-changed', 'data-arc-leaving', 'data-arc-held', 'data-arc-elsewhere', 'data-arc-theirs'],
         });
         scan();
     }
 
-    /** The note on a card Publish would push out, and the outline on the open card. */
+    /** The note on a card (Publish would push it out, or it is not this person's to publish here), and the outline on the open card. */
     private decorateCards(): void {
         const doc = this.frameDoc;
         if (!doc) return;
-        const note = this.t('admin.edit_page.card_leaving');
+        const noteOf = (el: HTMLElement): string => {
+            if (el.hasAttribute('data-arc-leaving')) return this.t('admin.edit_page.card_leaving');
+            const held = el.getAttribute('data-arc-held');
+            if (held) return this.t('admin.hold.card_held', { name: held });
+            return el.hasAttribute('data-arc-elsewhere') ? this.t('admin.hold.card_elsewhere') : '';
+        };
         const open = this.card();
         for (const el of Array.from(doc.querySelectorAll<HTMLElement>('[data-arc-card-id]'))) {
-            if (el.hasAttribute('data-arc-leaving')) {
+            const note = noteOf(el);
+            if (note) {
                 if (el.getAttribute('data-arc-note') !== note) el.setAttribute('data-arc-note', note);
             } else if (el.hasAttribute('data-arc-note')) {
                 el.removeAttribute('data-arc-note');
@@ -893,7 +944,123 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         return (type.fields || []).find((field) => field.key === key)?.label || key;
     }
 
+    /** A card's element in the frame. */
+    private cardElement(card: CardRef): HTMLElement | null {
+        return this.frameDoc?.querySelector<HTMLElement>(`[data-arc-card-type="${cssEscape(card.type)}"][data-arc-card-id="${cssEscape(card.id)}"]`) ?? null;
+    }
+
+    /** One entry of a type, in a sentence. */
+    singularName(slug: string): string {
+        const type = this.typeOf(slug);
+        return inSentenceName(type?.singularName || type?.name || this.typeName(slug));
+    }
+
+    /** A card someone else holds, or changed elsewhere: its form first, so what would go out is seen (VE-D72). */
+    private cardNotHere(card: CardRef): boolean {
+        const el = this.cardElement(card);
+        return !!el && (el.hasAttribute('data-arc-held') || el.hasAttribute('data-arc-elsewhere') || el.hasAttribute('data-arc-theirs'));
+    }
+
+    /** Publish with this page (VE-D72). */
+    async includeCard(card: CardRef): Promise<void> {
+        if (!(await this.saveCard())) return;
+        try {
+            await this.actions.include(card, this.data.pageId);
+            this.cardAside.set(false);
+        } catch (error) {
+            console.error('[PageEdit] Could not include the card:', error);
+            this.notify.error('admin.edit_page.card_not_saved');
+        }
+    }
+
+    /** Review changes (VE-D80): someone else's page with the cards they changed on it, or this person's own. */
+    review(): void {
+        const hold = this.data.heldBy();
+        const cards: ReviewCard[] = !hold ? [] : this.cards().filter((card) => card.theirs)
+            .map((card) => ({ type: card.type, id: card.id, name: this.cardName(card), take: true }));
+        void this.reviews.open(this.data, this.pageTitle(), {
+            cards,
+            flush: async () => {
+                this.leaveSpot();
+                await this.panelRef()?.flush();
+                while (this.saving() > 0) await new Promise((resolve) => setTimeout(resolve, 50));
+                return !this.saveError();
+            },
+            publish: (chosen) => (hold ? this.publishTheirs(chosen) : this.publish()),
+            takeCards: async (chosen) => {
+                for (const card of chosen) if (hold) await this.actions.takeOver(card, hold.by);
+            },
+            show: (change) => this.showChange(change),
+            kept: () => this.panelRef()?.keptChanged.update((n) => n + 1),
+        });
+    }
+
+    /** Someone else's words as they are, and their cards chosen, through the same checks (VE-D80). */
+    private async publishTheirs(cards: readonly ReviewCard[]): Promise<void> {
+        const read: { card: ReviewCard; draft: Record<string, any> }[] = [];
+        try {
+            for (const card of cards) {
+                const draft = await this.actions.read(card);
+                if (draft) read.push({ card, draft });
+            }
+        } catch (error) {
+            console.error('[PageEdit] Could not read the cards:', error);
+            this.notify.error('admin.edit_page.cards_not_read');
+            return;
+        }
+        for (const { card, draft } of read) {
+            const type = this.typeOf(card.type);
+            const problem = type ? cardProblem(draft, type) : null;
+            if (!problem) continue;
+            this.notify.error('admin.edit_page.card_problem', { type: this.typeName(card.type), field: problem.field === 'title' ? this.t('admin.contents.editor.title_label') : this.fieldName(type!, problem.field) });
+            return;
+        }
+        // The page's own words are asked about by the review; the cards here.
+        if (read.some(({ draft }) => cardHasReplace(draft))) {
+            const ok = await this.confirm.ask({
+                titleKey: 'admin.contents.editor.replace_prompt_title',
+                dialogMessage: this.t('admin.contents.editor.replace_prompt_confirm'),
+                btnText: this.t('admin.contents.editor.publish_anyway'),
+            });
+            if (!ok) return;
+        }
+        await this.panelRef()?.publishWords();
+        const failed: string[] = [];
+        for (const { card } of read) {
+            try {
+                await this.actions.publishTheirs(card);
+            } catch (error) {
+                console.error('[PageEdit] Could not publish a card:', error);
+                failed.push(card.name);
+            }
+        }
+        if (failed.length) this.notify.error('admin.edit_page.cards_publish_failed', { cards: failed.join(', ') });
+    }
+
+    /** A card's name in a list: its title as the page shows it, else its type. */
+    private cardName(card: CardRef): string {
+        const el = this.cardElement(card);
+        const title = el?.querySelector('[data-arc-sub="title"], h1, h2, h3, h4, h5')?.textContent?.trim();
+        return title ? `${this.typeName(card.type)}: ${title}` : this.typeName(card.type);
+    }
+
+    /** Show: a change's place on the page, or the panel for what the page does not show. */
+    private showChange(change: Change): void {
+        if (change.lang && change.lang !== this.data.lang()) this.switchLanguage(change.lang);
+        const key = change.field.replace(/^(text|url):/, '');
+        const el = this.frameDoc?.querySelector<HTMLElement>(`[data-arc-edit="${cssEscape(key)}"]`);
+        if (!el || key === change.field) {
+            this.panel.setOpen(true);
+            this.panelRef()?.showTab('basic');
+            return;
+        }
+        el.scrollIntoView?.({ block: 'center' });
+        el.setAttribute('data-arc-pv-highlight', '');
+        setTimeout(() => el.removeAttribute('data-arc-pv-highlight'), 2000);
+    }
+
     cardText(card: CardRef, sub: string): string | null {
+        if (this.cardNotHere(card)) return null;
         const type = this.typeOf(card.type);
         const resolved = resolvePreviewField(sub, type);
         if (!type || !resolved) return null;
@@ -918,6 +1085,9 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         const go = async () => {
             if (!same) {
                 if (!(await this.saveCard())) return;
+                // Changed elsewhere, or held by someone else now: what it holds is looked through before it goes out from here.
+                const el = this.cardElement(card);
+                this.cardAside.set(!!el && (el.hasAttribute('data-arc-elsewhere') || el.hasAttribute('data-arc-held')));
                 this.card.set(card);
             }
             // Words typed on the card: its form loads in the panel without covering the card.
@@ -935,7 +1105,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
 
     /** The card scrolled into view and outlined for a moment. */
     private showCard(card: CardRef): void {
-        const el = this.frameDoc?.querySelector<HTMLElement>(`[data-arc-card-type="${cssEscape(card.type)}"][data-arc-card-id="${cssEscape(card.id)}"]`);
+        const el = this.cardElement(card);
         if (!el) return;
         el.scrollIntoView?.({ block: 'center' });
         el.setAttribute('data-arc-pv-highlight', '');
@@ -1008,8 +1178,9 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             this.closeBox();
             return;
         }
+        const hold = this.data.heldBy();
         this.reveal?.explainFixed(target, x, y, {
-            lead: this.t('admin.edit_page.fixed_text'),
+            lead: hold && target.closest('[data-arc-edit]') ? this.t('admin.hold.card_held', { name: hold.name || '?' }) : this.t('admin.edit_page.fixed_text'),
             outlined: this.t('admin.edit_page.fixed_outlined'),
             scroll: this.t('admin.edit_page.fixed_scroll'),
         });
@@ -1058,6 +1229,7 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
             move,
             newest: !!type && type.entryOrder !== 'manual',
             leaving,
+            locked: el.hasAttribute('data-arc-held') || el.hasAttribute('data-arc-theirs'),
             typeName: this.typeName(found.card.type),
         });
     }

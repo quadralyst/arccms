@@ -4,14 +4,17 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
     assertFails,
     assertSucceeds,
     initializeTestEnvironment,
     RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import {
+    addDoc, collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, writeBatch,
+    type Firestore,
+} from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -450,6 +453,8 @@ describe('publish queue (functions/src/publishQueue/processPublishQueue.ts)', ()
         }
         await assertSucceeds(addDoc(collection(editor(), '_publish_queue'), item({ action: 'redeploy-all', contentTypeSlug: '', docId: '' })));
         await assertSucceeds(addDoc(collection(admin(), '_publish_queue'), item({ action: 'order', docId: '' })));
+        await assertSucceeds(addDoc(collection(admin(), '_publish_queue'), item({ action: 'purge-draft' })));
+        await assertFails(addDoc(collection(alice(), '_publish_queue'), item({ action: 'purge-draft' })));
     });
 
     it('refuses a coalesced item\'s fixed id, such as a forged running republish', async () => {
@@ -457,6 +462,7 @@ describe('publish queue (functions/src/publishQueue/processPublishQueue.ts)', ()
         await assertFails(setDoc(doc(editor(), '_publish_queue', 'redeploy-all'), forged));
         await assertFails(setDoc(doc(admin(), '_publish_queue', 'redeploy-all'), forged));
         await assertFails(setDoc(doc(editor(), '_publish_queue', 'items-from--articles'), item({ action: 'publish' })));
+        await assertFails(setDoc(doc(editor(), '_publish_queue', 'list-articles'), item({ action: 'publish' })));
     });
 
     it('refuses other fields, missing fields, wrong types and actions the app never sends', async () => {
@@ -466,6 +472,7 @@ describe('publish queue (functions/src/publishQueue/processPublishQueue.ts)', ()
         await assertFails(add({ action: 'publish', contentTypeSlug: 'articles', docId: 'p1' }));
         await assertFails(add(item({ action: 'items-from' })));
         await assertFails(add(item({ action: 'home' })));
+        await assertFails(add(item({ action: 'list', docId: '' })));
         await assertFails(add(item({ docId: 7 })));
         await assertFails(add(item({ timestamp: 'now' })));
     });
@@ -474,6 +481,9 @@ describe('publish queue (functions/src/publishQueue/processPublishQueue.ts)', ()
         const add = (db: ReturnType<typeof editor>, fields: Record<string, unknown>) => addDoc(collection(db, '_publish_queue'), item(fields));
         await assertSucceeds(add(editor(), { action: 'page-text', contentTypeSlug: '', docId: 'home' }));
         await assertSucceeds(add(admin(), { action: 'page-text', contentTypeSlug: '', docId: 'p-about-us' }));
+        await assertSucceeds(add(editor(), { action: 'page-text', contentTypeSlug: '', docId: 'list-articles' }));
+        await assertFails(add(editor(), { action: 'page-text', contentTypeSlug: '', docId: 'list-' }));
+        await assertFails(add(alice(), { action: 'page-text', contentTypeSlug: '', docId: 'list-articles' }));
         await assertFails(add(editor(), { action: 'page-text', contentTypeSlug: 'articles', docId: 'home' }));
         await assertFails(add(editor(), { action: 'page-text', contentTypeSlug: '', docId: '' }));
         await assertFails(add(editor(), { action: 'page-text', contentTypeSlug: '', docId: 'p-../x' }));
@@ -914,6 +924,25 @@ describe('page text (SitePageTextDrafts, SitePageText)', () => {
         }));
         await assertSucceeds(setDoc(doc(admin(), 'SitePageTextDrafts', 'p-about-us'), draft({ updatedBy: 'admin-uid', seo: { en: {} }, shareImage: { value: '/s.jpg' } })));
         await assertSucceeds(deleteDoc(doc(admin(), 'SitePageTextDrafts', 'p-about-us')));
+        // A type's list page (VE-D59).
+        await assertSucceeds(setDoc(doc(editor(), 'SitePageTextDrafts', 'list-articles'), draft()));
+        await assertSucceeds(getDoc(doc(editor(), 'SitePageTextDrafts', 'list-articles')));
+        await assertFails(setDoc(doc(editor(), 'SitePageTextDrafts', 'list-'), draft()));
+        await assertFails(setDoc(doc(editor(), 'SitePageTextDrafts', 'listarticles'), draft()));
+        await assertFails(setDoc(doc(alice(), 'SitePageTextDrafts', 'list-articles'), draft({ updatedBy: ALICE })));
+        await assertFails(setDoc(doc(admin(), 'SitePageText', 'list-articles'), { text: {} }));
+    });
+
+    it('answers "not found" to the first save of a page, which the app then creates, never "denied"', async () => {
+        const first = updateDoc(doc(editor(), 'SitePageTextDrafts', 'home'), {
+            'text.en.hero': { value: 'Hi' }, updatedAt: serverTimestamp(), updatedBy: 'editor-uid',
+            editing: { by: 'editor-uid', name: 'Ed', since: serverTimestamp(), at: serverTimestamp() },
+        });
+        await expect(first).rejects.toMatchObject({ code: 'not-found' });
+        await assertSucceeds(setDoc(doc(editor(), 'SitePageTextDrafts', 'home'), draft({
+            editing: { by: 'editor-uid', name: 'Ed', since: serverTimestamp(), at: serverTimestamp() },
+        }), { merge: true }));
+        await assertFails(updateDoc(doc(alice(), 'SitePageTextDrafts', 'p-none'), { updatedAt: serverTimestamp(), updatedBy: ALICE }));
     });
 
     it('keeps the draft from everyone else', async () => {
@@ -946,5 +975,294 @@ describe('page text (SitePageTextDrafts, SitePageText)', () => {
         await assertFails(getDoc(doc(alice(), 'SitePageText', 'home', 'History', 'h1')));
         await assertFails(getDoc(doc(anon(), 'SitePageText', 'home', 'History', 'h1')));
         await assertFails(setDoc(doc(admin(), 'SitePageText', 'home', 'History', 'h2'), { text: {} }));
+    });
+});
+
+// One person holds a draft (specs/visual-editing-spec.md, VE-D76 to VE-D84): the admin
+// holds, the editor is the other person.
+describe('drafts held by one person', () => {
+    const DRAFT = ['arc_articles_drafts', 'd1'] as const;
+    const theirs = (fields: Record<string, unknown> = {}) => ({ by: 'admin-uid', name: 'Admin', since: new Date(), at: new Date(), ...fields });
+    const mine = (fields: Record<string, unknown> = {}) => ({ by: 'editor-uid', name: 'Editor', since: serverTimestamp(), at: serverTimestamp(), ...fields });
+    const kept = (fields: Record<string, unknown> = {}) => ({
+        by: 'admin-uid', name: 'Admin', why: 'takeover', keptBy: 'editor-uid', keptByName: 'Editor', keptAt: serverTimestamp(), data: { title: 'Held' }, ...fields,
+    });
+    const seed = (data: Record<string, unknown>, path: readonly [string, string] = DRAFT) =>
+        env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), ...path), data));
+    const held = { title: 'Held', status: 'draft', modifiedAt: new Date(1000), editing: theirs() };
+    const at = (db: unknown, path: readonly [string, string] = DRAFT) => doc(db as Firestore, ...path);
+    /** Takes over in one write, as the app does. */
+    const takeOver = (db: unknown, path: readonly [string, string] = DRAFT, keep: Record<string, unknown> | null = kept(), hold: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) =>
+        runTransaction(db as Firestore, async (tx) => {
+            await tx.get(at(db, path));
+            const ref = doc(collection(at(db, path), 'Kept'));
+            if (keep) tx.set(ref, keep);
+            tx.update(at(db, path), { editing: mine({ kept: ref.id, ...hold }), ...extra });
+        });
+
+    describe('the words', () => {
+        it('are the holder\'s: they save, keep the hold or let go of it, and nobody else writes them', async () => {
+            await seed(held);
+            await assertSucceeds(updateDoc(at(admin()), { title: 'Mine', editing: { by: 'admin-uid', name: 'Admin', at: serverTimestamp() } }));
+            for (const fields of [
+                { title: 'x' }, { content: 'x' }, { summary: 'x' }, { coverImage: 'x' }, { urlSlug: 'x' }, { seoTitle: 'x' }, { metaDescription: 'x' },
+                { canonicalUrl: 'x' }, { tags: ['x'] }, { authorId: 'x' }, { layout: 'x' }, { references: [] }, { updatedOn: 'x' }, { changedOnPage: 'home' },
+            ]) await assertFails(updateDoc(at(editor()), fields));
+            await assertFails(setDoc(at(editor()), { title: 'x' }));
+            await assertSucceeds(updateDoc(at(admin()), { editing: deleteField() }));
+            await assertSucceeds(updateDoc(at(editor()), { title: 'Now mine', editing: mine() }));
+        });
+
+        it('an ordinary save never takes a hold, whoever it names', async () => {
+            await seed(held);
+            await assertFails(updateDoc(at(editor()), { title: 'x', editing: mine() }));
+            await assertFails(updateDoc(at(editor()), { modifiedAt: new Date(), editing: mine() }));
+            await assertFails(updateDoc(at(editor()), { editing: mine() }));
+            await assertFails(updateDoc(at(editor()), { editing: deleteField() }));
+            await assertFails(updateDoc(at(editor()), { editing: theirs({ name: 'Other' }) }));
+        });
+
+        it('what is not held stays open to others: where it stands, its order, featured, the series and the references', async () => {
+            await seed(held);
+            await assertSucceeds(updateDoc(at(editor()), { status: 'publish', publishedStatus: true, publishedOn: new Date() }));
+            await assertSucceeds(updateDoc(at(editor()), { sortOrder: 3 }));
+            await assertSucceeds(updateDoc(at(editor()), { isFeatured: true }));
+            await assertSucceeds(updateDoc(at(editor()), { nextContent: { id: 'p2' }, previousContent: null, modifiedAt: new Date() }));
+            await assertSucceeds(updateDoc(at(editor()), { 'customFields._ref_author': { id: 'a' }, modifiedAt: new Date() }));
+            await assertSucceeds(deleteDoc(at(editor())));
+        });
+
+        it('a long batch of references or of an order goes through, held drafts among them', async () => {
+            await env.withSecurityRulesDisabled(async (ctx) => {
+                const seedBatch = writeBatch(ctx.firestore());
+                for (let i = 0; i < 400; i++) seedBatch.set(doc(ctx.firestore(), 'arc_articles_drafts', `n${i}`), i % 2 ? held : { title: 'Free' });
+                await seedBatch.commit();
+            });
+            const db = editor();
+            const refs = writeBatch(db);
+            for (let i = 0; i < 400; i++) refs.update(doc(db, 'arc_articles_drafts', `n${i}`), { 'customFields._ref_x': { id: 'y' }, modifiedAt: new Date() });
+            await assertSucceeds(refs.commit());
+            const order = writeBatch(db);
+            for (let i = 0; i < 400; i++) order.update(doc(db, 'arc_articles_drafts', `n${i}`), { sortOrder: i });
+            await assertSucceeds(order.commit());
+        });
+
+        it('a draft nobody holds is anyone\'s who may edit, with or without a hold, and never put on someone else', async () => {
+            await assertSucceeds(updateDoc(at(editor()), { title: 'x' }));
+            await assertFails(updateDoc(at(editor()), { title: 'x', editing: theirs() }));
+            await assertFails(updateDoc(at(editor()), { title: 'x', editing: 'editor-uid' }));
+            await assertSucceeds(updateDoc(at(editor()), { title: 'x', editing: mine() }));
+            await assertSucceeds(setDoc(at(editor(), ['arc_articles_drafts', 'new']), { title: 'New', editing: mine() }));
+            await assertSucceeds(setDoc(at(editor(), ['arc_articles_drafts', 'imported']), { title: 'New' }));
+            await assertFails(setDoc(at(editor(), ['arc_articles_drafts', 'forged']), { title: 'New', editing: theirs() }));
+        });
+
+        it('a hold that is not one holds nobody out', async () => {
+            for (const editing of ['admin-uid', null, {}, { by: '' }, { by: 7 }]) {
+                await seed({ title: 'Held', editing });
+                await assertSucceeds(updateDoc(at(editor()), { title: `x${String(editing)}`, editing: mine() }));
+            }
+        });
+
+        it('members and visitors write nothing, held or not', async () => {
+            await assertFails(updateDoc(at(alice()), { title: 'x' }));
+            await assertFails(updateDoc(at(anon()), { title: 'x' }));
+            await assertFails(updateDoc(at(hostAdmin()), { sortOrder: 1 }));
+            await assertFails(setDoc(at(alice(), ['arc_articles_drafts', 'new']), { title: 'x', editing: { by: ALICE } }));
+            await assertFails(deleteDoc(at(alice())));
+        });
+
+        it('what is published keeps its own rule', async () => {
+            await assertSucceeds(updateDoc(doc(editor(), 'arc_articles', 'p1'), { title: 'x' }));
+            await assertFails(updateDoc(doc(alice(), 'arc_articles', 'p1'), { title: 'x' }));
+            await assertSucceeds(updateDoc(doc(editor(), 'Tags_articles', 't1'), { name: 'x' }));
+        });
+    });
+
+    describe('a take over', () => {
+        it('changes the hold alone, and keeps the other person\'s draft in the same write', async () => {
+            await seed(held);
+            await assertSucceeds(takeOver(editor()));
+            await assertSucceeds(updateDoc(at(editor()), { title: 'Mine now', editing: mine() }));
+            await assertFails(updateDoc(at(admin()), { title: 'Theirs', editing: { by: 'admin-uid' } }));
+        });
+
+        it('is refused without the kept draft, with one kept earlier, or with words in the same write', async () => {
+            await seed(held);
+            await assertFails(takeOver(editor(), DRAFT, null));
+            await assertFails(takeOver(editor(), DRAFT, kept(), {}, { title: 'x' }));
+            await assertFails(takeOver(editor(), DRAFT, kept(), {}, { modifiedAt: new Date() }));
+            await assertFails(takeOver(editor(), DRAFT, kept(), { by: 'admin-uid' }));
+            await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), ...DRAFT, 'Kept', 'old'), { by: 'admin-uid' }));
+            await assertFails(updateDoc(at(editor()), { editing: mine({ kept: 'old' }) }));
+            await assertFails(takeOver(alice()));
+            await assertFails(takeOver(anon()));
+        });
+
+        it('is kept only with the take over itself, and once', async () => {
+            await seed(held);
+            // Kept alone, with no take over; or beside a take over that names another kept draft.
+            await assertFails(addDoc(collection(at(editor()), 'Kept'), kept()));
+            const db = editor();
+            await assertFails(runTransaction(db, async (tx) => {
+                await tx.get(at(db));
+                const [one, two] = [doc(collection(at(db), 'Kept')), doc(collection(at(db), 'Kept'))];
+                tx.set(one, kept());
+                tx.set(two, kept());
+                tx.update(at(db), { editing: mine({ kept: one.id }) });
+            }));
+            await assertSucceeds(takeOver(editor()));
+            await assertFails(addDoc(collection(at(editor()), 'Kept'), kept()));
+        });
+
+        it('with its other languages, however many, in the same write', async () => {
+            await seed(held);
+            const db = editor();
+            await assertSucceeds(runTransaction(db, async (tx) => {
+                await tx.get(at(db));
+                const ref = doc(collection(at(db), 'Kept'));
+                tx.set(ref, kept());
+                for (let i = 0; i < 40; i++) tx.set(doc(ref, 'translations', `l${i}`), { lang: `l${i}`, title: 'x' });
+                tx.update(at(db), { editing: mine({ kept: ref.id }) });
+            }));
+        });
+
+        it('keeps it under the name of whoever holds it', async () => {
+            await seed(held);
+            await assertFails(takeOver(editor(), DRAFT, kept({ by: 'bob-uid' })));
+            await assertFails(takeOver(editor(), DRAFT, kept({ keptBy: 'admin-uid' })));
+        });
+    });
+
+    describe('the kept drafts', () => {
+        const keep = (db: unknown, fields: Record<string, unknown> = {}) => addDoc(collection(at(db), 'Kept'), kept({ why: 'discard', by: 'editor-uid', ...fields }));
+
+        it('are kept and read by staff, and changed by nobody', async () => {
+            const ref = await assertSucceeds(keep(editor()));
+            await assertSucceeds(getDocs(collection(at(admin()), 'Kept')));
+            await assertFails(updateDoc(ref as any, { name: 'x' }));
+            await assertFails(deleteDoc(ref as any));
+            await assertFails(getDocs(collection(at(alice()), 'Kept')));
+            await assertFails(keep(alice(), { keptBy: ALICE }));
+            await assertFails(keep(anon()));
+        });
+
+        it('say who kept them, when and why, and nothing else', async () => {
+            await assertFails(keep(editor(), { keptBy: 'admin-uid' }));
+            await assertFails(keep(editor(), { keptAt: new Date(0) }));
+            await assertFails(keep(editor(), { why: 'because' }));
+            await assertFails(keep(editor(), { data: 'x' }));
+            await assertFails(keep(editor(), { more: 1 }));
+            await assertFails(keep(editor(), { translations: {} }));
+            await assertFails(keep(editor(), { keptByName: 7 }));
+            await assertFails(keep(editor(), { keptByName: 'x'.repeat(201) }));
+            await assertSucceeds(keep(editor(), { keptByName: 'x'.repeat(200) }));
+            // A take over of a draft nobody holds keeps nothing.
+            await assertFails(keep(editor(), { why: 'takeover', by: 'admin-uid' }));
+            await assertFails(addDoc(collection(doc(editor(), 'arc_articles', 'p1'), 'Kept'), kept({ why: 'discard' })));
+        });
+    });
+
+    describe('a kept draft\'s languages', () => {
+        const lang = (db: unknown, keptId: string) => doc(db as Firestore, ...DRAFT, 'Kept', keptId, 'translations', 'hi');
+
+        it('are written with it and never after, by staff, and changed by nobody', async () => {
+            const db = editor();
+            const batch = writeBatch(db);
+            const ref = doc(collection(at(db), 'Kept'));
+            batch.set(ref, kept({ why: 'discard', by: 'editor-uid' }));
+            batch.set(lang(db, ref.id), { lang: 'hi', title: 'x' });
+            await assertSucceeds(batch.commit());
+            await assertSucceeds(getDoc(lang(admin(), ref.id)));
+            await assertFails(getDoc(lang(alice(), ref.id)));
+            await assertFails(setDoc(doc(admin(), ...DRAFT, 'Kept', ref.id, 'translations', 'fr'), { lang: 'fr' }));
+            await assertFails(updateDoc(lang(editor(), ref.id), { title: 'y' }));
+            await assertFails(deleteDoc(lang(editor(), ref.id)));
+            // Under no kept draft at all.
+            await assertFails(setDoc(lang(editor(), 'none'), { lang: 'hi' }));
+        });
+    });
+
+    describe('translations', () => {
+        const hi = (db: unknown) => doc(db as Firestore, ...DRAFT, 'translations', 'hi');
+
+        it('follow their entry\'s hold', async () => {
+            await seed(held);
+            await assertFails(setDoc(hi(editor()), { lang: 'hi', title: 'x' }));
+            await assertSucceeds(setDoc(hi(admin()), { lang: 'hi', title: 'x' }));
+            await assertFails(deleteDoc(hi(editor())));
+            await assertSucceeds(getDoc(hi(editor())));
+            await assertFails(setDoc(hi(alice()), { lang: 'hi' }));
+            await seed({ title: 'Free' });
+            await assertSucceeds(deleteDoc(hi(editor())));
+        });
+
+        it('of many languages go in one write with their entry, and after it is deleted', async () => {
+            const languages = Array.from({ length: 30 }, (_, i) => `l${i}`);
+            await seed({ title: 'Mine', editing: { by: 'editor-uid' } });
+            const db = editor();
+            await assertSucceeds(runTransaction(db, async (tx) => {
+                await tx.get(at(db));
+                tx.update(at(db), { title: 'Again', editing: mine() });
+                for (const lang of languages) tx.set(doc(db, ...DRAFT, 'translations', lang), { lang });
+            }));
+            await deleteDoc(at(db));
+            await assertSucceeds(deleteDoc(doc(db, ...DRAFT, 'translations', 'l0')));
+            // A new entry, written with its translation.
+            await assertSucceeds(runTransaction(db, async (tx) => {
+                tx.set(doc(db, 'arc_articles_drafts', 'fresh'), { title: 'x', editing: mine() });
+                tx.set(doc(db, 'arc_articles_drafts', 'fresh', 'translations', 'hi'), { lang: 'hi' });
+            }));
+        });
+    });
+
+    describe('a page (SitePageTextDrafts)', () => {
+        const PAGE = ['SitePageTextDrafts', 'home'] as const;
+        const save = (fields: Record<string, unknown> = {}, uid = 'editor-uid') => ({ 'text.en.hero': { value: 'x' }, updatedAt: serverTimestamp(), updatedBy: uid, ...fields });
+        const heldPage = { text: { en: { hero: { value: 'Hi' } } }, updatedAt: new Date(5000), updatedBy: 'admin-uid', editing: theirs() };
+        const published = (draftUpdatedAt: Date | null) => seed({ text: {}, draftUpdatedAt }, ['SitePageText', 'home']);
+
+        it('is the holder\'s while what they saved is not published', async () => {
+            await seed(heldPage, PAGE);
+            await assertFails(updateDoc(at(editor(), PAGE), save({ editing: mine() })));
+            await assertFails(updateDoc(at(editor(), PAGE), save()));
+            await assertFails(deleteDoc(at(editor(), PAGE)));
+            await assertSucceeds(updateDoc(at(admin(), PAGE), save({ editing: theirs({ at: serverTimestamp() }) }, 'admin-uid')));
+            await published(new Date(1000));
+            await assertFails(updateDoc(at(editor(), PAGE), save({ editing: mine() })));
+            // Copied, but its page did not go live: still theirs.
+            await published(null);
+            await assertFails(updateDoc(at(editor(), PAGE), save({ editing: mine() })));
+        });
+
+        it('is anyone\'s once it is published, or its holder let go', async () => {
+            await seed(heldPage, PAGE);
+            await published(new Date(5000));
+            await assertFails(updateDoc(at(editor(), PAGE), save({ editing: theirs({ name: 'Forged' }) })));
+            await assertSucceeds(updateDoc(at(editor(), PAGE), save({ editing: mine() })));
+            await seed({ ...heldPage, editing: theirs() }, PAGE);
+            await assertSucceeds(updateDoc(at(admin(), PAGE), save({ editing: deleteField() }, 'admin-uid')));
+            await assertSucceeds(updateDoc(at(editor(), PAGE), save({ editing: mine() })));
+            await assertSucceeds(deleteDoc(at(editor(), PAGE)));
+        });
+
+        it('is taken over as an entry is: the hold alone, the draft kept, nothing saved', async () => {
+            await seed(heldPage, PAGE);
+            await assertFails(takeOver(editor(), PAGE, null));
+            await assertFails(takeOver(editor(), PAGE, kept(), {}, { 'text.en.hero': { value: 'x' } }));
+            await assertFails(takeOver(alice(), PAGE));
+            await assertSucceeds(takeOver(editor(), PAGE));
+            await assertFails(updateDoc(at(admin(), PAGE), save({ editing: theirs() }, 'admin-uid')));
+            await assertSucceeds(updateDoc(at(editor(), PAGE), save({ editing: mine() })));
+            await assertSucceeds(getDocs(collection(at(admin(), PAGE), 'Kept')));
+            await assertFails(getDocs(collection(at(alice(), PAGE), 'Kept')));
+        });
+
+        it('starts with its writer\'s own hold, and no other', async () => {
+            const page = { text: {}, updatedAt: serverTimestamp(), updatedBy: 'editor-uid' };
+            await assertFails(setDoc(at(editor(), PAGE), { ...page, editing: theirs() }));
+            await assertSucceeds(setDoc(at(editor(), PAGE), { ...page, editing: mine() }));
+            await assertFails(addDoc(collection(doc(editor(), 'SitePageTextDrafts', 'about'), 'Kept'), kept({ why: 'discard' })));
+        });
     });
 });

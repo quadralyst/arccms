@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
     // Document ids per collection path; a subcollection's path is `{col}/{id}/{sub}`.
     docs: {} as Record<string, string[]>,
     deleted: [] as string[],
+    recursive: [] as string[],
     removeCollectionEntries: vi.fn(async () => undefined),
     deleteContentListIndexes: vi.fn(async () => undefined),
 }));
@@ -30,7 +31,10 @@ function docRef(path: string) {
 
 vi.mock('../init', () => ({
     db: {
+        // What is kept under a document goes with it.
+        recursiveDelete: async (ref: { path: string }) => { m.recursive.push(ref.path); },
         collection: (name: string) => ({
+            doc: (id: string) => ({ path: `${name}/${id}` }),
             where: (_field: string, _op: string, value: string) => ({
                 get: async () => ({ docs: m.types.filter((t) => t.slug === value).map((t) => ({ id: t.id })) }),
             }),
@@ -61,6 +65,7 @@ describe('onContentTypeDeleted', () => {
     beforeEach(() => {
         m.types = [];
         m.deleted = [];
+        m.recursive = [];
         m.docs = {
             arc_articles: ['a1'],
             arc_articles_drafts: ['a1', 'a2'],
@@ -81,11 +86,25 @@ describe('onContentTypeDeleted', () => {
         expect(m.removeCollectionEntries).toHaveBeenCalledWith('arc_articles_drafts');
     });
 
+    it("deletes what editors changed on the type's list page, its draft, its published copy and their history", async () => {
+        await handler(deleteEvent('ct-1', 'articles'));
+        expect(m.recursive).toEqual(['SitePageTextDrafts/list-articles', 'SitePageText/list-articles']);
+    });
+
+    it('keeps them when another type still uses the slug, and skips a slug no page id can name', async () => {
+        m.types = [{ id: 'ct-2', slug: 'articles' }];
+        await handler(deleteEvent('ct-1', 'articles'));
+        await handler(deleteEvent('ct-3', 'odd.slug'));
+        expect(m.recursive).toEqual([]);
+    });
+
     it("deletes each entry's languages, past versions and deploy logs, which a document delete leaves behind", async () => {
         m.docs['arc_articles/a1/translations'] = ['hi'];
         m.docs['arc_articles/a1/PublishedHistory'] = ['v1', 'v2'];
         m.docs['arc_articles/a1/DeploymentLogs'] = ['l1'];
         m.docs['arc_articles_drafts/a2/translations'] = ['hi', 'fr'];
+        // Drafts kept before work changed hands (VE-D84).
+        m.docs['arc_articles_drafts/a2/Kept'] = ['k1'];
         await handler(deleteEvent('ct-1', 'articles'));
         expect(m.deleted).toEqual(expect.arrayContaining([
             'arc_articles/a1/translations/hi',
@@ -96,6 +115,8 @@ describe('onContentTypeDeleted', () => {
             'arc_articles_drafts/a2/translations/fr',
         ]));
         expect(m.deleted).toHaveLength(10);
+        // A kept draft goes with its own languages under it.
+        expect(m.recursive).toContain('arc_articles_drafts/a2/Kept/k1');
     });
 
     it('keeps everything when another type still uses the slug', async () => {

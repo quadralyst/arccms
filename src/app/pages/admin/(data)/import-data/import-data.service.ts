@@ -24,6 +24,18 @@ import { injectT } from '../../../../core/i18n/inject-t';
 /** A file the import cannot read, with a plain sentence for the admin as its message. */
 export class ImportFileError extends Error {}
 
+/** A collection of drafts: entries', or the pages' words. */
+function isDraftPath(path: string): boolean {
+    return /^arc_[^/]+_drafts$/.test(path) || path === 'SitePageTextDrafts';
+}
+
+/** Takes the hold off an imported draft: it named someone editing on another site, or at another time. */
+export function leaveHoldBehind(data: unknown): void {
+    if (!data || typeof data !== 'object') return;
+    delete (data as Record<string, unknown>)['editing'];
+    delete (data as Record<string, unknown>)['changedOnPage'];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ImportDataService {
     private db = inject(Firestore);
@@ -191,12 +203,17 @@ export class ImportDataService {
         for (let i = 0; i < entries.length; i += BATCH_SIZE) {
             const chunk = entries.slice(i, i + BATCH_SIZE);
             const batch = writeBatch(this.db);
+            // The same writes one by one, should the rules refuse one of them (a draft someone is editing).
+            const each: { path: string; run: () => Promise<void> }[] = [];
             let batchCount = 0;
 
             for (const [docId, rawData] of chunk) {
                 try {
                     const docRef = this.buildDocRef(collectionPath, docId);
                     const deserializedData = deserializeFirestoreValue(rawData, this.db);
+
+                    // Who was editing, and where, belongs to the site it came from (VE-D78).
+                    if (isDraftPath(collectionPath)) leaveHoldBehind(deserializedData);
 
                     if (options.skipExisting) {
                         const existingDoc = await getDoc(docRef);
@@ -218,8 +235,10 @@ export class ImportDataService {
 
                     if (options.overwriteExisting) {
                         batch.set(docRef, deserializedData);
+                        each.push({ path: `${collectionPath}/${docId}`, run: () => setDoc(docRef, deserializedData) });
                     } else {
                         batch.set(docRef, deserializedData, { merge: true });
+                        each.push({ path: `${collectionPath}/${docId}`, run: () => setDoc(docRef, deserializedData, { merge: true }) });
                     }
 
                     batchCount++;
@@ -235,9 +254,21 @@ export class ImportDataService {
                     await batch.commit();
                 } catch (error: any) {
                     console.error(`Writing ${collectionPath} failed:`, error);
-                    errors.push(this.t('admin.data.import.err_batch', { collection: collectionPath, count: batchCount }));
-                    // Adjust counts - documents weren't actually written
                     imported -= batchCount;
+                    if (error?.code === 'permission-denied' && isDraftPath(collectionPath)) {
+                        // One draft someone is editing must not stop the rest.
+                        for (const one of each) {
+                            try {
+                                await one.run();
+                                imported++;
+                            } catch (refused) {
+                                console.error(`Import of ${one.path} failed:`, refused);
+                                errors.push(this.t('admin.data.import.err_doc', { path: one.path }));
+                            }
+                        }
+                    } else {
+                        errors.push(this.t('admin.data.import.err_batch', { collection: collectionPath, count: batchCount }));
+                    }
                 }
             }
         }

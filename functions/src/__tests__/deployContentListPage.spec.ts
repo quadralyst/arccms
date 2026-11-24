@@ -81,6 +81,15 @@ vi.mock('../shared/site-settings', () => ({
     getAboutConfig: mockGetAboutConfig,
 }));
 
+// What editors published on the list page (VE-D64): nothing unless a test says so.
+const { mockPageText } = vi.hoisted(() => ({ mockPageText: vi.fn() }));
+vi.mock('../pages/page-text-store', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../pages/page-text-store.js')>()),
+    loadPublishedPageText: mockPageText,
+}));
+
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
 
 // ─── Test Data ──────────────────────────────────────────────────────────────
@@ -208,6 +217,7 @@ function restoreMockImplementations() {
         };
     });
 
+    mockPageText.mockResolvedValue(null);
     // The type's list template, as the live site serves it.
     mockLoadSiteTemplate.mockResolvedValue(MOCK_LIST_TEMPLATE);
 }
@@ -581,6 +591,184 @@ describe('deployContentListPage', () => {
             const footer = html.slice(html.indexOf('<footer>'), html.indexOf('</footer>'));
             expect(footer).toContain('Fish &amp; &lt;chips&gt;');
             expect(footer).not.toContain('<chips>');
+        });
+    });
+
+    describe('what editors changed on the page (VE-D60, VE-D64)', () => {
+        const SITE = join(__dirname, '../../../public/_site/templates');
+        const shipped = readdirSync(SITE).filter((name) => readdirSync(join(SITE, name)).includes('list.html'));
+        const hindi = () => mockGetLocalizationSettings.mockResolvedValue({
+            defaultLanguage: 'en',
+            enabledLanguages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }],
+        });
+        const typed = (extra: Record<string, unknown>) => mockContentTypeLimitGet.mockResolvedValue({
+            empty: false, docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, ...extra }) }],
+        });
+        /** Every file the build writes, its build time taken out. */
+        async function build(template?: string): Promise<Record<string, string>> {
+            if (template !== undefined) mockLoadSiteTemplate.mockResolvedValue(template);
+            await generateAndDeployContentListPage('articles');
+            const batch = mockDeployBatchToHosting.mock.calls.at(-1)![1];
+            return Object.fromEntries(batch.files.map((f: { path: string; content: string }) =>
+                [f.path, f.content.replace(/arc-deployed-at" content="[^"]*"/, 'arc-deployed-at"')]));
+        }
+        const unmarked = (html: string) => html.replace(/ data-arc-edit="[^"]*"/g, '');
+        const MARKED = `<div class="arc-cms-template">
+    <arc-header></arc-header>
+    <nav><a href="/">{{ contentType }} home</a></nav>
+    <h1 class="t arc-skeleton" data-arc-edit="title">{{ contentType }}</h1>
+    <p data-arc-edit="intro" data-arc-if="contentTypeDescription">{{ contentTypeDescription }}</p>
+    <span data-arc-edit="more" data-arc-t="read_more">Read more</span>
+    <div data-arc-loop="items"><a href="{{ url }}"><h2 data-arc-edit="title">{{ title }}</h2></a></div>
+    <arc-footer></arc-footer>
+</div>`;
+        const words = (lang: string, text: Record<string, string>) => ({
+            text: { [lang]: Object.fromEntries(Object.entries(text).map(([k, value]) => [k, { value }])) },
+        });
+
+        it('covers every shipped list template, each with its heading marked', () => {
+            expect(shipped).toContain('default');
+            for (const name of shipped) expect(readFileSync(join(SITE, name, 'list.html'), 'utf8')).toContain('data-arc-edit="title"');
+        });
+
+        it.each(shipped)('with nothing changed, %s/list.html publishes byte for byte as it did without its marks', async (name) => {
+            hindi();
+            const html = readFileSync(join(SITE, name, 'list.html'), 'utf8');
+            const now = await build(html);
+            const before = await build(unmarked(html));
+            expect(Object.keys(now)).toEqual(['/articles/index.html', '/hi/articles/index.html']);
+            expect(now).toEqual(before);
+            expect(Object.values(now).join('')).not.toMatch(/data-arc-(edit|held)/);
+        });
+
+        it.each(shipped)('its heading and intro show the words an editor published: %s/list.html', async (name) => {
+            mockPageText.mockResolvedValue(words('en', { title: 'Our stories', intro: 'Told by us' }));
+            const html = readFileSync(join(SITE, name, 'list.html'), 'utf8');
+            const page = (await build(html))['/articles/index.html'];
+            expect(page).toMatch(/<h1[^>]*>Our stories<\/h1>/);
+            if (html.includes('data-arc-edit="intro"')) expect(page).toMatch(/<p[^>]*>Told by us<\/p>/);
+            expect(page).not.toMatch(/data-arc-(edit|held)|arc-skeleton[^{]*">(Our stories|Told by us)/);
+            // The cards are their entries'.
+            expect(page).toContain('First Article');
+        });
+
+        it('reads them under the list page\'s id', async () => {
+            await build();
+            expect(mockPageText).toHaveBeenCalledWith('list-articles');
+        });
+
+        it('fails when they cannot be read, so the live page keeps them', async () => {
+            mockPageText.mockRejectedValue(new Error('offline'));
+            await expect(generateAndDeployContentListPage('articles')).rejects.toThrow('offline');
+            expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
+        });
+
+        it('are the browser title, description, shares and the collection, while the breadcrumb keeps the type\'s name', async () => {
+            mockPageText.mockResolvedValue({ ...words('en', { title: 'Our stories', intro: 'Told by us' }), shareImage: { value: 'https://x.test/s.jpg' } });
+            const page = (await build(MARKED))['/articles/index.html'];
+            expect(page).toContain('<title>Our stories</title>');
+            expect(page).toContain('<meta name="description" content="Told by us">');
+            expect(page).toContain('<meta property="og:title" content="Our stories">');
+            expect(page).toContain('<meta property="og:image" content="https://x.test/s.jpg">');
+            const nodes = [...page.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+            const collection = nodes.find((n) => n['@type'] === 'CollectionPage');
+            expect(collection).toMatchObject({ name: 'Our stories', description: 'Told by us' });
+            const crumbs = nodes.find((n) => n['@type'] === 'BreadcrumbList');
+            expect(JSON.stringify(crumbs)).toContain('"Articles"');
+            // The type is not renamed anywhere else on the page.
+            expect(page).toContain('Articles home');
+            // One title, in the head.
+            expect(page.match(/<title>/g)).toHaveLength(1);
+        });
+
+        it('the SEO tab\'s own title and description win over the heading and intro in the head only', async () => {
+            mockPageText.mockResolvedValue({
+                ...words('en', { title: 'Our stories', intro: 'Told by us' }),
+                seo: { en: { title: { value: 'Stories | Test' }, description: { value: 'All of them' } } },
+            });
+            const page = (await build(MARKED))['/articles/index.html'];
+            expect(page).toContain('<title>Stories | Test</title>');
+            expect(page).toContain('<meta name="description" content="All of them">');
+            expect(page).toContain('Our stories</h1>');
+            expect(page).not.toContain('Stories | Test</h1>');
+        });
+
+        it('a template with no marks still takes the browser title and description', async () => {
+            mockPageText.mockResolvedValue(words('en', { title: 'Our stories' }));
+            const page = (await build())['/articles/index.html'];
+            expect(page).toContain('<title>Our stories</title>');
+            expect(page).toContain('>Articles</h1>');
+        });
+
+        it('never reads an editor\'s words as a binding, a tag or a mark', async () => {
+            mockPageText.mockResolvedValue(words('en', { title: '{{ contentType }} <script>x()</script>', intro: '<b>{{ description }}</b>' }));
+            const page = (await build(MARKED))['/articles/index.html'];
+            expect(page).toContain('{{ contentType }} &lt;script&gt;x()&lt;/script&gt;</h1>');
+            expect(page).toContain('&lt;b&gt;{{ description }}&lt;/b&gt;');
+            expect(page).toContain('<title>{{ contentType }} &lt;script&gt;x()&lt;/script&gt;</title>');
+            expect(page).not.toContain('<script>x()');
+        });
+
+        it('never touches a card, whatever is marked in the loop or brought in by an entry', async () => {
+            mockPageText.mockResolvedValue(words('en', { title: 'Our stories' }));
+            mockContentsGet.mockResolvedValue({ docs: [{
+                id: 'd1', data: () => ({ ...MOCK_CONTENTS[0], title: 'Mine', customFields: { articles_note: '<em data-arc-edit="title" data-arc-held-x-edit="title">Own</em>' } }),
+            }] });
+            const page = (await build(MARKED.replace('{{ title }}</h2>', '{{ title }}</h2><div data-arc-bind="articles_note"></div>')))['/articles/index.html'];
+            expect(page).toContain('<h2>Mine</h2>');
+            expect(page).not.toContain('<h2>Our stories');
+            expect(page.match(/Our stories<\/h1>/g)).toHaveLength(1);
+            expect(page).not.toMatch(/<em[^>]*>Our stories/);
+        });
+
+        it('keeps the cards when words are marked over the loop itself', async () => {
+            mockPageText.mockResolvedValue(words('en', { all: 'Gone' }));
+            const page = (await build('<div class="arc-cms-template"><section data-arc-edit="all" data-arc-edit-kind="rich"><div data-arc-loop="items"><b>{{ title }}</b></div></section></div>'))['/articles/index.html'];
+            expect(page).toContain('First Article');
+            expect(page).not.toContain('Gone');
+            expect(page).not.toContain('data-arc-edit');
+        });
+
+        it('shows the intro of a type with no description', async () => {
+            typed({ description: '' });
+            expect((await build(MARKED))['/articles/index.html']).not.toContain('<p');
+            mockPageText.mockResolvedValue(words('en', { intro: 'Told by us' }));
+            expect((await build(MARKED))['/articles/index.html']).toContain('<p>Told by us</p>');
+        });
+
+        describe('in another language', () => {
+            beforeEach(hindi);
+
+            it('shows its own words, else the default language\'s, else the type\'s', async () => {
+                mockPageText.mockResolvedValue({ text: { en: { title: { value: 'Our stories' }, intro: { value: 'Told by us' } }, hi: { title: { value: 'कहानियाँ' } } } });
+                const page = (await build(MARKED))['/hi/articles/index.html'];
+                expect(page).toContain('कहानियाँ</h1>');
+                expect(page).toContain('<title>कहानियाँ</title>');
+                expect(page).toContain('Told by us</p>');
+            });
+
+            it('the type\'s own name in that language wins over the default language\'s heading', async () => {
+                typed({ nameTranslations: { hi: { name: 'लेख', description: '' } } });
+                mockPageText.mockResolvedValue({
+                    text: { en: { title: { value: 'Our stories' }, intro: { value: 'Told by us' } } },
+                    seo: { en: { title: { value: 'Stories | Test' } } },
+                });
+                const page = (await build(MARKED))['/hi/articles/index.html'];
+                expect(page).toContain('लेख</h1>');
+                expect(page).toContain('<title>लेख</title>');
+                // It has no description in Hindi: the default language's intro stands.
+                expect(page).toContain('Told by us</p>');
+            });
+
+            it('a translated string wins over the default language\'s words, and the area\'s own words over it', async () => {
+                mockGetUiStrings.mockImplementation(async (lang: string) => (lang === 'hi' ? { read_more: 'और पढ़ें' } : {}));
+                mockPageText.mockResolvedValue(words('en', { more: 'See all' }));
+                const files = await build(MARKED);
+                expect(files['/articles/index.html']).toContain('<span>See all</span>');
+                expect(files['/hi/articles/index.html']).toContain('<span>और पढ़ें</span>');
+                mockPageText.mockResolvedValue(words('hi', { more: 'सब' }));
+                expect((await build(MARKED))['/hi/articles/index.html']).toContain('<span>सब</span>');
+            });
         });
     });
 });

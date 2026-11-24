@@ -2,7 +2,9 @@ import { DOCUMENT } from '@angular/common';
 import { EnvironmentInjector, Injectable, OnDestroy, inject, runInInjectionContext, signal, untracked } from '@angular/core';
 import { Firestore, collection, doc, getDocs, onSnapshot, query, where } from '@angular/fire/firestore';
 import { PreviewChannel, previewSessionKey } from '../../../core/preview/preview-channel';
-import { PageCardDrafts, type PageCardsOfType } from '../../page.parts/card-draft';
+import { heldByOther, holdOf } from '../../../core/editing/hold';
+import { HoldService } from '../../../core/editing/hold.service';
+import { PageCardDrafts, type PageCardNote, type PageCardsOfType } from '../../page.parts/card-draft';
 import { draftAsCard } from '../preview/preview-session';
 import { mergeTranslation, type IContentTranslation } from '../contents/draft-content-store/content-translation.model';
 import { timeOf } from '../../../core/utils/display-order';
@@ -18,13 +20,19 @@ const DRAFT = 'draft';
 export type PageCardsMessage =
     | { arcPageCards: 'focus'; focus: { type: string; id: string } | null }
     | { arcPageCards: 'hold'; on: boolean }
-    | { arcPageCards: 'reorder'; type: string };
+    | { arcPageCards: 'reorder'; type: string }
+    /** Whose work on the page is shown: someone else's while they hold it, else null (VE-D72). */
+    | { arcPageCards: 'shows'; uid: string | null };
 
 /** The message from the screen, checked; null for anything else. */
 export function parsePageCardsMessage(data: unknown): PageCardsMessage | null {
     if (!data || typeof data !== 'object') return null;
     const message = data as Record<string, any>;
     if (message['arcPageCards'] === 'hold') return typeof message['on'] === 'boolean' ? { arcPageCards: 'hold', on: message['on'] } : null;
+    if (message['arcPageCards'] === 'shows') {
+        const uid = message['uid'];
+        return uid === null || (typeof uid === 'string' && !!uid && uid.length <= 200) ? { arcPageCards: 'shows', uid } : null;
+    }
     if (message['arcPageCards'] === 'reorder') {
         const type = message['type'];
         return typeof type === 'string' && type && type.length <= 100 ? { arcPageCards: 'reorder', type } : null;
@@ -38,34 +46,66 @@ export function parsePageCardsMessage(data: unknown): PageCardsMessage | null {
 }
 
 /**
- * Whether a draft is a change the page's one Publish takes (VE-D53): status
- * `draft`, and either a published entry edited since, or a card added on this
- * page that was never published (`addedOnPage` alone is not enough: an entry
- * published elsewhere and later unpublished on purpose keeps it).
+ * Where a card's draft stands on a page (specs/visual-editing-spec.md, VE-D72):
+ *
+ * - `mine`: changed on this page by this person, so Publish takes it
+ * - `theirs`: changed on this page by the person whose page is being looked at
+ * - `held`: someone else is editing the entry; shown as published
+ * - `elsewhere`: this person (or nobody) changed the entry somewhere else; shown as published
+ * - `hidden`: not on the site
+ * - null: no unpublished changes
  */
-export function isPageChange(draft: Record<string, any>, pageId: string): boolean {
-    if (draft['status'] !== DRAFT) return false;
-    if (draft['publishedStatus'] === true) return true;
-    return draft['addedOnPage'] === pageId && !draft['lastPublishedAt'] && !draft['publishedOn'];
+export type CardState = 'mine' | 'theirs' | 'held' | 'elsewhere' | 'hidden' | null;
+
+export interface CardViewer {
+    /** The signed-in person. */
+    uid: string | null;
+    /** Whose work on the page is shown: the person who holds it, when that is someone else. */
+    shows?: string | null;
+}
+
+export function cardState(draft: Record<string, any>, pageId: string, viewer: CardViewer): CardState {
+    if (draft['status'] !== DRAFT) return null;
+    const live = draft['publishedStatus'] === true;
+    // Added on this page and never published: `addedOnPage` alone is not enough, since an
+    // entry published elsewhere and later unpublished on purpose keeps it.
+    const added = draft['addedOnPage'] === pageId && !draft['lastPublishedAt'] && !draft['publishedOn'];
+    if (!live && !added) return 'hidden';
+    const hold = heldByOther(draft, viewer.uid);
+    const here = added || draft['changedOnPage'] === pageId;
+    if (here && !hold) return 'mine';
+    if (here && hold && viewer.shows === hold.by) return 'theirs';
+    if (!live) return 'hidden';
+    return hold ? 'held' : 'elsewhere';
+}
+
+/** Whether a draft is a change this person's Publish of the page takes (VE-D53, VE-D72). */
+export function isPageChange(draft: Record<string, any>, pageId: string, uid: string | null): boolean {
+    return cardState(draft, pageId, { uid }) === 'mine';
 }
 
 /**
- * Sorts a type's drafts for the page (VE-D53, VE-D54): the changes the page
- * shows (isPageChange), drawn published-looking; any other draft whose status is
- * `draft` and is off the site (Remove, unpublished elsewhere) is hidden. Every
+ * Sorts a type's drafts for the page (VE-D53, VE-D54, VE-D72): the changes the page
+ * shows, drawn published-looking; those it shows as published, with why; any
+ * other draft whose status is `draft` and is off the site is hidden. Every
  * draft's place in the type's own order is kept, so a Move shows at once.
  */
-export function pageCardsOf(drafts: Record<string, any>[], pageId: string): Omit<PageCardsOfType<Record<string, any>>, 'focus'> {
+export function pageCardsOf(drafts: Record<string, any>[], pageId: string, viewer: CardViewer): Omit<PageCardsOfType<Record<string, any>>, 'focus'> {
     const changed: Record<string, any>[] = [];
     const hidden = new Set<string>();
     const sortOrder: Record<string, number> = {};
+    const notes: Record<string, PageCardNote> = {};
     for (const draft of drafts) {
         if (typeof draft['sortOrder'] === 'number') sortOrder[draft['id']] = draft['sortOrder'];
-        if (draft['status'] !== DRAFT) continue;
-        if (isPageChange(draft, pageId)) changed.push(draftAsCard({ content: draft, lang: '', translation: null }));
-        else hidden.add(draft['id']);
+        const state = cardState(draft, pageId, viewer);
+        if (!state) continue;
+        if (state === 'hidden') hidden.add(draft['id']);
+        else if (state === 'mine' || state === 'theirs') changed.push(draftAsCard({ content: draft, lang: '', translation: null }));
+        if (state === 'theirs') notes[draft['id']] = { theirs: true };
+        if (state === 'held') notes[draft['id']] = { held: holdOf(draft)?.name || '?' };
+        if (state === 'elsewhere') notes[draft['id']] = { elsewhere: true };
     }
-    return { changed, hidden, sortOrder };
+    return { changed, hidden, sortOrder, notes };
 }
 
 /**
@@ -96,6 +136,10 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
     private readonly translationStops = new Map<string, () => void>();
     private channel: PreviewChannel | null = null;
     private pageId = '';
+    private holds = inject(HoldService);
+    /** Each type's drafts as last read, sorted again when whose work is shown changes. */
+    private readonly drafts = new Map<string, Record<string, any>[]>();
+    private shows: string | null = null;
     /** Changes that arrived while words were typed on a card, applied when the typing ends. */
     private held: (() => void)[] | null = null;
 
@@ -125,7 +169,13 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
             const message = parsePageCardsMessage(event.data);
             if (message?.arcPageCards === 'focus') this.apply(() => this.setFocus(message.focus));
             else if (message?.arcPageCards === 'hold') this.hold(message.on);
-            else if (message?.arcPageCards === 'reorder') void this.readOrder(message.type);
+            else if (message?.arcPageCards === 'shows') {
+                if (message.uid === this.shows) return;
+                this.apply(() => {
+                    this.shows = message.uid;
+                    for (const type of this.drafts.keys()) this.sort(type);
+                });
+            } else if (message?.arcPageCards === 'reorder') void this.readOrder(message.type);
         };
         win.addEventListener('message', onMessage);
         this.stops.push(() => win.removeEventListener('message', onMessage));
@@ -138,12 +188,19 @@ export class PageCardsSource extends PageCardDrafts implements OnDestroy {
             query(collection(this.firestore, `arc_${type}_drafts`), where('status', '==', DRAFT)),
             (snap) => {
                 const drafts = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
-                const cards = pageCardsOf(drafts, this.pageId);
-                this.apply(() => this.byType.update((all) => ({ ...all, [type]: cards })));
+                this.apply(() => {
+                    this.drafts.set(type, drafts);
+                    this.sort(type);
+                });
             },
             (error) => console.error(`[PageCards] Could not read the drafts of ${type}:`, error),
         ));
         this.stops.push(stop);
+    }
+
+    private sort(type: string): void {
+        const cards = pageCardsOf(this.drafts.get(type) ?? [], this.pageId, { uid: this.holds.me()?.uid ?? null, shows: this.shows });
+        this.byType.update((all) => ({ ...all, [type]: cards }));
     }
 
     /** A Move was saved: the type's whole order is read once, so the block follows it at once. */

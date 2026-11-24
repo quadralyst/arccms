@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { isHeld } from '../../../core/editing/hold';
 import { MatDialog } from '@angular/material/dialog';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -11,24 +12,31 @@ import { ConfirmService } from '../../../../shared/components/confirmation-popup
 import MediaManagerComponent from '../(media)/media.page';
 import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
 import { morePageStatus } from './more-pages.service';
+import { GlobalService } from '../../../../shared/services/global.service';
+import { NotifyService } from '../../../../shared/services/notify.service';
+import { KeptDraftsComponent } from '../hold/kept-drafts.component';
+import type { KeptDraft } from '../../../core/editing/hold.service';
+import { editState } from '../edit/edit-state';
+import { PageStatusComponent } from '../edit/page-status.component';
+import { SharePreviewComponent } from '../edit/share-preview.component';
 import type { SeoView } from './page-text-editor.model';
 
-/** How often, and how many times, the panel asks whether a publish is out. */
 /** How long Publish waits for the published copy before saying it is slow. */
 const PUBLISH_WAIT_MS = 120_000;
 /** How long after the last key an SEO field saves. */
 const SAVE_DELAY_MS = 700;
 
 /**
- * A page's panel (specs/visual-editing-spec.md, VE-D51): **Basic** (where the page
- * stands, Publish), **SEO** (title, description, share picture) and **History**
- * (every publish, Restore). The classic editor shows it beside its fields; the
- * Visual Editor shows it as Page settings.
+ * A page's panel (specs/visual-editing-spec.md, VE-D51, VE-D67): **Basic** (where the
+ * page stands, its title, cover image, summary and address, as an entry's), **SEO**
+ * (how it looks in search and when shared) and **History** (every publish, Restore).
+ * The classic editor shows it beside its fields; the Visual Editor shows it as Page
+ * settings. Publish is on the screen's own bar, and runs through `publish()` here.
  */
 @Component({
     selector: 'arc-page-text-panel',
     standalone: true,
-    imports: [ArcTimePipe, TranslocoPipe],
+    imports: [ArcTimePipe, TranslocoPipe, KeptDraftsComponent, PageStatusComponent, SharePreviewComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     styleUrls: ['./page-text-panel.component.scss'],
     template: `
@@ -41,66 +49,85 @@ const SAVE_DELAY_MS = 700;
 
         @if (tabShown() === 'basic') {
             <div class="panel-body" role="tabpanel">
-                <div class="panel-row">
-                    <span class="panel-label">{{ 'admin.more_pages.editor.status' | transloco }}</span>
-                    <span class="page-status" [class]="'page-status status-' + status()">{{ ('admin.more_pages.status.' + status()) | transloco }}</span>
-                </div>
-                <div class="panel-row">
-                    <span class="panel-label">{{ 'admin.more_pages.last_published' | transloco }}</span>
-                    <span>@if (lastPublished()) { {{ lastPublished() | arcTime }} } @else { {{ 'admin.more_pages.never' | transloco }} }</span>
-                </div>
-                <button type="button" class="btn btn-primary w-100 mt-2" data-testid="publish" (click)="publish()"
-                    [disabled]="publishing() || (status() !== 'changes' && !extraChanges()) || busy()">
-                    @if (publishing()) {
-                        <i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.publishing' | transloco }}
-                    } @else {
-                        <i class="fa-solid fa-upload me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.publish' | transloco }}
-                    }
-                </button>
+                @if (known()) {
+                <arc-page-status [state]="state()" [lastPublished]="lastPublished()" />
+                }
+                @if (locked() || status() === 'changes') {
+                    <button type="button" class="btn btn-link btn-sm p-0 mb-2" (click)="review.emit()" data-testid="review-changes">{{ 'admin.hold.review' | transloco }}</button>
+                }
                 @if (publishError()) {
-                    <p class="text-danger small mt-2" role="alert">{{ publishError() }}</p>
-                } @else if ((status() === 'changes' || extraChanges()) && !publishing()) {
-                    <p class="text-muted small mt-2">{{ 'admin.more_pages.editor.publish_note' | transloco }}</p>
+                    <p class="text-danger small" role="alert">{{ publishError() }}</p>
+                } @else if (status() === 'changes' && !publishing()) {
+                    <p class="text-muted small">{{ 'admin.more_pages.editor.publish_note' | transloco }}</p>
+                }
+                @if (seo(); as seo) {
+                <div [attr.inert]="locked() ? '' : null">
+                <div class="panel-field">
+                    <label class="panel-label" for="page-title">{{ 'admin.contents.editor.title_label' | transloco }}</label>
+                    <input id="page-title" class="form-control form-control-sm" type="text" [value]="shown('title', seo.title)" [placeholder]="seo.titleFallback"
+                        (input)="seoInput('title', $any($event.target).value)" (blur)="seoLeft('title')">
+                    <div class="counter" [class.over]="length('title') > 60">{{ 'admin.more_pages.editor.title_count' | transloco: { count: length('title') } }}</div>
+                    <small class="text-muted d-block">{{ 'admin.edit_page.page_title_hint' | transloco }}</small>
+                </div>
+                <div class="panel-field">
+                    <span class="panel-label d-block">{{ 'admin.contents.editor.cover_image' | transloco }}</span>
+                    @if (seo.shareImage) {
+                        <img class="share-image" [src]="seo.shareImage" alt="">
+                    } @else {
+                        <p class="text-muted small mb-1">{{ 'admin.more_pages.editor.share_image_default' | transloco }}</p>
+                    }
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-primary btn-sm" (click)="chooseShareImage()">{{ 'admin.more_pages.editor.choose_picture' | transloco }}</button>
+                        @if (seo.shareImage) {
+                            <button type="button" class="btn btn-link btn-sm" (click)="useFileShareImage()">{{ 'admin.more_pages.editor.use_file_picture' | transloco }}</button>
+                        }
+                    </div>
+                    <small class="text-muted d-block">{{ 'admin.edit_page.page_cover_hint' | transloco }}</small>
+                </div>
+                <div class="panel-field">
+                    <label class="panel-label" for="page-summary">{{ 'admin.contents.editor.summary' | transloco }}</label>
+                    <textarea id="page-summary" class="form-control form-control-sm" rows="4" [value]="shown('description', seo.description)" [placeholder]="seo.descriptionFallback"
+                        (input)="seoInput('description', $any($event.target).value)" (blur)="seoLeft('description')"></textarea>
+                    <div class="counter" [class.over]="length('description') > 160">{{ 'admin.more_pages.editor.description_count' | transloco: { count: length('description') } }}</div>
+                    <small class="text-muted d-block">{{ (length('description') ? 'admin.edit_page.page_summary_hint' : 'admin.edit_page.no_summary') | transloco }}</small>
+                </div>
+                </div>
+                }
+                @if (url()) {
+                <div class="panel-field">
+                    <span class="panel-label d-block">{{ 'admin.contents.editor.address' | transloco }}</span>
+                    <div class="address">
+                        <a [href]="url()" target="_blank" rel="noopener">{{ url() }}</a>
+                        <button type="button" class="btn btn-link btn-sm p-0" (click)="copyAddress()" [title]="'admin.contents.editor.copy_address' | transloco"
+                            [attr.aria-label]="'admin.contents.editor.copy_address' | transloco" data-testid="copy-address"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+                    </div>
+                    <small class="text-muted d-block">{{ 'admin.edit_page.address_by_developer' | transloco }}</small>
+                </div>
+                }
+                @if (lang() !== defaultLang()) {
+                    <p class="text-muted small mt-2 mb-0">{{ 'admin.more_pages.editor.seo_language_note' | transloco }}</p>
+                }
+                @if (saveError()) {
+                    <p class="text-danger small mt-2" role="alert">{{ 'admin.more_pages.editor.not_saved_detail' | transloco }}</p>
                 }
                 <p class="text-muted small mt-3 mb-0">{{ (publishWith() ? 'admin.more_pages.editor.cards_note_visual' : 'admin.more_pages.editor.cards_note') | transloco }}</p>
             </div>
         }
 
         @if (tabShown() === 'seo' && seo(); as seo) {
-            <div class="panel-body" role="tabpanel">
-                <label class="panel-label" for="seo-title">{{ 'admin.more_pages.editor.seo_title' | transloco }}</label>
-                <input id="seo-title" class="form-control" type="text" [value]="shown('title', seo.title)" [placeholder]="seo.titleFallback"
-                    (input)="seoInput('title', $any($event.target).value)" (blur)="seoLeft('title')">
-                <div class="counter" [class.over]="length('title') > 60">{{ 'admin.more_pages.editor.title_count' | transloco: { count: length('title') } }}</div>
-
-                <label class="panel-label mt-3" for="seo-description">{{ 'admin.more_pages.editor.seo_description' | transloco }}</label>
-                <textarea id="seo-description" class="form-control" rows="4" [value]="shown('description', seo.description)" [placeholder]="seo.descriptionFallback"
-                    (input)="seoInput('description', $any($event.target).value)" (blur)="seoLeft('description')"></textarea>
-                <div class="counter" [class.over]="length('description') > 160">{{ 'admin.more_pages.editor.description_count' | transloco: { count: length('description') } }}</div>
-
-                <span class="panel-label mt-3 d-block">{{ 'admin.more_pages.editor.share_image' | transloco }}</span>
-                @if (seo.shareImage) {
-                    <img class="share-image" [src]="seo.shareImage" alt="">
-                } @else {
-                    <p class="text-muted small mb-1">{{ 'admin.more_pages.editor.share_image_default' | transloco }}</p>
-                }
-                <div class="d-flex gap-2 flex-wrap">
-                    <button type="button" class="btn btn-outline-primary btn-sm" (click)="chooseShareImage()">{{ 'admin.more_pages.editor.choose_picture' | transloco }}</button>
-                    @if (seo.shareImage) {
-                        <button type="button" class="btn btn-link btn-sm" (click)="useFileShareImage()">{{ 'admin.more_pages.editor.use_file_picture' | transloco }}</button>
-                    }
-                </div>
-                @if (lang() !== defaultLang()) {
-                    <p class="text-muted small mt-3 mb-0">{{ 'admin.more_pages.editor.seo_language_note' | transloco }}</p>
-                }
-                @if (saveError()) {
-                    <p class="text-danger small mt-2" role="alert">{{ 'admin.more_pages.editor.not_saved_detail' | transloco }}</p>
-                }
+            <div class="panel-body" role="tabpanel" data-testid="seo-panel">
+                <p class="text-muted small mb-0">{{ 'admin.edit_page.seo_from_basic' | transloco }}</p>
+                <arc-share-preview [title]="shown('title', seo.title) || seo.titleFallback" [description]="shown('description', seo.description) || seo.descriptionFallback"
+                    [image]="seo.shareImage" [url]="url()" />
             </div>
         }
 
         @if (tabShown() === 'history') {
             <div class="panel-body" role="tabpanel" data-testid="history">
+                <arc-kept-drafts [path]="session().path || ''" [locked]="locked()" [again]="lastPublished() + '/' + keptChanged()" (restore)="restoreKept($event)" />
+                @if (publishing()) {
+                    <p class="text-muted small" role="status">{{ 'admin.edit_page.history_publishing' | transloco }}</p>
+                }
                 @if (historyError()) {
                     <p class="text-danger small" role="alert">{{ 'admin.more_pages.editor.history_failed' | transloco }}</p>
                 } @else if (history() === null) {
@@ -112,11 +139,12 @@ const SAVE_DELAY_MS = 700;
                                 <div>{{ millis(version.publishedAt) | arcTime }} @if (first) { <span class="badge text-bg-success ms-1">{{ 'admin.more_pages.editor.live' | transloco }}</span> }</div>
                                 <div class="text-muted small">{{ 'admin.more_pages.editor.version_count' | transloco: { count: entryCount(version) } }}</div>
                             </div>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restore(version)">{{ 'admin.more_pages.editor.restore' | transloco }}</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restore(version)" [disabled]="locked()">{{ 'admin.more_pages.editor.restore' | transloco }}</button>
                         </div>
                     } @empty {
                         <p class="text-muted small">{{ 'admin.more_pages.editor.no_history' | transloco }}</p>
                     }
+                    <p class="text-muted small mt-3 mb-0">{{ 'admin.edit_page.history_words' | transloco }}</p>
                 }
             </div>
         }
@@ -124,6 +152,8 @@ const SAVE_DELAY_MS = 700;
 })
 export class PageTextPanelComponent implements OnDestroy {
     private pageText = inject(PageTextService);
+    private global = inject(GlobalService);
+    private notify = inject(NotifyService);
     private dialog = inject(MatDialog);
     private confirm = inject(ConfirmService);
     private t = injectT();
@@ -140,17 +170,43 @@ export class PageTextPanelComponent implements OnDestroy {
     readonly publishWith = input<(() => Promise<void>) | null>(null);
     /** Cards with unpublished changes the Visual Editor's one Publish also takes (VE-D53). */
     readonly extraChanges = input(0);
+    /** The page's public address, shown and copied (VE-D74). */
+    readonly url = input('');
+    /** Someone else holds the page's words: they are looked at, not changed (VE-D79). */
+    readonly locked = input(false);
+    /** Review changes was asked for. */
+    readonly review = output<void>();
+    /** A save somewhere else on the screen failed. */
+    readonly failed = input(false);
 
     readonly tabs = ['basic', 'seo', 'history'] as const;
     readonly tabShown = signal<'basic' | 'seo' | 'history'>('basic');
 
     readonly draft = computed(() => this.session().draft());
     readonly published = signal<PublishedPageText | null>(null);
+    private readonly publishedRead = signal(false);
     readonly status = computed(() => morePageStatus(this.draft(), this.published()));
     readonly lastPublished = computed(() => this.published()?.publishedAt?.toMillis?.() ?? null);
     readonly publishing = signal(false);
     readonly publishError = signal('');
     readonly saveError = signal('');
+    /** SEO words typed or being saved here. */
+    private readonly seoSaving = signal(0);
+    /** The page's state in the words every editor uses (VE-D70). */
+    readonly state = computed(() => editState({
+        saving: this.busy() || this.seoSaving() > 0,
+        failed: this.failed() || !!this.saveError() || !!this.session().error?.(),
+        publishing: this.publishing(),
+        changed: this.status() === 'changes' || this.extraChanges() > 0,
+        live: true,
+    }));
+    /** Publish has something to do (VE-D73). */
+    /** The draft and the published copy were both read: until then nothing is said about the page. */
+    readonly known = computed(() => this.publishedRead() && (this.session().loaded?.() ?? true));
+    readonly canPublish = computed(() => this.known() && !this.publishing() && !this.busy()
+        && (this.locked() ? this.extraChanges() > 0 : this.status() === 'changes' || this.extraChanges() > 0 || !!this.publishError()));
+    /** Counts what adds a kept draft, so the list reads them again. */
+    readonly keptChanged = signal(0);
     readonly history = signal<PageTextVersion[] | null>(null);
     readonly historyError = signal(false);
 
@@ -164,10 +220,14 @@ export class PageTextPanelComponent implements OnDestroy {
         // The published copy of the page the panel is for, followed: another editor's publish shows too.
         effect((onCleanup) => {
             const pageId = this.session().pageId;
-            const stop = this.pageText.followPublished(pageId, (published) => {
+            const stop = untracked(() => this.pageText.followPublished(pageId, (published) => untracked(() => {
+                const before = this.lastPublished();
                 this.published.set(published);
+                this.publishedRead.set(true);
                 this.publishLanded();
-            });
+                // Whoever published, and however long it took: an open History shows it (VE-D71).
+                if (this.tabShown() === 'history' && this.lastPublished() !== before) void this.loadHistory();
+            })));
             onCleanup(stop);
         });
     }
@@ -204,13 +264,25 @@ export class PageTextPanelComponent implements OnDestroy {
     }
 
     private async run(save: () => Promise<void>): Promise<void> {
+        this.seoSaving.update((n) => n + 1);
         try {
             await save();
             this.saveError.set('');
         } catch (error: any) {
+            if (isHeld(error)) {
+                this.typing.set({});
+                return;
+            }
             console.error('[PageTextPanel] Could not save:', error);
             this.saveError.set(error?.message || String(error));
+        } finally {
+            this.seoSaving.update((n) => n - 1);
         }
+    }
+
+    async copyAddress(): Promise<void> {
+        if (await this.global.copyToClipboard(this.url())) this.notify.success('admin.contents.editor.url_copied');
+        else this.notify.error('admin.contents.editor.url_copy_failed');
     }
 
     seoInput(field: 'title' | 'description', value: string): void {
@@ -261,7 +333,8 @@ export class PageTextPanelComponent implements OnDestroy {
     // ── Publish (VE-D53) ───────────────────────────────────────────────────
 
     async publish(): Promise<void> {
-        if (this.publishing()) return;
+        // Someone else's words are published by Publish these alone; this person's cards still go.
+        if (this.publishing() || (this.locked() && !this.publishWith())) return;
         this.publishError.set('');
         await this.flush();
         if (this.saveError() || !(await this.beforePublish()())) return;
@@ -270,6 +343,22 @@ export class PageTextPanelComponent implements OnDestroy {
             const custom = this.publishWith();
             if (custom) await custom();
             else await this.session().publish();
+            this.awaitPublish();
+        } catch (error: any) {
+            console.error('[PageTextPanel] Could not publish:', error);
+            this.publishing.set(false);
+            this.publishError.set(error?.message || String(error));
+        }
+    }
+
+    /** Publishes the page's words as they are stored, someone else's too (VE-D80: Publish these). */
+    async publishWords(): Promise<void> {
+        if (!this.locked()) return;
+        if (this.publishing()) return;
+        this.publishError.set('');
+        this.publishing.set(true);
+        try {
+            await this.session().publish();
             this.awaitPublish();
         } catch (error: any) {
             console.error('[PageTextPanel] Could not publish:', error);
@@ -311,7 +400,6 @@ export class PageTextPanelComponent implements OnDestroy {
         if (this.waitTimer) clearTimeout(this.waitTimer);
         this.waitTimer = null;
         this.publishing.set(false);
-        if (this.tabShown() === 'history') void this.loadHistory();
     }
 
     // ── History (VE-D51) ───────────────────────────────────────────────────
@@ -335,6 +423,14 @@ export class PageTextPanelComponent implements OnDestroy {
         });
         if (!ok) return;
         await this.run(() => this.session().restore(version));
+        this.tabShown.set('basic');
+    }
+
+    /** Restores a kept draft (VE-D84); it then needs Publish. */
+    async restoreKept(kept: KeptDraft): Promise<void> {
+        await this.run(() => this.session().restoreKept(kept.data));
+        this.keptChanged.update((n) => n + 1);
+        if (!this.saveError()) this.notify.success('admin.hold.kept_restored');
         this.tabShown.set('basic');
     }
 

@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { NotifyService } from '../../../../../shared/services/notify.service';
@@ -15,6 +15,8 @@ import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { DraftContentsService } from './draft-contents.service';
 import { DraftContentsStore } from './draft-contents.store';
 import { EntryChangedError, EntryGoneError } from './entry-changed';
+import { HeldError } from '../../../../core/editing/hold';
+import { HoldService } from '../../../../core/editing/hold.service';
 import {
   AUTO_SAVE_DELAY_MS, EntryDraftSession, EntryDraftView, TranslatableValues, addressFromTitle, emptyTranslatableValues,
 } from './entry-draft-session';
@@ -71,6 +73,7 @@ describe('EntryDraftSession', () => {
   let dialog: any;
   let publishQueue: any;
   let contents: any;
+  let holds: any;
 
   const flush = async () => { for (let i = 0; i < 6; i++) await new Promise((resolve) => setTimeout(resolve, 0)); };
 
@@ -113,8 +116,18 @@ describe('EntryDraftSession', () => {
     publishQueue = { enqueue: vi.fn().mockResolvedValue(undefined) };
     contents = { pollDeployStatus: vi.fn().mockReturnValue(of({})) };
 
+    holds = {
+      listeners: {} as Record<string, (data: any, pending: boolean) => void>,
+      follow: vi.fn((path: string, next: any) => { holds.listeners[path] = next; return () => delete holds.listeners[path]; }),
+      me: vi.fn(() => ({ uid: 'me', name: 'Me' })),
+      entryChanges: vi.fn().mockResolvedValue([]),
+      takeOver: vi.fn().mockResolvedValue(true), keep: vi.fn().mockResolvedValue(undefined),
+      restorePublished: vi.fn().mockResolvedValue(undefined), markPublished: vi.fn().mockResolvedValue(undefined),
+      restoreKept: vi.fn().mockResolvedValue(undefined), read: vi.fn().mockResolvedValue(null), letGo: vi.fn().mockResolvedValue(null),
+    };
     TestBed.configureTestingModule({
       providers: [
+        { provide: HoldService, useFactory: () => holds },
         EntryDraftSession,
         { provide: DraftContentsStore, useValue: store },
         { provide: DraftContentsService, useValue: drafts },
@@ -565,6 +578,329 @@ describe('EntryDraftSession', () => {
       expect(kinds().filter((k: string) => k === 'highlight')).toHaveLength(2);
       session.close();
       expect(kinds()).toContain('bye');
+    });
+  });
+
+  describe('where the entry stands (VE-D70, VE-D71, VE-D73)', () => {
+    const day = (n: number) => ({ seconds: Date.UTC(2026, 9, n) / 1000 });
+
+    it('opens as published, changed or never published, as the entries list says', () => {
+      expect(session.entryRead()).toBe(false);
+      loadStored({ publishedStatus: false });
+      expect(session.entryRead()).toBe(true);
+      expect(session.editState()).toBe('never');
+      loadStored({ publishedStatus: true, modifiedAt: day(2), lastPublishedAt: day(3) });
+      expect(session.editState()).toBe('published');
+      expect(session.nothingToPublish()).toBe(true);
+      loadStored({ publishedStatus: true, modifiedAt: day(5), lastPublishedAt: day(3) });
+      expect(session.editState()).toBe('changes');
+      expect(session.nothingToPublish()).toBe(false);
+    });
+
+    it('shows the last publish, not the first one the draft keeps', () => {
+      loadStored({ publishedStatus: true, publishedOn: day(1), lastPublishedAt: day(9), modifiedAt: day(8) });
+      expect(session.lastPublishedDate).toEqual(new Date(day(9).seconds * 1000));
+      // Published before `lastPublishedAt` was kept: the only date there is, and changes cannot be told.
+      loadStored({ publishedStatus: true, publishedOn: day(1), modifiedAt: day(8) });
+      expect(session.lastPublishedDate).toEqual(new Date(day(1).seconds * 1000));
+      expect(session.nothingToPublish()).toBe(false);
+    });
+
+    it('a saved change is waiting, and a landed publish is what visitors see', async () => {
+      const deploy$ = new Subject<any>();
+      contents.pollDeployStatus.mockReturnValue(deploy$);
+      loadStored({ publishedStatus: true, publishedOn: day(1), modifiedAt: day(2), lastPublishedAt: day(3) });
+      view.values.title = 'Guide 2';
+      await session.directPublishContent();
+      expect(session.editState()).toBe('publishing');
+      expect(session.lastPublishedDate).toEqual(new Date(day(3).seconds * 1000));
+      expect(session.publishesLanded()).toBe(0);
+      deploy$.next({ deployStatus: 'deployed' });
+      expect(session.editState()).toBe('published');
+      expect(session.publishesLanded()).toBe(1);
+      expect(session.lastPublishedDate!.getTime()).toBeGreaterThan(day(3).seconds * 1000);
+    });
+
+    it('a failed publish leaves the date alone, and the changes waiting', async () => {
+      const deploy$ = new Subject<any>();
+      contents.pollDeployStatus.mockReturnValue(deploy$);
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      loadStored({ publishedStatus: true, modifiedAt: day(2), lastPublishedAt: day(3) });
+      view.values.title = 'Guide 2';
+      await session.directPublishContent();
+      deploy$.next({ deployStatus: 'failed', deployErrorCode: 'X' });
+      expect(session.editState()).toBe('changes');
+      expect(session.nothingToPublish()).toBe(false);
+      expect(session.lastPublishedDate).toEqual(new Date(day(3).seconds * 1000));
+      expect(session.publishesLanded()).toBe(0);
+    });
+
+    it('a save while the publish runs still waits once it has landed', async () => {
+      const deploy$ = new Subject<any>();
+      contents.pollDeployStatus.mockReturnValue(deploy$);
+      loadStored({ publishedStatus: true, modifiedAt: day(2), lastPublishedAt: day(3) });
+      view.values.title = 'Guide 2';
+      await session.directPublishContent();
+      view.values.title = 'Guide 3';
+      await session.performAutoSave();
+      deploy$.next({ deployStatus: 'deployed' });
+      expect(session.editState()).toBe('changes');
+    });
+  });
+
+  describe('one person holds the entry (VE-D76 to VE-D84)', () => {
+    const DRAFT = 'arc_article_drafts/doc-1';
+    const PRIYA = { by: 'priya', name: 'Priya' };
+    const arrives = (data: Record<string, any>) => holds.listeners[DRAFT]({ modifiedAt: 'stamp-1', title: 'Guide', ...data }, false);
+
+    it('follows the draft once, and is view only while someone else holds it', async () => {
+      const stored = loadStored();
+      session.load(stored);
+      expect(holds.follow).toHaveBeenCalledTimes(1);
+      arrives({ editing: PRIYA });
+      expect(session.heldBy()?.name).toBe('Priya');
+      view.values.title = 'Mine';
+      await session.performAutoSave();
+      await session.saveAsDraft();
+      await session.directPublishContent();
+      expect(store.saveDraft).not.toHaveBeenCalled();
+      expect(publishQueue.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('follows their work while looking, and shows it once they let go', async () => {
+      loadStored();
+      arrives({ editing: PRIYA });
+      arrives({ editing: PRIYA, modifiedAt: 'stamp-2', title: 'Guide 2' });
+      await flush();
+      expect(view.values.title).toBe('Guide 2');
+      arrives({ modifiedAt: 'stamp-3', title: 'Guide 3' });
+      await flush();
+      expect(session.heldBy()).toBeNull();
+      expect(view.values.title).toBe('Guide 3');
+      // And what is now on screen is the clean state: the next save compares with it.
+      expect(session.hasUnsavedChanges()).toBe(false);
+    });
+
+    it('shown again in a translation, the default language\'s older words are never written back', async () => {
+      localization.enabledLanguages.set([ENGLISH, HINDI]);
+      localization.isMultilingual.set(true);
+      drafts.getTranslation.mockResolvedValue({ lang: 'hi', title: 'हिन्दी' });
+      await session.initLanguages();
+      loadStored();
+      await session.switchLanguage('hi');
+      arrives({ editing: PRIYA });
+      arrives({ editing: PRIYA, modifiedAt: 'stamp-2', title: 'New English', content: '<p>New</p>' });
+      await flush();
+      expect(session.activeLang()).toBe('hi');
+      expect(view.values.title).toBe('हिन्दी');
+      arrives({ modifiedAt: 'stamp-2', title: 'New English', content: '<p>New</p>' });
+      view.values.title = 'हिन्दी 2';
+      session.triggerAutoSave();
+      await session.performAutoSave();
+      await flush();
+      expect(store.saveDraft).toHaveBeenCalled();
+      expect(store.saveDraft.mock.calls[0][1].title).toBe('New English');
+      expect(store.saveDraft.mock.calls[0][1].content).toBe('<p>New</p>');
+    });
+
+    it('words typed and not saved when it is taken over stay, and nothing replaces them (VE-D82)', () => {
+      loadStored();
+      view.values.title = 'Typing this';
+      store.getByCustomField.mockClear();
+      arrives({ editing: PRIYA, modifiedAt: 'stamp-2' });
+      expect(session.lostWords()).toBe(true);
+      arrives({ editing: PRIYA, modifiedAt: 'stamp-3' });
+      expect(store.getByCustomField).not.toHaveBeenCalled();
+      expect(view.values.title).toBe('Typing this');
+    });
+
+    it('a save refused because someone made the first change goes view only, with no Retry', async () => {
+      loadStored();
+      view.values.title = 'Second';
+      store.saveDraft.mockReturnValue(throwError(() => new HeldError({ by: 'priya', name: 'Priya' })));
+      await session.performAutoSave();
+      expect(session.heldBy()?.name).toBe('Priya');
+      expect(session.lostWords()).toBe(true);
+      expect(session.saveFailed()).toBe(false);
+    });
+
+    it('our own save does not read as someone else\'s', () => {
+      loadStored();
+      holds.listeners[DRAFT]({ modifiedAt: 'stamp-9', editing: { by: 'me', name: 'Me' } }, true);
+      arrives({ editing: { by: 'me', name: 'Me' } });
+      expect(session.heldBy()).toBeNull();
+    });
+
+    it('takes over from the person shown, and is then free to edit', async () => {
+      loadStored();
+      arrives({ editing: PRIYA });
+      holds.read.mockResolvedValue({ title: 'Guide', modifiedAt: 'stamp-1' });
+      expect(await session.takeOver()).toBe(true);
+      expect(holds.takeOver).toHaveBeenCalledWith(DRAFT, 'priya');
+      expect(session.heldBy()).toBeNull();
+    });
+
+    it('takes over nothing when someone else holds it by then', async () => {
+      loadStored();
+      arrives({ editing: PRIYA });
+      holds.takeOver.mockResolvedValue(false);
+      expect(await session.takeOver()).toBe(false);
+      expect(session.heldBy()?.name).toBe('Priya');
+    });
+
+    it('words typed and not saved are asked about, or saved, once the entry is let go', async () => {
+      loadStored();
+      view.values.title = 'Typing this';
+      arrives({ editing: PRIYA, modifiedAt: 'stamp-2' });
+      expect(session.editState()).toBe('not_saved');
+      arrives({ modifiedAt: 'stamp-3', title: 'Theirs' });
+      expect(session.lostWords()).toBe(false);
+      expect(session.entryChanged()).toBe(true);
+      session.keepMine();
+      await flush();
+      expect(store.saveDraft.mock.calls[0][1].title).toBe('Typing this');
+    });
+
+    it('a new entry is followed and its state known from its first write', async () => {
+      view.values.title = 'New one';
+      await session.saveAsDraft();
+      await flush();
+      expect(session.entryRead()).toBe(true);
+      expect(Object.keys(holds.listeners)).toContain('arc_article_drafts/new-id');
+      expect(session.editState()).toBe('never');
+    });
+
+    it('a mark the publish function moved, with no words changed, is not someone else\'s save', async () => {
+      loadStored();
+      arrives({ editing: { by: 'me', name: 'Me' } });
+      arrives({ editing: { by: 'me', name: 'Me' }, modifiedAt: 'stamp-server' });
+      view.values.title = 'Next';
+      await session.performAutoSave();
+      expect(store.saveDraft.mock.calls[0][3]).toBe('stamp-server');
+    });
+
+    it('publishes theirs as it is, through the same checks', async () => {
+      contents.pollDeployStatus.mockReturnValue(of({}));
+      loadStored();
+      arrives({ editing: PRIYA });
+      view.values.title = '';
+      await session.publishTheirs();
+      expect(holds.markPublished).not.toHaveBeenCalled();
+      view.values.title = 'Guide';
+      await session.publishTheirs();
+      expect(holds.markPublished).toHaveBeenCalledWith(DRAFT);
+      expect(store.saveDraft).not.toHaveBeenCalled();
+      expect(publishQueue.enqueue).toHaveBeenCalledWith('publish', 'article', 'doc-1');
+    });
+
+    describe('lets go once what is stored is what is live (VE-D76)', () => {
+      const LIVE = { title: 'Guide', content: '<p>Body</p>', urlSlug: 'guide', modifiedAt: new Date(5) };
+      const mine = { editing: { by: 'me', name: 'Me' }, content: '<p>Body</p>', urlSlug: 'guide' };
+      beforeEach(() => {
+        loadStored({ publishedStatus: true, modifiedAt: { seconds: 9 }, lastPublishedAt: { seconds: 5 } });
+        holds.listeners['arc_article/doc-1'](LIVE, false);
+        holds.letGo.mockResolvedValue('stamp-live');
+      });
+
+      it('after any save, and the next save compares with the mark it leaves', async () => {
+        holds.listeners[DRAFT]({ ...mine, title: 'Guide', modifiedAt: { seconds: 9 } }, false);
+        await flush();
+        expect(holds.letGo).toHaveBeenCalledWith('article', 'doc-1', []);
+        expect(session.editState()).toBe('published');
+        view.values.title = 'Again';
+        await session.performAutoSave();
+        expect(store.saveDraft.mock.calls[0][3]).toBe('stamp-live');
+      });
+
+      it('not while a language still differs, while something is unsaved, or while a publish runs', async () => {
+        holds.entryChanges.mockResolvedValue([{ id: 'hi|title', field: 'title', lang: 'hi', kind: 'text', before: '', after: 'x' }]);
+        holds.listeners[DRAFT]({ ...mine, title: 'Guide', modifiedAt: { seconds: 9 } }, false);
+        await flush();
+        expect(session.editState()).toBe('changes');
+        holds.entryChanges.mockResolvedValue([]);
+        view.values.title = 'Typing';
+        holds.listeners[DRAFT]({ ...mine, title: 'Guide', modifiedAt: { seconds: 9 } }, false);
+        await flush();
+        view.values.title = 'Guide';
+        session.deployStatus.set('pending');
+        holds.listeners[DRAFT]({ ...mine, title: 'Guide', modifiedAt: { seconds: 9 } }, false);
+        await flush();
+        expect(holds.letGo).not.toHaveBeenCalled();
+      });
+
+      it('never with a link, a word or a picture that differs', async () => {
+        holds.listeners[DRAFT]({ ...mine, title: 'Guide', nextContent: { id: 'x', title: 'X' }, modifiedAt: { seconds: 9 } }, false);
+        await flush();
+        expect(session.editState()).toBe('changes');
+        expect(holds.letGo).not.toHaveBeenCalled();
+      });
+
+      it('a read that fails leaves saving as it was', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        holds.entryChanges.mockRejectedValue(new Error('offline'));
+        holds.listeners[DRAFT]({ ...mine, title: 'Guide', modifiedAt: { seconds: 9 } }, false);
+        await flush();
+        view.values.title = 'Still saves';
+        await session.performAutoSave();
+        expect(store.saveDraft).toHaveBeenCalled();
+      });
+    });
+
+    it('is Published when only the dates differ (VE6.B1)', async () => {
+      const live = { title: 'Guide', content: '<p>Body</p>', urlSlug: 'guide' };
+      loadStored({ publishedStatus: true, modifiedAt: { seconds: 9 }, lastPublishedAt: { seconds: 5 } });
+      expect(session.editState()).toBe('changes');
+      holds.listeners[DRAFT]({ ...live, modifiedAt: { seconds: 9 } }, false);
+      holds.listeners['arc_article/doc-1'](live, false);
+      await flush();
+      expect(session.editState()).toBe('published');
+    });
+
+    it('Discard keeps the draft first; nothing is put back over unsaved words that could not be saved', async () => {
+      loadStored({ publishedStatus: true });
+      await session.putBack();
+      expect(session.keptChanged()).toBe(1);
+      expect(holds.keep).toHaveBeenCalledWith(DRAFT, 'discard');
+      expect(holds.restorePublished).toHaveBeenCalledTimes(1);
+      view.values.title = 'Unsaved';
+      store.saveDraft.mockReturnValue(throwError(() => new Error('offline')));
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      await expect(session.putBack()).rejects.toThrow();
+      await expect(session.restoreKept({ id: 'k' } as any)).rejects.toThrow();
+      expect(holds.restorePublished).toHaveBeenCalledTimes(1);
+      expect(holds.restoreKept).not.toHaveBeenCalled();
+    });
+
+    it('clearing a translation is a change that can be published', async () => {
+      localization.enabledLanguages.set([ENGLISH, HINDI]);
+      localization.isMultilingual.set(true);
+      drafts.getTranslation.mockResolvedValue({ lang: 'hi', title: 'हिन्दी' });
+      drafts.deleteTranslation.mockResolvedValue('stamp-cleared');
+      await session.initLanguages();
+      loadStored({ publishedStatus: true, modifiedAt: { seconds: 3 }, lastPublishedAt: { seconds: 5 } });
+      expect(session.nothingToPublish()).toBe(true);
+      await session.switchLanguage('hi');
+      await session.clearTranslation();
+      expect(session.editState()).toBe('changes');
+      expect(session.nothingToPublish()).toBe(false);
+    });
+
+    it('marks the page a card is changed on, and clears it in the entry\'s own editor (VE-D72)', async () => {
+      loadStored();
+      session.cardOnPage = 'home';
+      view.values.title = 'On the page';
+      await session.performAutoSave();
+      expect(store.saveDraft.mock.calls[0][1].changedOnPage).toBe('home');
+      session.cardOnPage = null;
+      view.values.title = 'Looked through';
+      await session.performAutoSave();
+      expect('changedOnPage' in store.saveDraft.mock.calls[1][1]).toBe(false);
+      session.cardOnPage = undefined;
+      arrives({ changedOnPage: 'home', editing: { by: 'me', name: 'Me' } });
+      view.values.title = 'In its own editor';
+      await session.performAutoSave();
+      expect(store.saveDraft.mock.calls[2][1].changedOnPage).not.toBe('home');
+      expect('changedOnPage' in store.saveDraft.mock.calls[2][1]).toBe(true);
     });
   });
 });
