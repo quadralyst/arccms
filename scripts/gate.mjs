@@ -22,7 +22,7 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { loadavg, tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -53,13 +53,27 @@ export function workingTreeHash(root) {
     try {
         const index = join(dir, 'index');
         const realIndex = resolve(root, git(root, ['rev-parse', '--git-path', 'index']).trim());
-        if (existsSync(realIndex)) copyFileSync(realIndex, index);
+        if (existsSync(realIndex)) copyIndex(realIndex, index);
         const env = { ...process.env, GIT_INDEX_FILE: index };
         git(root, ['add', '-A'], env);
         return git(root, ['write-tree'], env).trim();
     } finally {
         rmSync(dir, { recursive: true, force: true });
     }
+}
+
+/**
+ * Copies git's index with the index's own time, rounded down to the second. Git trusts an
+ * entry whose file has the size and time the entry recorded, unless the file is no older
+ * than the index: then it reads the file again. A plain copy is stamped with the time of the
+ * copy, so a same-size edit made in the second of the last `git add` would look unchanged and
+ * the key would not move. An older stamp only makes git read more files again, never fewer,
+ * so the time is taken before the copy, and rounded down.
+ */
+export function copyIndex(from, to) {
+    const { atime, mtime } = statSync(from);
+    copyFileSync(from, to);
+    utimesSync(to, atime, Math.floor(mtime.getTime() / 1000));
 }
 
 /** One key for the suite (all the code and the Node version) and one for the rules tests (their inputs). */

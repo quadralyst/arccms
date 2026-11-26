@@ -1,33 +1,57 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
-import { DOCS_SPECS, docsProblems, gateKeys, javaEnv, judgeRules, judgeSuite, readStamps, recordGreen, runGate, stampFile, summarizeSuite, watchForStalls } from '../gate.mjs';
+import { copyIndex, DOCS_SPECS, docsProblems, gateKeys, javaEnv, judgeRules, judgeSuite, readStamps, recordGreen, runGate, stampFile, summarizeSuite, watchForStalls } from '../gate.mjs';
 
 const git = (root: string, ...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 describe('the code a pass is recorded for', () => {
     let repo: string;
+    // Git trusts an index entry whose file still has the size and time the entry recorded,
+    // unless the file is no older than the index itself: then it reads the file again. The
+    // tests set every time to this one second, so an edit always lands in the second of the
+    // last `git add`, however busy the machine is. checkStat=minimal leaves the file's ctime
+    // out, which a test cannot set: in a real same-second edit it matches too.
+    const SECOND = Math.floor(Date.now() / 1000) - 3600;
+    const touch = (path: string) => utimesSync(join(repo, path), SECOND, SECOND);
+    const editInTheSameSecond = (file: string, content: string) => {
+        writeFileSync(join(repo, file), content);
+        touch(file);
+        touch('.git/index');
+    };
 
     beforeEach(() => {
         repo = realpathSync(mkdtempSync(join(tmpdir(), 'gate-spec-')));
         git(repo, 'init', '-q');
         git(repo, 'config', 'user.email', 'test@example.com');
         git(repo, 'config', 'user.name', 'Test');
+        git(repo, 'config', 'core.checkStat', 'minimal');
         writeFileSync(join(repo, '.gitignore'), 'ignored.txt\n');
         writeFileSync(join(repo, 'a.ts'), 'one');
         writeFileSync(join(repo, 'firestore.rules'), 'rules');
+        for (const file of ['.gitignore', 'a.ts', 'firestore.rules']) touch(file);
         git(repo, 'add', '-A');
         git(repo, 'commit', '-qm', 'first');
+        touch('.git/index');
+    });
+
+    it('sees an edit of the same size made in the second of the last git add', () => {
+        const before = gateKeys(repo).suite;
+        editInTheSameSecond('a.ts', 'two');
+        expect(gateKeys(repo).suite).not.toBe(before);
+        // As git itself does, since the real index is no newer than the file. Asked last:
+        // `git status` rewrites the real index, which marks the entry to be read again.
+        expect(git(repo, 'status', '--short')).toContain(' M a.ts');
     });
 
     afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
     it('changes with an edit, committed or not, and with a new file', () => {
         const before = gateKeys(repo).suite;
-        writeFileSync(join(repo, 'a.ts'), 'two');
+        editInTheSameSecond('a.ts', 'two');
         const edited = gateKeys(repo).suite;
         expect(edited).not.toBe(before);
         writeFileSync(join(repo, 'b.spec.ts'), 'new');
@@ -35,13 +59,21 @@ describe('the code a pass is recorded for', () => {
     });
 
     it('stays the same when the same code is committed, and for a file git ignores', () => {
-        writeFileSync(join(repo, 'a.ts'), 'two');
+        editInTheSameSecond('a.ts', 'two');
         const uncommitted = gateKeys(repo).suite;
         git(repo, 'add', '-A');
         git(repo, 'commit', '-qm', 'second');
         expect(gateKeys(repo).suite).toBe(uncommitted);
         writeFileSync(join(repo, 'ignored.txt'), 'x');
         expect(gateKeys(repo).suite).toBe(uncommitted);
+    });
+
+    it('copies the index with its own time, rounded down, never the time of the copy', () => {
+        utimesSync(join(repo, '.git/index'), SECOND + 0.7, SECOND + 0.7);
+        const copy = join(repo, 'index-copy');
+        copyIndex(join(repo, '.git/index'), copy);
+        expect(statSync(copy).mtimeMs).toBe(SECOND * 1000);
+        expect(readFileSync(copy)).toEqual(readFileSync(join(repo, '.git/index')));
     });
 
     it('leaves the real index alone', () => {
@@ -52,9 +84,9 @@ describe('the code a pass is recorded for', () => {
 
     it('changes the rules key only when the rules or their tests change', () => {
         const before = gateKeys(repo).rules;
-        writeFileSync(join(repo, 'a.ts'), 'two');
+        editInTheSameSecond('a.ts', 'two');
         expect(gateKeys(repo).rules).toBe(before);
-        writeFileSync(join(repo, 'firestore.rules'), 'changed');
+        editInTheSameSecond('firestore.rules', 'RULES');
         const changed = gateKeys(repo).rules;
         expect(changed).not.toBe(before);
         mkdirSync(join(repo, 'tests/rules'), { recursive: true });
