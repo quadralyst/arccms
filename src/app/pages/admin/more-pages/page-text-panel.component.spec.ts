@@ -164,6 +164,18 @@ describe('PageTextPanelComponent with cards (VE-D53)', () => {
         expect(session.publish).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps Publish off while cards are on their way, until the wait gives up and says so (VE-D88)', async () => {
+        const { fixture } = await make(0);
+        const panel = fixture.componentInstance;
+        fixture.componentRef.setInput('extraChanges', 1);
+        expect(panel.canPublish()).toBe(true);
+        fixture.componentRef.setInput('cardsGoing', true);
+        expect(panel.state()).toBe('publishing');
+        expect(panel.canPublish()).toBe(false);
+        panel.publishError.set('Publishing is taking longer than usual.');
+        expect(panel.canPublish()).toBe(true);
+    });
+
     it('says Not saved when a save elsewhere on the screen failed, and Saving while one runs', async () => {
         const { fixture } = await make(0);
         fixture.componentRef.setInput('failed', true);

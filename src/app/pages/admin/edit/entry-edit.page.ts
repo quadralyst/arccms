@@ -58,6 +58,7 @@ import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
 import { ContentType, ContentTypeField } from '../contents/content-types/content-types.model';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 import { Injector } from '@angular/core';
+import { entrySitePath, siteAddressOpenedFrom } from './site-address';
 
 /** How often the strip reads the draft's state. */
 const STATUS_EVERY_MS = 300;
@@ -145,7 +146,7 @@ export function editFrameUrl(type: string, id: string, key: string): string {
         <button type="button" class="arc-ed-btn" (click)="toForm()" [disabled]="busy()" [title]="'admin.edit_page.form_title' | transloco" data-testid="edit-form">{{ 'admin.edit_page.form' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="panel.toggle()" [class.arc-ed-on]="panel.open()"
             [attr.aria-expanded]="panel.open()" aria-controls="arc-ed-panel" data-testid="edit-settings">{{ 'admin.edit_page.page_settings' | transloco }}</button>
-        <button type="button" class="arc-ed-btn arc-ed-primary" (click)="publish()" [disabled]="!!heldBy() || busy() || nothingToPublish()" data-testid="edit-publish">{{ 'admin.contents.editor.publish' | transloco }}</button>
+        <button type="button" class="arc-ed-btn arc-ed-primary" (click)="publish()" [disabled]="publishOff()" data-testid="edit-publish">{{ 'admin.contents.editor.publish' | transloco }}</button>
         <button type="button" class="arc-ed-btn" (click)="close()" [title]="'common.actions.close' | transloco" data-testid="edit-close">{{ 'common.actions.close' | transloco }}</button>
     </div>
     @if (heldBy(); as hold) {
@@ -321,6 +322,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     /** Ends the page's being only looked at. */
     private endViewOnly: (() => void) | null = null;
     readonly busy = signal(false);
+    /** Publish is off while someone else holds the entry, a save runs, a publish is on its way, or nothing is left to publish. */
+    readonly publishOff = computed(() => !!this.heldBy() || this.busy() || this.status() === 'publishing' || this.nothingToPublish());
     /** The page is drawn in the frame with the draft in place. */
     readonly drawn = signal(false);
     /** The frame's scrollbar width, which the closed panel's handle sits inside of. */
@@ -412,12 +415,18 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         return this.editor?.contentId || this.entryId;
     }
 
+    /** The site page the editor was opened from (the strip's Edit this page or Add new), else ''. */
+    private openedFrom = '';
+
     /** An alert in the panel (a change elsewhere, a failed save or publish) was showing. */
     private alerting = false;
     private frameCleanup: (() => void) | null = null;
 
     ngAfterViewInit(): void {
         if (!isPlatformBrowser(this.platformId)) return;
+        // Only when the admin app itself opened on this screen (a click on the site's strip), not after other admin pages.
+        const view = this.document.defaultView;
+        if (view?.history?.state?.navigationId === 1) this.openedFrom = siteAddressOpenedFrom(this.document.referrer, view.location.origin);
         // Every type, as the entries list loads them: the panel shows this one's fields
         // and the page's spots are worked out from them. Nothing else on this screen,
         // outside the admin shell, loads them.
@@ -1720,9 +1729,25 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         void this.editor?.directPublishContent();
     }
 
-    /** Back to the type's entries; the leave question asks when something is not stored. */
-    close(): void {
-        void this.router.navigate(['/admin/contents', this.type]);
+    /**
+     * Close stays on the page being edited: back to the site page the editor was opened
+     * from, else the entry's own page on the site, saving first. An entry with no page on
+     * the site yet goes back to its type's entries, where the leave question asks.
+     */
+    async close(): Promise<void> {
+        const session = this.editor?.session;
+        const site = this.openedFrom || entrySitePath(this.type, session?.publishedSlug() ?? '', session?.activeLang() ?? '', session?.defaultLang() ?? '');
+        if (!site) {
+            void this.router.navigate(['/admin/contents', this.type]);
+            return;
+        }
+        if (!(await this.saveFirst()) || this.destroyed) return;
+        this.leaveFor(site);
+    }
+
+    /** A page of the site: the whole page loads, as the site draws it. */
+    protected leaveFor(address: string): void {
+        this.document.defaultView?.location.assign(address);
     }
 
     /** Saves when there is anything to save; true when nothing is left unsaved. */

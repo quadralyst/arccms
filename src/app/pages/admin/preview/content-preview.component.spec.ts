@@ -9,6 +9,7 @@ import { Component, input, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
+import { readFileSync } from 'node:fs';
 import { ContentPreviewComponent } from './content-preview.component';
 import { PreviewSession } from './preview-session';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
@@ -300,5 +301,19 @@ describe('ContentPreviewComponent', () => {
             expect(text('[data-testid="preview-also-on"]')).toBe('Back to its own page');
             expect(text('[data-testid="preview-place"]')).toBe('');
         });
+    });
+});
+
+describe('the site header and footer on the Visual Editor (VE-D17, VE-D87)', () => {
+    const source = readFileSync('src/app/pages/admin/preview/content-preview.component.ts', 'utf8');
+    const dimmed = source.match(/arc-pv-editing arc-footer \{([^}]*)\}/)?.[1] ?? '';
+
+    it('dims them by opacity alone: a filter would squeeze the site\'s phone menu into the header', () => {
+        expect(dimmed).toContain('opacity: .45');
+        expect(dimmed).not.toMatch(/filter|transform|contain|will-change/);
+    });
+
+    it('shows an open or focused menu as the site draws it', () => {
+        expect(source).toContain('arc-pv-editing arc-header:is(:focus-within, :has([aria-expanded="true"]))');
     });
 });

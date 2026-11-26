@@ -8,7 +8,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import PageEditPage, { listDrawn, listReplaced, pageCardsIn, pageEditFrameUrl, pageLivePreviewUrl, pageValuesHaveReplace, siteAddressOpenedFrom } from './page-edit.page';
+import PageEditPage, { listDrawn, listReplaced, pageCardsIn, pageEditFrameUrl, pageLivePreviewUrl, pageValuesHaveReplace } from './page-edit.page';
 import { PageCardActions } from './page-card-actions';
 import { NotifyService } from '../../../../shared/services/notify.service';
 import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
@@ -31,23 +31,6 @@ describe('pageCardsIn', () => {
             { type: 'quotes', id: 'b', changed: true, leaving: false },
             { type: 'quotes', id: 'c', changed: false, leaving: true },
         ]);
-    });
-});
-
-describe('siteAddressOpenedFrom, where Close goes back to', () => {
-    const origin = 'https://example.org';
-
-    it('is the site page the editor was opened from', () => {
-        expect(siteAddressOpenedFrom('https://example.org/', origin)).toBe('/');
-        expect(siteAddressOpenedFrom('https://example.org/pages/about?x=1', origin)).toBe('/pages/about?x=1');
-    });
-
-    it('is empty from an admin page, another site, no referrer or nonsense', () => {
-        expect(siteAddressOpenedFrom('https://example.org/admin/more-pages', origin)).toBe('');
-        expect(siteAddressOpenedFrom('https://example.org/admin', origin)).toBe('');
-        expect(siteAddressOpenedFrom('https://other.org/', origin)).toBe('');
-        expect(siteAddressOpenedFrom('', origin)).toBe('');
-        expect(siteAddressOpenedFrom('not a url', origin)).toBe('');
     });
 });
 
@@ -131,6 +114,19 @@ describe('PageEditPage, the one Publish (VE-D53)', () => {
         expect(actions.publish).toHaveBeenCalledTimes(2);
         expect(actions.publish).toHaveBeenCalledWith({ type: 'quotes', id: 'a' }, drafts['a'], expect.anything());
         expect(notify.success).toHaveBeenCalledWith('admin.edit_page.cards_published', { count: 2 });
+    });
+
+    it('publishes from the strip without opening the panel, and opens it on a failure (VE-D88)', async () => {
+        const publishError = signal('');
+        const panel = { publish: vi.fn(async () => undefined), publishError, saveError: signal('') };
+        (page as any).panelRef = () => panel;
+        page.panel.setOpen(false);
+        await page.publish();
+        expect(panel.publish).toHaveBeenCalledTimes(1);
+        expect(page.panel.open()).toBe(false);
+        panel.publish.mockImplementationOnce(async () => { publishError.set('Could not publish'); });
+        await page.publish();
+        expect(page.panel.open()).toBe(true);
     });
 
     describe('Review of your own changes (VE-D80)', () => {
@@ -359,17 +355,28 @@ describe('PageEditPage, a list page (VE-D58, VE-D62, VE-D65)', () => {
         await page.addEntry();
         expect(navigate).toHaveBeenLastCalledWith(['/admin/edit', 'articles', 'new']);
         expect(page.singularTitle()).toBe('Article');
-        await page.close();
-        expect(navigate).toHaveBeenLastCalledWith(['/admin/more-pages']);
     });
 
-    it('closes back to the entries it was opened from', async () => {
+    it('closes on the list page itself, on the site, wherever it was opened from (VE-D86)', async () => {
         history.replaceState({ arcFrom: 'entries' }, '');
         const page = make();
         vi.spyOn(page.data, 'load').mockResolvedValue(undefined);
+        const leave = vi.spyOn(page as any, 'leaveFor').mockImplementation(() => undefined);
+        page.ngOnInit();
+        navigate.mockClear();
+        await page.close();
+        expect(leave).toHaveBeenCalledWith('/articles');
+        expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('closes back to the site page it was opened from, carried through the classic editor', async () => {
+        history.replaceState({ arcOpenedFrom: '/articles?page=2' }, '');
+        const page = make();
+        vi.spyOn(page.data, 'load').mockResolvedValue(undefined);
+        const leave = vi.spyOn(page as any, 'leaveFor').mockImplementation(() => undefined);
         page.ngOnInit();
         await page.close();
-        expect(navigate).toHaveBeenLastCalledWith(['/admin/contents', 'articles']);
+        expect(leave).toHaveBeenCalledWith('/articles?page=2');
     });
 
     it('publishes the cards this person changed on the list, with pages checked for an address', async () => {

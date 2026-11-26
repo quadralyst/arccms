@@ -264,10 +264,14 @@ export class PageTextPanelComponent implements OnDestroy {
         changed: this.status() === 'changes' || this.extraChanges() > 0,
         live: true,
     }));
-    /** Publish has something to do (VE-D73). */
     /** The draft and the published copy were both read: until then nothing is said about the page. */
     readonly known = computed(() => this.publishedRead() && (this.session().loaded?.() ?? true));
+    /**
+     * Publish has something to do (VE-D73), and nothing is on its way to the site, the words
+     * or the cards; once the wait gave up and said so, Publish tries again.
+     */
     readonly canPublish = computed(() => this.known() && !this.publishing() && !this.busy()
+        && (!(this.goingLive() || this.cardsGoing()) || !!this.publishError())
         && (this.locked() ? this.extraChanges() > 0 : this.status() === 'changes' || this.extraChanges() > 0 || !!this.publishError()));
     /** Counts what adds a kept draft, so the list reads them again. */
     readonly keptChanged = signal(0);

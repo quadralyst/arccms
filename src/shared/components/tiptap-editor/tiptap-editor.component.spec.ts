@@ -270,6 +270,44 @@ describe('TiptapEditorComponent', () => {
             fixture.destroy();
             expect(releaseLook).toHaveBeenCalledTimes(1);
         });
+
+        it('marks the rebuilt elements and the body, so a grid made for parts beside them gives the body the whole row', () => {
+            const lastAttributes = () => (component.editor.setOptions as any).mock.calls.at(-1)?.[0].editorProps.attributes;
+            show(LOOK);
+            const parts = Array.from(root()!.querySelectorAll('[data-arc-look-part]'));
+            expect(parts.map((el) => el.tagName)).toEqual(['ARTICLE', 'DIV', 'TIPTAP-EDITOR']);
+            expect(lastAttributes()['data-arc-look-part']).toBe('');
+            show(null);
+            expect(host().hasAttribute('data-arc-look-part')).toBe(false);
+            expect('data-arc-look-part' in lastAttributes()).toBe(false);
+        });
+
+        it('puts the cursor at the nearest point of the text on a press beside it, and leaves the editor\'s tools alone', () => {
+            show(LOOK);
+            const dom = component.editor.view.dom as HTMLElement;
+            dom.getBoundingClientRect = () => new DOMRect(100, 50, 400, 300);
+            const run = vi.fn();
+            const focus = vi.fn(() => ({ run }));
+            Object.assign(component.editor, { isEditable: true, chain: vi.fn(() => ({ focus })) });
+            (component.editor.view as any).posAtCoords = vi.fn(() => ({ pos: 7, inside: -1 }));
+            const press = (target: Element, x: number, y: number) => {
+                const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
+                target.dispatchEvent(event);
+                return event;
+            };
+            const wrapper = root()!.firstElementChild!;
+            const event = press(wrapper, 900, 20);
+            expect((component.editor.view as any).posAtCoords).toHaveBeenCalledWith({ left: 499, top: 51 });
+            expect(focus).toHaveBeenCalledWith(7);
+            expect(event.defaultPrevented).toBe(true);
+            // In the text, or on a tool inside the look: the press is theirs.
+            focus.mockClear();
+            const tool = document.createElement('button');
+            host().appendChild(tool);
+            press(dom, 200, 100);
+            press(tool, 900, 20);
+            expect(focus).not.toHaveBeenCalled();
+        });
     });
 
     describe('Text Formatting', () => {

@@ -961,7 +961,8 @@ export class EntryDraftSession implements OnDestroy {
   }
 
   async directPublishContent(overwrite = false): Promise<void> {
-    if (this.saveInFlight || this.entryGone() || this.heldBy()) return;
+    // A second click while the first publish is on its way asks for nothing more.
+    if (this.saveInFlight || this.publishing() || this.entryGone() || this.heldBy()) return;
     if (await this.firstWriteDone()) return;
     // Publishing acts on the whole item: the default language and every
     // translation go live together, from whichever language is on screen.
@@ -1594,7 +1595,7 @@ export class EntryDraftSession implements OnDestroy {
    * checks. Their hold ends when the publish lands; nothing of theirs is written.
    */
   async publishTheirs(): Promise<void> {
-    if (!this.heldBy() || this.saveInFlight || this.entryGone()) return;
+    if (!this.heldBy() || this.saveInFlight || this.publishing() || this.entryGone()) return;
     const validation = this.validateForPublish();
     if (!validation.valid) {
       this.toastService.openCustomSnackbar(validation.errors[0], 'error', 'error');
@@ -1662,6 +1663,11 @@ export class EntryDraftSession implements OnDestroy {
       changed: this.publishedState() === 'edited',
       live: this.publishedState() !== 'draft',
     });
+  }
+
+  /** A publish is on its way to the site: Publish waits for it (it ends in a failure after the wait). */
+  publishing(): boolean {
+    return this.deployStatus() === 'pending';
   }
 
   /** Publish has nothing to do: what is stored is live, and the dates can tell (VE-D73). */

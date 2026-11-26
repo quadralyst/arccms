@@ -2214,9 +2214,18 @@ export class CreateContentComponent extends BaseComponent {
     return this.session.saveAsDraft(afterSave, overwrite);
   }
 
+  /** A Publish click is being handled: a second click meanwhile (a double-click) does nothing (VE-D88). */
+  private publishAsked = false;
+
   /** Publish: the checks, then the whole entry goes live (in the session, VE-D15). */
-  public directPublishContent(overwrite = false): Promise<void> {
-    return this.session.directPublishContent(overwrite);
+  public async directPublishContent(overwrite = false): Promise<void> {
+    if (this.publishAsked) return;
+    this.publishAsked = true;
+    try {
+      await this.session.directPublishContent(overwrite);
+    } finally {
+      this.publishAsked = false;
+    }
   }
 
   /** Retry on the "Not saved" line: the write that failed, again. */

@@ -28,7 +28,7 @@ import { UrlAddDialog } from './service/url-add-dialog/add-url.component';
 import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/(media)/media.page';
 import { mediaPickerDialogConfig } from '../../../app/pages/admin/(media)/media-picker-dialog';
 import { SiteLook, SiteLookService } from '../../../app/core/site/site-look.service';
-import { buildLookWrappers } from '../../../app/core/site/site-look-view';
+import { buildLookWrappers, LOOK_PART } from '../../../app/core/site/site-look-view';
 
 /** ngx-tiptap's default plugin key for `<tiptap-bubble-menu>`. */
 const BUBBLE_MENU_KEY = 'NgxTiptapBubbleMenu';
@@ -270,7 +270,7 @@ export default class TiptapEditorComponent {
   /** The editable element's attributes; with a look, the classes of the element the template fills, and `arc-site-look-on`. */
   private editorAttributes(lookClasses: string[]): Record<string, string> {
     const classes = ['custom_tip_tap_editor', ...(lookClasses.length ? ['arc-site-look-on', ...lookClasses] : [])];
-    return { class: classes.join(' '), spellCheck: 'false' };
+    return { class: classes.join(' '), spellCheck: 'false', ...(lookClasses.length ? { [LOOK_PART]: '' } : {}) };
   }
 
   ngAfterViewInit() {
@@ -317,6 +317,10 @@ export default class TiptapEditorComponent {
     inner.appendChild(host);
     this.lookHostClasses = (ancestors[ancestors.length - 1]?.classes ?? []).filter((name) => !host.classList.contains(name));
     host.classList.add(...this.lookHostClasses);
+    host.setAttribute(LOOK_PART, '');
+    // A click in the look beside or below the text (the template's spacing around it)
+    // puts the cursor at the nearest point of the text, as a click on it would.
+    root.addEventListener('mousedown', (event) => this.focusNearest(event));
     this.lookRoot = root;
     this.setEditorClasses(look.chain.body.classes.length ? look.chain.body.classes : ['arc-site-look-body']);
     // TipTap puts the selection menu beside the editable element, which is now
@@ -338,9 +342,26 @@ export default class TiptapEditorComponent {
       this.lookRoot = null;
     }
     host.classList.remove(...this.lookHostClasses);
+    host.removeAttribute(LOOK_PART);
     this.lookHostClasses = [];
     this.releaseLook?.();
     this.releaseLook = null;
+  }
+
+  /** A press on the look's own boxes beside or below the text: the cursor goes to the text's nearest point. */
+  private focusNearest(event: MouseEvent): void {
+    const dom = this.editor?.view?.dom as HTMLElement | undefined;
+    if (!dom || event.button !== 0 || !this.editor.isEditable) return;
+    // Only the look's own boxes: the editor's tools inside the look keep their clicks.
+    const target = event.target as Element | null;
+    if (!target || dom.contains(target) || !(target === this.lookRoot || target.hasAttribute?.(LOOK_PART))) return;
+    const box = dom.getBoundingClientRect();
+    if (!box.width || !box.height) return;
+    const left = Math.min(Math.max(event.clientX, box.left + 1), box.right - 1);
+    const top = Math.min(Math.max(event.clientY, box.top + 1), box.bottom - 1);
+    const at = this.editor.view.posAtCoords({ left, top });
+    event.preventDefault();
+    this.editor.chain().focus(at ? at.pos : 'end').run();
   }
 
   /**

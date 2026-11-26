@@ -169,11 +169,16 @@ const BUILTIN_LABELS: Record<string, string> = {
         arc-content-preview.arc-pv-editing arc-content-list,
         arc-content-preview.arc-pv-editing arc-content-partials { animation: none; }
         /* The Visual Editor (VE-D17): the site's header and footer are not this entry's, so they are dimmed;
-           the app's own floating parts (feedback, banners, update bars) are not part of the page. */
+           the app's own floating parts (feedback, banners, update bars) are not part of the page.
+           Dimmed by opacity alone: a filter would make the header the box of the site's fixed
+           parts, and squeeze its phone menu into the header's height (VE-D87). An open menu
+           (a control saying aria-expanded) or a focused one shows as the site draws it. */
         arc-content-preview.arc-pv-editing arc-header,
-        arc-content-preview.arc-pv-editing arc-footer { opacity: .45; filter: grayscale(.4); transition: opacity .15s; }
+        arc-content-preview.arc-pv-editing arc-footer { opacity: .45; transition: opacity .15s; }
         arc-content-preview.arc-pv-editing arc-header:hover,
         arc-content-preview.arc-pv-editing arc-footer:hover { opacity: .6; }
+        arc-content-preview.arc-pv-editing arc-header:is(:focus-within, :has([aria-expanded="true"])),
+        arc-content-preview.arc-pv-editing arc-footer:is(:focus-within, :has([aria-expanded="true"])) { opacity: 1; }
         body:has(arc-content-preview.arc-pv-editing) :is(arc-feedback, arc-site-usage-banner, arc-pwa-update-bar, arc-stale-code-bar, arc-global-message-banner, arc-powered-by-footer) { display: none !important; }
         arc-content-preview [data-arc-pv-highlight] { outline: 3px solid var(--arc-admin-accent) !important; outline-offset: 2px; }
     `],

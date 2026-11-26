@@ -27,6 +27,7 @@ import type { ReviewCard } from '../hold/review-changes-dialog.component';
 import { PageReview } from './page-review';
 import { pageValuesHaveReplace } from './page-text-editor.model';
 import { classicEditorLink, pagePreviewPath, pageRefFrom, type PageRef } from './page-ref';
+import { pageSitePath, siteAddressOpenedFrom } from '../edit/site-address';
 export { pageValuesHaveReplace };
 import { isPageChange, type PageCardsMessage } from './page-cards';
 import MediaManagerComponent from '../(media)/media.page';
@@ -58,22 +59,6 @@ function cssEscape(value: string): string {
 /** A type's name inside a sentence ("new testimonial"): its first letter small, unless it starts an acronym. */
 function inSentenceName(name: string): string {
     return /^\p{Lu}\p{Ll}/u.test(name) ? name[0].toLowerCase() + name.slice(1) : name;
-}
-
-/** The frame's address: the page's Live Preview in edit mode (VE-D55). */
-/**
- * The address of the site page an editor came from, to go back to on Close: the
- * path of a referrer on this site that is not an admin page, else ''.
- */
-export function siteAddressOpenedFrom(referrer: string, origin: string): string {
-    if (!referrer || !origin) return '';
-    try {
-        const url = new URL(referrer);
-        if (url.origin !== origin || url.pathname.startsWith('//') || url.pathname === '/admin' || url.pathname.startsWith('/admin/')) return '';
-        return url.pathname + url.search;
-    } catch {
-        return '';
-    }
 }
 
 /** The Visual Editor's frame: the page's preview, to be edited. */
@@ -826,18 +811,22 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
 
     /** Where the editor was opened from when that was the site's own page (the admin bar's Edit link), else ''. */
     private openedFrom = '';
-    /** A list page's editor opened from its type's entries: Close goes back to them. */
+    /** A list page's editor opened from its type's entries: its classic editor's Close goes back to them. */
     private openedFromEntries = false;
 
-    /** Close goes back to where the editor was opened: the page on the site, else More Pages. */
+    /**
+     * Close stays on the page being edited (VE-D86): back to the site page the editor was
+     * opened from, else this page on the site, in the language on screen.
+     */
     async close(): Promise<void> {
         this.leaveSpot();
         if (!(await this.saveCard())) return;
-        if (this.openedFrom) {
-            this.document.defaultView?.location.assign(this.openedFrom);
-            return;
-        }
-        void this.router.navigate(this.openedFromEntries ? ['/admin/contents', this.data.name] : ['/admin/more-pages']);
+        this.leaveFor(this.openedFrom || pageSitePath(this.data.page, this.data.lang(), this.data.defaultLang()));
+    }
+
+    /** A page of the site: the whole page loads, as the site draws it. */
+    protected leaveFor(address: string): void {
+        this.document.defaultView?.location.assign(address);
     }
 
     /** Add new (VE-D62): the open card and the words saved first. */
@@ -972,16 +961,21 @@ export default class PageEditPage implements OnInit, OnDestroy, PageInPlaceHost,
         }));
     }
 
+    /**
+     * The strip's Publish: the page stays as it is, and the panel opens only on what
+     * needs the editor (a card that fails its checks opens on its field, a failed save
+     * or publish on its line).
+     */
     async publish(): Promise<void> {
         const panel = this.panelRef();
         if (!panel || this.checking()) return;
-        this.panel.setOpen(true);
         this.checking.set(true);
         try {
             await panel.publish();
         } finally {
             this.checking.set(false);
         }
+        if (panel.publishError() || panel.saveError() || this.saveError()) this.panel.setOpen(true);
     }
 
     // ── Cards (VE-D54) ─────────────────────────────────────────────────────

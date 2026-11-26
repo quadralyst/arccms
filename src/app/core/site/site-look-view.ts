@@ -11,6 +11,17 @@ import { ChainElement } from './site-look';
 import { SiteLook, SiteLookService } from './site-look.service';
 
 /**
+ * Marks the template's elements rebuilt around the field, and the field itself. They
+ * stand alone, without the parts beside them on the page (a side column, a picture):
+ * in a grid made for those parts the field would sit in one narrow slot, so the
+ * marked elements take the whole row (LOOK_PART_CSS), their own widths still applying.
+ */
+export const LOOK_PART = 'data-arc-look-part';
+
+/** The rule for LOOK_PART, in the admin page (the editor's stylesheet) and in the version preview's frame. */
+export const LOOK_PART_CSS = `[${LOOK_PART}]{grid-column:1/-1!important;grid-row:auto!important}`;
+
+/**
  * The look's root (the stand-in for the page's body, with the look's scope class
  * and the edited language) and `ancestors` inside it, outermost first. Returns
  * the root and the innermost element, where the field goes. An id the admin page
@@ -25,6 +36,7 @@ export function buildLookWrappers(doc: Document, look: SiteLook, ancestors: Chai
         const node = doc.createElement(element.tag);
         if (element.classes.length) node.className = element.classes.join(' ');
         if (element.id && !doc.getElementById(element.id)) node.id = element.id;
+        node.setAttribute(LOOK_PART, '');
         inner.appendChild(node);
         inner = node;
     }
@@ -86,11 +98,12 @@ export function storedHtmlDocument(doc: Document, look: SiteLook | null, html: s
         const { root, inner } = buildLookWrappers(inert, look, look.chain.ancestors);
         const field = inert.createElement(look.chain.body.tag);
         if (look.chain.body.classes.length) field.className = look.chain.body.classes.join(' ');
+        field.setAttribute(LOOK_PART, '');
         field.appendChild(inert.createComment('arc-stored-html'));
         inner.appendChild(field);
         body = root.outerHTML;
     }
-    const page = `<!doctype html><html><head><meta charset="utf-8">${styles}<style>${FRAME_CSS}</style></head>`
+    const page = `<!doctype html><html><head><meta charset="utf-8">${styles}<style>${FRAME_CSS}${look ? LOOK_PART_CSS : ''}</style></head>`
         + `<body class="${look ? 'arc-look' : 'arc-plain'}">${body}</body></html>`;
     return emailPreviewDocument(page.replace(SLOT, () => html || ''));
 }

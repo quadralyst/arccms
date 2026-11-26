@@ -35,6 +35,7 @@ function fakeEditor() {
         activeLang: signal('en'),
         isTranslating: signal(false),
         deployStatus: signal<string | null>(null),
+        publishedSlug: signal(''),
         unsaved: false,
         publishedState: signal('published'),
         entryRead: signal(true),
@@ -233,11 +234,51 @@ describe('EntryEditPage', () => {
         expect(open).toHaveBeenCalled();
     });
 
-    it('publishes through the editor\'s own checks, and closes to the type\'s entries', () => {
+    it('publishes through the editor\'s own checks, with Publish off while the publish is on its way (VE-D88)', () => {
+        page.readStatus();
+        expect(page.publishOff()).toBe(false);
         page.publish();
         expect(editor.directPublishContent).toHaveBeenCalled();
-        page.close();
+        editor.session.deployStatus.set('pending');
+        page.readStatus();
+        expect(page.status()).toBe('publishing');
+        expect(page.publishOff()).toBe(true);
+        editor.session.deployStatus.set('deployed');
+        page.readStatus();
+        expect(page.publishOff()).toBe(false);
+    });
+
+    it('closes on the entry\'s own page on the site, in the language on screen, saving first (VE-D86)', async () => {
+        const leave = vi.spyOn(page as any, 'leaveFor').mockImplementation(() => undefined);
+        editor.session.publishedSlug.set('first-post');
+        editor.session.unsaved = true;
+        await page.close();
+        expect(editor.saveAsDraft).toHaveBeenCalled();
+        expect(leave).toHaveBeenLastCalledWith('/articles/first-post');
+        editor.session.activeLang.set('hi');
+        await page.close();
+        expect(leave).toHaveBeenLastCalledWith('/hi/articles/first-post');
+        expect(router.navigate).not.toHaveBeenCalled();
+    });
+
+    it('closes back to the site page it was opened from, and to the entries while the entry has no page', async () => {
+        const leave = vi.spyOn(page as any, 'leaveFor').mockImplementation(() => undefined);
+        await page.close();
+        expect(leave).not.toHaveBeenCalled();
         expect(router.navigate).toHaveBeenCalledWith(['/admin/contents', 'articles']);
+        (page as any).openedFrom = '/articles';
+        await page.close();
+        expect(leave).toHaveBeenCalledWith('/articles');
+    });
+
+    it('stays on Close, with the panel open on why, when the save did not land', async () => {
+        const leave = vi.spyOn(page as any, 'leaveFor').mockImplementation(() => undefined);
+        editor.session.publishedSlug.set('first-post');
+        editor.session.unsaved = true;
+        editor.saveAsDraft.mockImplementation(async () => { editor.session.saveFailed.set(true); });
+        await page.close();
+        expect(leave).not.toHaveBeenCalled();
+        expect(page.panel.open()).toBe(true);
     });
 
     it('closes the panel on Escape, but leaves Escape to a dialog over the screen', () => {

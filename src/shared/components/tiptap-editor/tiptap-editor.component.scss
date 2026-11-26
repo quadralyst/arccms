@@ -33,6 +33,16 @@
   display: block;
 }
 
+/* The template's elements are rebuilt around the body alone, without the parts
+   beside it on the page (a side column, a picture). In a grid made for those
+   parts the body would sit in one narrow slot: the rebuilt elements and the body
+   take the whole row instead, their own widths still applying. The version
+   preview's frame has the same rule (site-look-view.ts, LOOK_PART_CSS). */
+::ng-deep [data-arc-look-part] {
+  grid-column: 1 / -1 !important;
+  grid-row: auto !important;
+}
+
 ::ng-deep .ProseMirror {
     ul[data-type="taskList"] {
       list-style: none;

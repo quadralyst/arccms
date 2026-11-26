@@ -158,7 +158,7 @@
     <ul>
       <li><strong>Screen-width rules</strong> (<code>@media (max-width: 768px)</code>) follow the admin window, not the editor's pane, and a pane narrower than the page's column shows a narrower column.</li>
       <li><strong><code>rem</code> sizes</strong> follow the admin's root size (16px). A <code>site.css</code> that changes the <code>html</code> font size sees <code>rem</code> sizes differ in the editor.</li>
-      <li><strong>Only the elements around the body</strong> are rebuilt, not those beside it. A body in a flex row with a sidebar can show wider in the editor.</li>
+      <li><strong>Only the elements around the body</strong> are rebuilt, not those beside it. In a grid made for a sidebar or a picture beside the body, the body and the elements around it take the whole row in the editor, so the body is never squeezed into a sidebar's column; its own width (a <code>max-width</code>) still applies. A body in a flex row with a sidebar can also show wider in the editor. A click beside or below the text puts the cursor at its nearest point.</li>
       <li><strong>Scripts</strong> do not run in the editor, and classes a script puts on <code>&lt;html&gt;</code> or <code>&lt;body&gt;</code> (such as a dark theme switch) are not there.</li>
       <li><strong>Page parts outside the body</strong> (the title, cover image, date and tags) stay admin fields.</li>
       <li><strong>Editing aids</strong> stay visible: placeholders, the outline and label of a structured block, the selected image or table cell, and the box shown while an image uploads. Tables are wrapped for editing, so a column can be a pixel or two wider or narrower than on the page.</li>

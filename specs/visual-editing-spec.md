@@ -730,6 +730,17 @@ the classic editor all pass. Fixed after it (the seven points found, agreed the 
 
 Not checked live: moving a card, a second admin, two languages, a formatted heading, a static page.
 
+### VE7: Fixes from use (2026-11-26)
+
+Six faults an editor found on an app's own site, agreed to fix all six.
+
+| ID | Decision | Choice |
+|----|----------|--------|
+| VE-D86 | Close | **Close stays on the page being edited**, in both Visual Editors: back to the site page the editor was opened from (the strip's Edit this page or Add new, the referrer when the admin app opened on the screen), else the page's own address on the site in the language on screen (`site-address.ts`: an entry's `/{lang}/{type}/{live slug}`, the home page, `/{lang}/{type}` for a list page, `/p/{name}`). It saves first and loads the whole page. An entry with no live page goes back to its type's entries as before. The classic editors' Close is unchanged. |
+| VE-D87 | The dimmed header and footer | **Dimmed by opacity alone.** A `filter` on `arc-header` made it the containing block of the site's fixed parts, so an app's phone menu (`position: fixed; inset: 0`) was squeezed into the header's 80 px and the page showed through it. While the header holds an open control (`aria-expanded="true"`) or focus, it shows at full strength. |
+| VE-D88 | Publish | **Greyed out while a publish is on its way**: an entry while `deployStatus` is pending (it ends in a failure after the wait), a page while its words or cards are going live, until the wait gives up and says so. A second Publish in that time does nothing (`EntryDraftSession.publishing()`). The page Visual Editor's Publish no longer opens the panel first: it opens only on a failed save or publish; a card that fails its checks opens its own form, as before. |
+| VE-D89 | The classic editor's width with the site look | **The rebuilt elements and the body take the whole row of a grid** (`data-arc-look-part`, `grid-column: 1 / -1`). They are rebuilt without the parts beside them on the page, so a template with a side column put the body in the side column's slot (about 250 px). Their own widths still apply. A press on the look's own boxes beside or below the text puts the cursor at its nearest point. Same rule in the version preview's frame. |
+
 ## 3. Risks
 
 | Risk | Answer |

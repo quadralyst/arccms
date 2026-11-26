@@ -3300,6 +3300,8 @@ describe('CreateContentComponent', () => {
                 await flush();
                 settle();
                 const first = mockDraftContentsStore.saveDraft.mock.calls[0][1].publishedOn;
+                // The first publish lands: Publish is on again (VE-D88).
+                component.session.deployStatus.set('deployed');
 
                 await new Promise((resolve) => setTimeout(resolve, 5));
                 await component.directPublishContent();
@@ -3589,6 +3591,28 @@ describe('CreateContentComponent', () => {
                 expect(component.deployStatus()).toBe('deployed');
             });
 
+            it('takes a double-click on Publish as one click (VE-D88)', async () => {
+                const queue = TestBed.inject(PublishQueueService) as any;
+                loadEntry();
+                await Promise.all([component.directPublishContent(), component.directPublishContent()]);
+                expect(queue.enqueue).toHaveBeenCalledTimes(1);
+            });
+
+            it('asks for nothing more on a second Publish while the first is on its way (VE-D88)', async () => {
+                const deploy$ = new Subject<any>();
+                const contents = TestBed.inject(ContentsService) as any;
+                contents.pollDeployStatus.mockReturnValue(deploy$);
+                const queue = TestBed.inject(PublishQueueService) as any;
+                loadEntry();
+
+                await component.directPublishContent();
+                expect(component.session.publishing()).toBe(true);
+                await component.directPublishContent();
+                expect(queue.enqueue).toHaveBeenCalledTimes(1);
+                deploy$.next({ deployStatus: 'deployed', deployError: '' });
+                expect(component.session.publishing()).toBe(false);
+            });
+
             it('shows a failure that stays when publishing cannot start, and Publish again tries again', async () => {
                 const queue = TestBed.inject(PublishQueueService) as any;
                 queue.enqueue.mockRejectedValueOnce(new Error('offline'));
@@ -3783,6 +3807,8 @@ describe('CreateContentComponent', () => {
             await component.directPublishContent();
             const firstPublishedOn = mockDraftContentsStore.createDraft.mock.calls[0][0].publishedOn;
             expect(mockDraftContentsStore.adoptCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-id', title: 'Hello' }));
+            // The first publish lands: Publish is on again (VE-D88).
+            component.session.deployStatus.set('deployed');
             await new Promise((resolve) => setTimeout(resolve, 5));
             await component.directPublishContent();
             expect(mockDraftContentsStore.saveDraft.mock.calls[0][1].publishedOn).toBe(firstPublishedOn);
