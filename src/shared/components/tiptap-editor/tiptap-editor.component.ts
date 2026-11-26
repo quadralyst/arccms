@@ -270,7 +270,7 @@ export default class TiptapEditorComponent {
   /** The editable element's attributes; with a look, the classes of the element the template fills, and `arc-site-look-on`. */
   private editorAttributes(lookClasses: string[]): Record<string, string> {
     const classes = ['custom_tip_tap_editor', ...(lookClasses.length ? ['arc-site-look-on', ...lookClasses] : [])];
-    return { class: classes.join(' '), spellCheck: 'false', ...(lookClasses.length ? { [LOOK_PART]: '' } : {}) };
+    return { class: classes.join(' '), spellCheck: 'false' };
   }
 
   ngAfterViewInit() {

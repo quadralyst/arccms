@@ -27,20 +27,15 @@
   }
 }
 
-/* The <tiptap-editor> element carries the classes of the template element just
-   around the body; it is a block there, unless the site's CSS says otherwise. */
-::ng-deep :where(.arc-site-look tiptap-editor) {
-  display: block;
-}
-
 /* The template's elements are rebuilt around the body alone, without the parts
-   beside it on the page (a side column, a picture). In a grid made for those
-   parts the body would sit in one narrow slot: the rebuilt elements and the body
-   take the whole row instead, their own widths still applying. The version
-   preview's frame has the same rule (site-look-view.ts, LOOK_PART_CSS). */
+   beside it on the page (a side column, a picture), the <tiptap-editor> element
+   carrying the classes of the one just around the body. A grid or flex layout made
+   for those parts has nothing to arrange: it put the body in a sidebar's narrow
+   slot, or shrank it to its words. They are plain blocks instead, keeping their
+   spacing, colours and widths. The version preview's frame has the same rule
+   (site-look-view.ts, LOOK_PART_CSS). */
 ::ng-deep [data-arc-look-part] {
-  grid-column: 1 / -1 !important;
-  grid-row: auto !important;
+  display: block !important;
 }
 
 ::ng-deep .ProseMirror {

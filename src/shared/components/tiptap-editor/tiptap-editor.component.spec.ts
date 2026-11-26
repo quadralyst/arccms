@@ -271,15 +271,14 @@ describe('TiptapEditorComponent', () => {
             expect(releaseLook).toHaveBeenCalledTimes(1);
         });
 
-        it('marks the rebuilt elements and the body, so a grid made for parts beside them gives the body the whole row', () => {
+        it('marks the rebuilt elements around the text, shown as plain blocks, and not the text itself', () => {
             const lastAttributes = () => (component.editor.setOptions as any).mock.calls.at(-1)?.[0].editorProps.attributes;
             show(LOOK);
             const parts = Array.from(root()!.querySelectorAll('[data-arc-look-part]'));
             expect(parts.map((el) => el.tagName)).toEqual(['ARTICLE', 'DIV', 'TIPTAP-EDITOR']);
-            expect(lastAttributes()['data-arc-look-part']).toBe('');
+            expect('data-arc-look-part' in lastAttributes()).toBe(false);
             show(null);
             expect(host().hasAttribute('data-arc-look-part')).toBe(false);
-            expect('data-arc-look-part' in lastAttributes()).toBe(false);
         });
 
         it('puts the cursor at the nearest point of the text on a press beside it, and leaves the editor\'s tools alone', () => {

@@ -35,7 +35,7 @@ describe('buildLookWrappers', () => {
         const { root, inner } = buildLookWrappers(document, LOOK, LOOK.chain.ancestors);
         expect(root.className).toBe('arc-site-look arc-site-look-3');
         expect(root.lang).toBe('hi');
-        // Each marked: they stand without the parts beside them on the page, and take the whole row of a grid.
+        // Each marked: they stand without the parts beside them on the page, and are shown as plain blocks.
         expect(root.innerHTML).toBe('<article class="page" id="top" data-arc-look-part=""><div class="wrapper" data-arc-look-part=""></div></article>');
         expect(inner.className).toBe('wrapper');
     });
@@ -82,7 +82,7 @@ describe('SiteLookViewComponent', () => {
         expect(frame.getAttribute('sandbox')).not.toMatch(/allow-scripts|allow-same-origin/);
         expect(frame.srcdoc).toContain(
             '<div class="arc-site-look arc-site-look-3" lang="hi"><article class="page" id="top" data-arc-look-part=""><div class="wrapper" data-arc-look-part="">'
-            + '<section class="article-content" data-arc-look-part=""><p>Version <strong>two</strong></p></section></div></article></div>',
+            + '<section class="article-content"><p>Version <strong>two</strong></p></section></div></article></div>',
         );
         expect(service.use).toHaveBeenCalledWith(LOOK);
     });
@@ -93,7 +93,7 @@ describe('SiteLookViewComponent', () => {
         fixture.detectChanges();
         const view = fixture.nativeElement.querySelector('arc-site-look-view') as HTMLElement;
         expect(view.querySelectorAll('iframe')).toHaveLength(1);
-        expect(frameOf(fixture).srcdoc).toContain('<section class="article-content" data-arc-look-part=""><p>Version one</p></section>');
+        expect(frameOf(fixture).srcdoc).toContain('<section class="article-content"><p>Version one</p></section>');
         expect(service.use).toHaveBeenCalledTimes(2);
         expect(release).toHaveBeenCalledTimes(1);
     });
@@ -139,14 +139,15 @@ describe('storedHtmlDocument', () => {
         expect(page).not.toContain('javascript:');
     });
 
-    it('gives the field the whole row of a grid made for parts the preview does not show, as the editor does', () => {
+    it('shows the elements around the field as plain blocks, the field keeping its own layout, as the editor does', () => {
         const page = storedHtmlDocument(document, LOOK, '<p>Text</p>', '');
-        expect(page).toContain('<section class="article-content" data-arc-look-part=""><p>Text</p></section>');
+        expect(page).toContain('<div class="wrapper" data-arc-look-part=""><section class="article-content"><p>Text</p></section>');
+        expect(LOOK_PART_CSS).toBe('[data-arc-look-part]{display:block!important}');
         expect(page).toContain(LOOK_PART_CSS);
         expect(storedHtmlDocument(document, null, '<p>Text</p>', '')).not.toContain(LOOK_PART_CSS);
-        // The editor's stylesheet has the same rule for the editable text.
+        // The editor's stylesheet has the same rule.
         const editorCss = readFileSync('src/shared/components/tiptap-editor/tiptap-editor.component.scss', 'utf8');
-        expect(editorCss).toMatch(/\[data-arc-look-part\] \{\s*grid-column: 1 \/ -1 !important;\s*grid-row: auto !important;/);
+        expect(editorCss).toMatch(/\[data-arc-look-part\] \{\s*display: block !important;\s*\}/);
     });
 
     it('never parses the stored HTML in the admin page', () => {

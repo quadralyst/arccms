@@ -11,15 +11,17 @@ import { ChainElement } from './site-look';
 import { SiteLook, SiteLookService } from './site-look.service';
 
 /**
- * Marks the template's elements rebuilt around the field, and the field itself. They
- * stand alone, without the parts beside them on the page (a side column, a picture):
- * in a grid made for those parts the field would sit in one narrow slot, so the
- * marked elements take the whole row (LOOK_PART_CSS), their own widths still applying.
+ * Marks the template's elements rebuilt around the field. They stand around the field
+ * alone, without the parts beside it on the page (a side column, a picture), so a grid
+ * or flex layout made for those parts has nothing to arrange: in a grid the field sat
+ * in one narrow slot, and with auto margins shrank to its words. They are shown as
+ * plain blocks (LOOK_PART_CSS), keeping their spacing, colours and widths; the field
+ * then takes its own width and margins as a block would (VE-D89).
  */
 export const LOOK_PART = 'data-arc-look-part';
 
 /** The rule for LOOK_PART, in the admin page (the editor's stylesheet) and in the version preview's frame. */
-export const LOOK_PART_CSS = `[${LOOK_PART}]{grid-column:1/-1!important;grid-row:auto!important}`;
+export const LOOK_PART_CSS = `[${LOOK_PART}]{display:block!important}`;
 
 /**
  * The look's root (the stand-in for the page's body, with the look's scope class
@@ -98,7 +100,6 @@ export function storedHtmlDocument(doc: Document, look: SiteLook | null, html: s
         const { root, inner } = buildLookWrappers(inert, look, look.chain.ancestors);
         const field = inert.createElement(look.chain.body.tag);
         if (look.chain.body.classes.length) field.className = look.chain.body.classes.join(' ');
-        field.setAttribute(LOOK_PART, '');
         field.appendChild(inert.createComment('arc-stored-html'));
         inner.appendChild(field);
         body = root.outerHTML;
