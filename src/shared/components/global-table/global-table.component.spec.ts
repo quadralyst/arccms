@@ -9,6 +9,8 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { CommonModule } from '@angular/common';
 import { ArcZones } from '../../../app/core/time/arc-zones.service';
 import { translocoTestingModule } from '../../../test/transloco-test-providers';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('GlobalTableComponent', () => {
     let component: GlobalTableComponent;
@@ -830,5 +832,115 @@ describe('GlobalTableComponent: error, nothing matches, sorting and the actions 
             fixture.detectChanges();
             expect(el().querySelector('.action-btn')?.getAttribute('aria-label')).toBe('Edit');
         });
+    });
+});
+
+describe('GlobalTableComponent: a row looks clickable only when a click opens something (F53)', () => {
+    let component: GlobalTableComponent;
+    let fixture: ComponentFixture<GlobalTableComponent>;
+    const rows = () => Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLTableRowElement>('tbody tr'));
+
+    beforeEach(async () => {
+        TestBed.resetTestingModule();
+        await TestBed.configureTestingModule({
+            imports: [GlobalTableComponent, translocoTestingModule()],
+        }).compileComponents();
+        fixture = TestBed.createComponent(GlobalTableComponent);
+        component = fixture.componentInstance;
+    });
+
+    it('a table with no actions column draws plain rows: no pointer, not focusable, no hover class', () => {
+        component.data = [{ id: '1', name: 'Sent' }, { id: '2', name: 'Failed' }];
+        component.columns = [{ key: 'name', header: 'Name' }];
+        fixture.detectChanges();
+
+        expect(rows()).toHaveLength(2);
+        for (const row of rows()) {
+            expect(row.classList.contains('row-clickable')).toBe(false);
+            expect(row.hasAttribute('tabindex')).toBe(false);
+            expect(row.getAttribute('role')).toBeNull();
+        }
+        // No row is shaded on hover by Bootstrap either.
+        expect((fixture.nativeElement as HTMLElement).querySelector('table')?.classList.contains('table-hover')).toBe(false);
+    });
+
+    it('a row whose actions are all hidden is plain, a row with one shows the pointer and opens it', () => {
+        const open = vi.fn();
+        component.data = [{ id: 'a', locked: true }, { id: 'b', locked: false }];
+        component.columns = [
+            { key: 'id', header: 'Id' },
+            {
+                key: 'actions', header: 'Actions', type: 'actions',
+                actions: [{ action: 'view', icon: 'fas fa-eye', label: 'View', hide: (row: any) => row.locked, onAction: open }],
+            },
+        ];
+        fixture.detectChanges();
+
+        const [locked, open1] = rows();
+        expect(locked.classList.contains('row-clickable')).toBe(false);
+        expect(locked.hasAttribute('tabindex')).toBe(false);
+
+        expect(open1.classList.contains('row-clickable')).toBe(true);
+        expect(open1.getAttribute('tabindex')).toBe('0');
+
+        locked.click();
+        expect(open).not.toHaveBeenCalled();
+        open1.click();
+        expect(open).toHaveBeenCalledWith({ id: 'b', locked: false });
+    });
+
+    it('a row that opens something opens with Enter and Space when it has the focus, not when a button inside has it', () => {
+        const open = vi.fn();
+        component.data = [{ id: 'b' }];
+        component.columns = [{
+            key: 'actions', header: 'Actions', type: 'actions',
+            actions: [{ action: 'view', icon: 'fas fa-eye', label: 'View', onAction: open }],
+        }];
+        fixture.detectChanges();
+        const [row] = rows();
+
+        const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+        row.dispatchEvent(enter);
+        expect(open).toHaveBeenCalledTimes(1);
+        expect(enter.defaultPrevented).toBe(true);
+
+        const space = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+        row.dispatchEvent(space);
+        expect(open).toHaveBeenCalledTimes(2);
+        expect(space.defaultPrevented).toBe(true);
+
+        // A held key opens it once.
+        row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true, cancelable: true }));
+        expect(open).toHaveBeenCalledTimes(2);
+
+        // Enter on the row's own action button is that button's, not the row's.
+        const button = row.querySelector('button')!;
+        button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        expect(open).toHaveBeenCalledTimes(2);
+    });
+
+    // The test page does not apply the component's stylesheet, so this reads it:
+    // the pointer and the hover belong to .row-clickable rows alone.
+    it('the stylesheet gives the pointer and the hover to a row-clickable row only', () => {
+        const css = readFileSync(resolve(__dirname, 'global-table.component.scss'), 'utf8').replace(/\/\/.*$/gm, '');
+        expect(css).not.toMatch(/tbody\s+tr\s*\{[^}]*cursor:\s*pointer/);
+        expect(css).not.toMatch(/tbody\s+tr:hover/);
+        expect(css).toMatch(/tbody\s+tr\.row-clickable\s*\{\s*cursor:\s*pointer/);
+        expect(css).toMatch(/&:hover\s*>\s*td\s*\{/);
+    });
+
+    it('the answer follows the row as it changes: a row whose last action becomes hidden turns plain', () => {
+        component.columns = [{
+            key: 'actions', header: 'Actions', type: 'actions',
+            actions: [{ action: 'view', icon: 'fas fa-eye', label: 'View', hide: (row: any) => row.locked, onAction: vi.fn() }],
+        }];
+        fixture.componentRef.setInput('data', [{ id: 'b', locked: false }]);
+        fixture.detectChanges();
+        expect(rows()[0].classList.contains('row-clickable')).toBe(true);
+
+        fixture.componentRef.setInput('data', [{ id: 'b', locked: true }]);
+        fixture.detectChanges();
+        expect(rows()[0].classList.contains('row-clickable')).toBe(false);
+        expect(rows()[0].hasAttribute('tabindex')).toBe(false);
     });
 });

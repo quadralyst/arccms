@@ -74,8 +74,10 @@
         box-shadow: -6px 0 6px -6px rgba(0, 0, 0, 0.18);
     }
 
-    tbody tr:hover td.sticky-actions {
-        background: #f8fafc;
+    // The pinned cell keeps its own shadow, which replaces Bootstrap's shading,
+    // so it takes the same hover shade over its white (opaque: rows scroll under it).
+    tbody tr.row-clickable:hover td.sticky-actions {
+        background: linear-gradient(var(--bs-table-hover-bg), var(--bs-table-hover-bg)), #fff;
     }
 
     td {
@@ -84,17 +86,24 @@
         border-bottom: 1px solid #eee;
     }
 
-    // Row click styling
-    tbody tr {
+    // Only a row a click opens looks like it: the pointer, a hover and a press.
+    // Every other row is plain text, selectable, with the default cursor.
+    tbody tr.row-clickable {
         cursor: pointer;
-        transition: background-color 0.15s ease;
 
-        &:hover {
-            background-color: #f8fafc;
+        // Bootstrap paints every cell, so the hover goes on the cells. The same
+        // shade Bootstrap's table-hover gave every row before.
+        &:hover > td {
+            --bs-table-bg-state: var(--bs-table-hover-bg);
         }
 
-        &:active {
-            background-color: #f1f5f9;
+        &:active > td {
+            --bs-table-bg-state: var(--bs-table-active-bg);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--arc-admin-accent);
+            outline-offset: -2px;
         }
     }
 }

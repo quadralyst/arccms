@@ -115,6 +115,10 @@ Optional settings for when the defaults are wrong:
 | `placement` | action | `'inline'` or `'menu'` to force where it goes. |
 | `maxInline` | column | Icons kept inline once the menu is in use (default 2). |
 
+### Clicking a row
+
+A click anywhere on a row opens one of its actions: the one marked `isRowClick: true` when that row shows it, else the first action in the column's list that the row shows (the list order, not the order the icons are drawn in). Only such a row looks and acts clickable: the pointer, a hover shade, a tab stop, and Enter or Space to open it. A table with no actions column (a log you only read), or a row whose actions are all hidden, is plain: the default cursor, no hover, its text selectable, and no tab stop.
+
 The layout lives in `arc-row-actions` (`src/shared/components/row-actions/`). A hand-built table can use it directly; pass every row on the page as `rows` so all rows line up:
 
 ```html
@@ -205,5 +209,6 @@ The app has no zone.js: change these inputs through signals (as above) or by rep
 ## Accessibility and phones
 
 - A sortable heading is a `<button>` inside the heading cell, and the cell carries `aria-sort` (`ascending`, `descending` or `none`). Headings that cannot sort have neither.
+- A row a click opens is a tab stop with a focus ring, and Enter or Space opens it, as a click does; a key pressed on one of its buttons is that button's. It stays a table row for a screen reader (not a button), and its action buttons are still there to reach. A row a click does not open is not a tab stop.
 - Row actions are at least 44px on a touch screen, and every icon has a name: its `label`, else the common name for its action (`edit` is read as "Edit"), else the action itself. Give each action a `label`.
 - When the actions column is the last column, it stays pinned to the right edge while a wide table scrolls sideways, so the actions stay in reach on a phone.

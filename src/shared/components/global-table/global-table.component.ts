@@ -6,7 +6,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { map } from 'rxjs';
 import { RowActionsComponent, ROW_ACTIONS_COMPACT_QUERY } from '../row-actions/row-actions.component';
-import { RowAction, RowActionsPlan, planRowActions } from '../row-actions/row-actions';
+import { RowAction, RowActionsPlan, isActionVisible, planRowActions } from '../row-actions/row-actions';
 import { ArcTimePipe } from '../../../app/core/time/arc-time.pipe';
 import type { ZoneRef } from '../../../app/core/time/arc-time.service';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
@@ -245,47 +245,42 @@ export class GlobalTableComponent implements DoCheck {
         this.emptyActionClick.emit();
     }
 
+    /**
+     * The action a click on this row opens, or undefined when a click does nothing.
+     *
+     * The action marked `isRowClick` when this row shows it, else the first action
+     * the row shows. None when the table has no actions column (a log you only
+     * read) or this row hides every action. Asked for each row as it is drawn,
+     * so only a row that opens something looks and acts like it.
+     */
+    rowClickAction(row: any): TableAction | undefined {
+        const actions = this.columns.find(c => c.type === 'actions')?.actions;
+        if (!actions?.length) return undefined;
+        const marked = actions.find(a => a.isRowClick);
+        if (marked && isActionVisible(marked, row)) return marked;
+        return actions.find(a => isActionVisible(a, row));
+    }
+
     onRowClick(row: any, event: Event) {
-        // Find the actions column
-        const actionsColumn = this.columns.find(c => c.type === 'actions');
-        if (!actionsColumn?.actions) return;
+        const target = this.rowClickAction(row);
+        if (!target) return;
+        // Stop propagation to prevent any parent handlers
+        event.stopPropagation();
+        this.onActionClick(target, row);
+    }
 
-        // 1. Try to find an action explicitly marked for row click
-        let targetAction = actionsColumn.actions.find(action => action.isRowClick);
-
-        // 2. If valid target action found but it is hidden, we shouldn't click it?
-        // Or should we fallback? The requirement says "default behaviour... must open first action".
-        // If isRowClick is set, we should probably respect it if visible, or do nothing? 
-        // User said: "clicking it opens the edit button. This must not be hardcoded".
-        
-        // Let's first check visibility of the target action if it exists
-        if (targetAction && targetAction.hide && targetAction.hide(row)) {
-            targetAction = undefined; // It's hidden, so we can't use it
-        }
-
-        // 3. Fallback: Find the first visible action if no specific row click action is defined or valid
-        if (!targetAction) {
-             targetAction = actionsColumn.actions.find(action => {
-                // If isRowClick was explicitly set on ANOTHER action (that was hidden), 
-                // should we fallback to absolute first?
-                // Standard behavior: Default to first visible.
-                // Configured behavior: Use configured.
-                
-                // If we are here, it means we didn't find a visible `isRowClick` action.
-                // We should only pick the first visible one if NO action has `isRowClick` set at all?
-                // Or just always fallback?
-                // "The default behaviour... is that clicking it must open the first action item."
-                
-                if (!action.hide) return true;
-                return !action.hide(row);
-            });
-        }
-
-        if (targetAction) {
-            // Stop propagation to prevent any parent handlers
-            event.stopPropagation();
-            this.onActionClick(targetAction, row);
-        }
+    /**
+     * Enter or Space on a row that has the focus opens it, as a click does.
+     * A key pressed on a button or link inside the row is that control's own.
+     */
+    onRowKeydown(row: any, event: KeyboardEvent) {
+        if (event.target !== event.currentTarget) return;
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        // A held key opens it once, not once per repeat.
+        if (event.repeat || !this.rowClickAction(row)) return;
+        // Space would scroll the page.
+        event.preventDefault();
+        this.onRowClick(row, event);
     }
 
     /** The zone a date cell is shown in: the column's, else the reader's. */

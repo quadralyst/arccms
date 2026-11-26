@@ -21,7 +21,7 @@
     <!-- Table State -->
     @if(!loading && data.length > 0){
     <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table class="table mb-0">
             <thead>
                 <tr>
                     <th *ngFor="let col of columns; let last = last" [class.sortable-header]="col.sortable"
@@ -44,7 +44,10 @@
                 </tr>
             </thead>
             <tbody>
-                <tr *ngFor="let row of data; let i = index; trackBy: trackByFn" (click)="onRowClick(row, $event)">
+                <!-- Only a row a click opens shows the pointer, the hover and a tab stop (F53). -->
+                <tr *ngFor="let row of data; let i = index; trackBy: trackByFn"
+                    [class.row-clickable]="!!rowClickAction(row)" [attr.tabindex]="rowClickAction(row) ? 0 : null"
+                    (click)="onRowClick(row, $event)" (keydown)="onRowKeydown(row, $event)">
                     <td *ngFor="let col of columns; let last = last" [class.sticky-actions]="isStickyActions(col, last)"
                         [class.text-center]="col.type === 'actions' || col.type === 'icon'">
                         <!-- Icon Type -->
