@@ -975,8 +975,7 @@
                                 <div class="next-content-info">
                                     <strong>{{ selectedPreviousContent.title }}</strong>
                                     <small class="text-muted d-block">
-                                        {{ (selectedPreviousContent.summary || '') | slice:0:100 }}{{
-                                        (selectedPreviousContent.summary || '').length > 100 ? '...' : '' }}
+                                        {{ shortSummary(selectedPreviousContent.summary, 100) }}
                                     </small>
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm"
@@ -1015,8 +1014,7 @@
                                         data-testid="previous-content-option">
                                         <span class="next-content-title">{{ content.title }}</span>
                                         <span class="next-content-summary">
-                                            {{ (content.metaDescription || '') | slice:0:80 }}{{
-                                            (content.metaDescription || '').length > 80 ? '...' : '' }}
+                                            {{ shortSummary(content.metaDescription, 80) }}
                                         </span>
                                     </div>
                                     }
@@ -1048,8 +1046,7 @@
                                 <div class="next-content-info">
                                     <strong>{{ selectedNextContent.title }}</strong>
                                     <small class="text-muted d-block">
-                                        {{ (selectedNextContent.summary || '') | slice:0:100 }}{{
-                                        (selectedNextContent.summary || '').length > 100 ? '...' : '' }}
+                                        {{ shortSummary(selectedNextContent.summary, 100) }}
                                     </small>
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm"
@@ -1088,8 +1085,7 @@
                                         data-testid="next-content-option">
                                         <span class="next-content-title">{{ content.title }}</span>
                                         <span class="next-content-summary">
-                                            {{ (content.metaDescription || '') | slice:0:80 }}{{
-                                            (content.metaDescription || '').length > 80 ? '...' : '' }}
+                                            {{ shortSummary(content.metaDescription, 80) }}
                                         </span>
                                     </div>
                                     }

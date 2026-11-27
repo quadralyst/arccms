@@ -10,7 +10,7 @@ import { ILanguage } from '../../../../../shared/models/localization.model';
 import { isRepeaterType } from '../../../../../shared/models/repeater.model';
 import { NotifyService } from '../../../../../shared/services/notify.service';
 import { ToastService } from '../../../../../shared/services/toast.service';
-import { bodyExcerpt } from '../../../../../shared/utils/summary-text';
+import { summaryPlainText } from '../../../../../shared/utils/summary-text';
 import { toUrlSlug } from '../../../../../shared/utils/url-slug';
 import { TranslationKey } from '../../../../core/i18n/translation-keys';
 import {
@@ -1798,7 +1798,7 @@ export class EntryDraftSession implements OnDestroy {
   /** Whether a new entry has a title or a body worth keeping. */
   hasTypedSomething(): boolean {
     const base = this.baseLanguageValues();
-    return !!(base.title || '').trim() || !!bodyExcerpt(base.content || '').trim();
+    return !!(base.title || '').trim() || !!summaryPlainText(base.content || '');
   }
 
   /** Writes a new entry once it has a title or body (4.1). */

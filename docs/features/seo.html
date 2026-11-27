@@ -35,7 +35,7 @@
         <tr><td><code>/robots.txt</code></td><td>Everything allowed except <code>/_site/</code> (the site's source files: templates, header, page sources), a <code>Disallow: /</code> group for each AI crawler switched off, and the sitemap address.</td></tr>
         <tr><td><code>/llms.txt</code></td><td>A Markdown index of the site (llmstxt.org): the site name and description, then a section per content type linking its pages' Markdown twins in the default language, newest first, up to 500 pages in all, then links to the home page and the sitemap.</td></tr>
         <tr><td><code>/llms-full.txt</code></td><td>Every default-language Markdown twin in one file, newest first, up to 2 MB.</td></tr>
-        <tr><td><code>/{type}/feed.xml</code></td><td>An RSS 2.0 feed per content type with its 20 newest items, each dated with its first publish. <code>lastBuildDate</code> is the last publish of any of them.</td></tr>
+        <tr><td><code>/{type}/feed.xml</code></td><td>An RSS 2.0 feed per content type with its 20 newest items, each dated with its first publish and described by its meta description or summary, cut at a word to 200 characters, else by the body's automatic summary (see <a href="content.html#summary">The automatic summary</a>). <code>lastBuildDate</code> is the last publish of any of them.</td></tr>
         <tr><td><code>/{key}.txt</code></td><td>The IndexNow key file, which proves the site to the engines.</td></tr>
       </tbody>
     </table>

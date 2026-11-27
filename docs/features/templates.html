@@ -241,7 +241,7 @@
         <tr><td><code>title</code>, <code>urlSlug</code>, <code>id</code></td><td>Text</td><td>My first post</td><td>The entry's title, slug and document id</td></tr>
         <tr><td><code>url</code></td><td>Text</td><td>/articles/my-post, /hi/articles/my-post</td><td>Its address, in the page's language. Empty for a type without public pages, so guard a link with <code>data-arc-if="url"</code>.</td></tr>
         <tr><td><code>coverImage</code></td><td>URL</td><td>https://…/cover.jpg</td><td>Plus its sizes (see <a href="#image-sizes">Image sizes</a>)</td></tr>
-        <tr><td><code>excerpt</code></td><td>Text</td><td>Ten tips for a calmer…</td><td>The meta description, or else the body, cut to its first 25 words with "..."</td></tr>
+        <tr><td><code>excerpt</code></td><td>Text</td><td>Ten tips for a calmer…</td><td>The meta description, cut at a word to 160 characters with "...", or else the body's automatic summary: its first whole sentences that fit (see <a href="content.html#summary">The automatic summary</a>)</td></tr>
         <tr><td><code>content</code></td><td>HTML</td><td>&lt;p&gt;…&lt;/p&gt;</td><td>The full body</td></tr>
         <tr><td><code>publishedOn</code></td><td>Text</td><td>Jan 5, 2026</td><td>A short date in the page's language and the site's time zone</td></tr>
         <tr><td><code>readTime</code></td><td>Number</td><td>5</td><td>Minutes to read</td></tr>

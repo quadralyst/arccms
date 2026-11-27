@@ -24,7 +24,7 @@ import { ITag } from '../content-types/tags/tags.model';
 import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page';
 import { mediaPickerDialogConfig } from '../../(media)/media-picker-dialog';
 import { fileMeta, MEDIA_FILE_TYPE_ICONS, MediaFileRef, toFileRows } from '../../../../../shared/utils/media-files';
-import { bodyExcerpt } from '../../../../../shared/utils/summary-text';
+import { automaticSummaries, bodyExcerpt, clipWords } from '../../../../../shared/utils/summary-text';
 import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
 import { FieldRepeaterComponent } from '../../../../../shared/components/field-repeater/field-repeater.component';
 import { ResizableDirective } from '../../../../../shared/directives/resizable/resizable.directive';
@@ -363,7 +363,8 @@ export class CreateContentComponent extends BaseComponent {
   contentDetailedData: any = computed(() => this.draftContentStore.currentItem());
 
   /** The automatic summary of the body last seen; the summary follows the body only while it equals this. */
-  private previousExcerpt = '';
+  /** The automatic summaries of the body as it was, current and older forms (summary-text.ts). */
+  private previousExcerpts: string[] = [];
   /** The summary before its latest change; the meta description follows only while it equals this. */
   private previousSummary = '';
 
@@ -1267,7 +1268,7 @@ export class CreateContentComponent extends BaseComponent {
     this.publishForm.get('summary')?.setValue(values.summary, { emitEvent: false });
     this.seoForm.get('seoTitle')?.setValue(values.seoTitle, { emitEvent: false });
     this.seoForm.get('metaDescription')?.setValue(values.metaDescription, { emitEvent: false });
-    this.previousExcerpt = bodyExcerpt(values.content);
+    this.previousExcerpts = automaticSummaries(values.content);
     this.previousSummary = (values.summary || '').trim();
     this.customFieldValues = this.adoptCustomFields(values.customFields);
     this.expectRichEchoes();
@@ -1428,8 +1429,10 @@ export class CreateContentComponent extends BaseComponent {
     });
 
     // What the loaded body's automatic summary is, so a stored summary equal
-    // to it keeps following the body and a hand-written one does not.
-    this.previousExcerpt = bodyExcerpt(contentData?.content || '');
+    // to it keeps following the body and a hand-written one does not. Older
+    // forms count too: a 100-character summary an earlier editor stored moves
+    // to the current one when the body arrives (summary-text.ts).
+    this.previousExcerpts = automaticSummaries(contentData?.content || '');
 
     this.seoForm.patchValue({
       seoTitle: contentData?.seoTitle || '',
@@ -1644,23 +1647,28 @@ export class CreateContentComponent extends BaseComponent {
   public passEditorContentToParent(event: any): void {
     this.publishForm.get('content')?.setValue(event);
 
-    // The summary follows the body only while it is empty or still the
-    // excerpt of the previous body. A hand-written summary is kept, including
-    // one loaded from the database, whose control is never dirty. The meta
-    // description follows the summary by the same rule (see initializeForms).
+    // The summary follows the body only while it is empty or still an
+    // automatic summary of the previous body. A hand-written summary is kept,
+    // including one loaded from the database, whose control is never dirty.
+    // The meta description follows the summary by the same rule (see initializeForms).
     const excerpt = bodyExcerpt(event || '');
     const summaryControl = this.publishForm.get('summary');
     const summary = (summaryControl?.value || '').trim();
-    if (summaryControl && (!summary || summary === this.previousExcerpt) && summary !== excerpt) {
+    if (summaryControl && (!summary || this.previousExcerpts.includes(summary)) && summary !== excerpt) {
       summaryControl.setValue(excerpt);
     }
-    this.previousExcerpt = excerpt;
+    this.previousExcerpts = automaticSummaries(event || '');
 
     // TipTap echoes the value it was just given, reserializing it on the way.
     // That echo — and the summary/meta-description it cascades into above — is
     // the last step of loading, not a user edit, so the baseline is taken here
     // rather than in patchForms, once everything has settled.
     this.session.settleLoad();
+  }
+
+  /** A linked entry's summary in the series picker, cut at a word (summary-text.ts). */
+  shortSummary(text: string | null | undefined, limit: number): string {
+    return clipWords(text || '', limit);
   }
 
   /** The title the SEO title was last compared with. */

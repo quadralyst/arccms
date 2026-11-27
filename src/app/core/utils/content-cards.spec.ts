@@ -43,12 +43,18 @@ describe('content cards', () => {
         expect(card['publishedOn']).not.toBe(cardData(ENTRY, 'events', 'Events', 'en', '')['publishedOn']);
     });
 
-    it('make the excerpt from the meta description, else the body, without markup, cut at 25 words', () => {
-        expect(getExcerpt({ metaDescription: 'The meta', content: '<p>Body</p>' })).toBe('The meta');
-        expect(getExcerpt({ content: '<p>This is a <b>test</b> content</p>' })).toBe('This is a test content');
-        const long = getExcerpt({ content: 'word '.repeat(50) });
-        expect(long.endsWith('...')).toBe(true);
-        expect(long.split(' ')).toHaveLength(25);
+    it('make the excerpt from the meta description, else the body\'s automatic summary, never cut mid-word', () => {
+        for (const make of [getExcerpt, published.getExcerpt]) {
+            expect(make({ metaDescription: 'The meta', content: '<p>Body</p>' })).toBe('The meta');
+            expect(make({ content: '<p>This is a <b>test</b> content</p>' })).toBe('This is a test content');
+            // The body's summary: whole sentences, a heading kept apart (summary-text.ts).
+            expect(make({ content: `<h3>Key takeaways</h3><p>A small garden grows best with sun for most of the day. ${'More words follow here. '.repeat(10)}</p>` }))
+                .toBe('Key takeaways A small garden grows best with sun for most of the day. More words follow here. More words follow here. More words follow here.');
+            // A long meta description is cut at a word, with an ellipsis.
+            const long = make({ metaDescription: 'gardening '.repeat(30), content: '' });
+            expect(long.endsWith('gardening...')).toBe(true);
+            expect(long.length).toBeLessThanOrEqual(160);
+        }
     });
 
     it('keep a stored read time, else count it, and print no date for none', () => {

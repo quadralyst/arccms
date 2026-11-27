@@ -3,6 +3,7 @@ import { getSiteConfig } from '../shared/site-settings.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { deploySeoFileToHosting } from './deploySeoFile.js';
 import { HostingBatch } from './deployToHosting.js';
+import { bodyExcerpt, clipWords, summaryPlainText } from '../shared/summary-text.js';
 
 /** Maximum number of items per RSS feed. */
 const RSS_ITEM_LIMIT = 20;
@@ -38,15 +39,16 @@ function latestDate(dates: any[]): Date | null {
     return times.length ? new Date(Math.max(...times)) : null;
 }
 
+/** Characters of a written description kept in a feed item. */
+const FEED_DESCRIPTION_LIMIT = 200;
+
 /**
- * Generates a plain-text excerpt from HTML content.
- * Strips tags, collapses whitespace, and caps at 200 characters.
+ * An item's description: the meta description or summary, cut at a word to 200
+ * characters, else the body's automatic summary (summary-text.ts).
  */
-function getExcerpt(content: Record<string, any>): string {
-    const text = content.metaDescription || content.summary || content.content || '';
-    const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    if (cleanText.length <= 200) return cleanText;
-    return cleanText.substring(0, 197) + '...';
+export function getExcerpt(content: Record<string, any>): string {
+    const written = summaryPlainText(String(content.metaDescription || content.summary || ''));
+    return written ? clipWords(written, FEED_DESCRIPTION_LIMIT) : bodyExcerpt(String(content.content || ''));
 }
 
 /**

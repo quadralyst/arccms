@@ -1587,15 +1587,16 @@ describe('CreateContentComponent', () => {
             expect(component.seoForm.get('metaDescription')?.value).toBe('');
         });
 
-        it('should limit meta description to first 160 words', () => {
-            // Create content with more than 160 words
+        it('should limit meta description to 160 characters, cut at a word', () => {
             const words = Array(200).fill('word').map((w, i) => `${w}${i}`);
             const longContent = `<p>${words.join(' ')}</p>`;
             component.passEditorContentToParent(longContent);
 
             const metaDescription = component.seoForm.get('metaDescription')?.value as string;
-            const wordCount = metaDescription.trim().split(/\s+/).length;
-            expect(wordCount).toBeLessThanOrEqual(160);
+            expect(metaDescription.length).toBeLessThanOrEqual(160);
+            expect(metaDescription.endsWith('...')).toBe(true);
+            // The last word kept is whole (summary-text.ts).
+            expect(words).toContain(metaDescription.slice(0, -3).split(' ').pop());
         });
 
         it('should load existing content into editor when editing', () => {
@@ -1649,13 +1650,18 @@ describe('CreateContentComponent', () => {
 
 
     describe('Content Summary Logic', () => {
-        it('should auto-generate summary from content', () => {
-            // Mock ViewChild/ElementRef if needed, or just call method
-            const htmlContent = '<p>This is a long paragraph that should be truncated to form the summary of the content.</p>';
-            component.passEditorContentToParent(htmlContent);
+        it('should auto-generate summary from content: the whole sentences that fit', () => {
+            const first = 'This is a long paragraph whose first sentence forms the summary of the content.';
+            const second = 'The second sentence is long enough that the two of them together no longer fit in a meta description.';
+            component.passEditorContentToParent(`<p>${first} ${second}</p>`);
             const summary = component.publishForm.get('summary')?.value;
-            expect(summary).toBeTruthy();
-            expect(summary.length).toBeLessThanOrEqual(100);
+            expect(summary).toBe(first);
+            expect(component.seoForm.get('metaDescription')?.value).toBe(first);
+        });
+
+        it('cuts a linked entry\'s summary in the series picker at a word', () => {
+            expect(component.shortSummary('The quick brown fox jumps over the lazy dog', 20)).toBe('The quick brown...');
+            expect(component.shortSummary(undefined, 20)).toBe('');
         });
 
         it('should sync summary to metaDescription if metaDescription was default', () => {
@@ -3242,6 +3248,42 @@ describe('CreateContentComponent', () => {
                 component.publishForm.get('summary')?.setValue('New summary.');
 
                 expect(meta()).toBe('Meta by hand.');
+            });
+
+            // Before the whole-sentence rule the editor stored the body's first 100
+            // characters, cut mid-word. Such a summary is automatic, not written by
+            // hand: it moves to the new summary, and the meta description with it.
+            describe('an entry stored with an old 100-character summary', () => {
+                const BODY = '<h2>Key takeaways</h2><p>When the fair has no single organiser the opening date slips a week at a time. Each group waits for the other one to agree first.</p>';
+                const NEW = 'Key takeaways When the fair has no single organiser the opening date slips a week at a time. Each group waits for the other one to agree first.';
+                const SPACED = 'Key takeaways When the fair has no single organiser the opening date slips a week at a time. Each gr';
+                const GLUED = 'Key takeawaysWhen the fair has no single organiser the opening date slips a week at a time. Each gro';
+
+                it.each([['with a space between blocks', SPACED], ['from before blocks were spaced', GLUED]])(
+                    'moves to the new summary when the body arrives, %s', (_label, old) => {
+                        loadFromStore({ ...STORED, content: BODY, summary: old, metaDescription: old });
+                        component.passEditorContentToParent(BODY);
+
+                        expect(summary()).toBe(NEW);
+                        expect(meta()).toBe(NEW);
+                        // Shown on opening, kept at the next save: opening alone writes nothing.
+                        expect((component as any).hasUnsavedDraftChanges()).toBe(false);
+                    });
+
+                it('keeps a meta description written by hand while the summary moves', () => {
+                    loadFromStore({ ...STORED, content: BODY, summary: SPACED, metaDescription: 'Meta by hand.' });
+                    component.passEditorContentToParent(BODY);
+
+                    expect(summary()).toBe(NEW);
+                    expect(meta()).toBe('Meta by hand.');
+                });
+
+                it('keeps a summary written by hand that only starts like the body', () => {
+                    loadFromStore({ ...STORED, content: BODY, summary: 'Key takeaways When the fair has no single organiser', metaDescription: '' });
+                    component.passEditorContentToParent(BODY);
+
+                    expect(summary()).toBe('Key takeaways When the fair has no single organiser');
+                });
             });
 
             it('does not count loading the item as an edit', () => {

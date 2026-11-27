@@ -1,4 +1,5 @@
 import { calculateReadingTime } from './reading-time.js';
+import { SUMMARY_LIMIT, bodyExcerpt, clipWords, summaryPlainText } from './summary-text.js';
 
 /**
  * One content item as a card: what a list page's `items` loop and a partials
@@ -29,12 +30,13 @@ export function formatContentDateShort(date: any, lang = 'en', timeZone = 'UTC')
     return '';
 }
 
-/** The first 25 words of the meta description or the body, without markup. */
+/**
+ * A card's short text: the meta description, cut at a word to the summary's
+ * length, else the body's automatic summary (summary-text, docs/features/content.html).
+ */
 export function getExcerpt(content: Record<string, any>): string {
-    const text = content['metaDescription'] || content['content'] || '';
-    const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    const words = cleanText.split(' ').slice(0, 25);
-    return words.length >= 25 ? words.join(' ') + '...' : cleanText;
+    const meta = summaryPlainText(String(content['metaDescription'] || ''));
+    return meta ? clipWords(meta, SUMMARY_LIMIT) : bodyExcerpt(String(content['content'] || ''));
 }
 
 /**
