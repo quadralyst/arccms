@@ -11,7 +11,7 @@ const menu = (): MenuItem[] => [
         { id: 'contacts', label: 'Contacts', route: '/admin/contacts' },
         { id: 'lists', label: 'Lists', route: '/admin/lists' },
     ] },
-    { id: 'about', label: 'About', externalUrl: 'https://arccms.com/about', allowRoles: ['admin'] },
+    { id: 'about', label: 'About', externalUrl: 'https://arccms.com', allowRoles: ['admin'] },
     { id: 'profile', label: 'Profile', route: '/admin/profile', allowRoles: ['admin', 'user'] },
     { id: 'logout', label: 'Logout', route: '', allowRoles: ['admin', 'user'] },
 ];

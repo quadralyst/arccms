@@ -70,7 +70,7 @@ export function coreAdminItems(): MenuItem[] {
         },
         { id: 'profile', icon: 'fa-solid fa-user', label: 'Profile', labelKey: 'admin.nav.profile', route: '/admin/profile', allowRoles: [ADMIN, USER] },
         { id: 'settings', icon: 'fa-solid fa-gear', label: 'Settings', labelKey: 'admin.nav.settings', route: '/admin/settings', allowRoles: [ADMIN] },
-        { id: 'about', icon: 'fa-solid fa-circle-info', label: 'About', labelKey: 'admin.nav.about', externalUrl: 'https://arccms.com/about', allowRoles: [ADMIN, USER] },
+        { id: 'about', icon: 'fa-solid fa-circle-info', label: 'About', labelKey: 'admin.nav.about', externalUrl: 'https://arccms.com', allowRoles: [ADMIN, USER] },
         { id: 'logout', icon: 'fa-solid fa-right-from-bracket', label: 'Sign out', labelKey: 'admin.nav.logout', route: '', allowRoles: [ADMIN, USER] },
     ];
 }

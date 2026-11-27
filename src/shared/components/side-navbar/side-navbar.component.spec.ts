@@ -359,7 +359,7 @@ describe('NavbarComponent', () => {
 
         expect(aboutIndex).not.toBe(-1);
         expect(logoutIndex).not.toBe(-1);
-        expect(items[aboutIndex].externalUrl).toBe('https://arccms.com/about');
+        expect(items[aboutIndex].externalUrl).toBe('https://arccms.com');
         expect(logoutIndex).toBe(aboutIndex + 1);
     });
 });
@@ -726,7 +726,7 @@ describe("NavbarComponent: the app's menu changes (src/custom/nav-changes.ts)", 
             '---',
             'Profile /admin/profile fa-solid fa-user',
             'Settings /admin/settings fa-solid fa-gear',
-            'About https://arccms.com/about fa-solid fa-circle-info',
+            'About https://arccms.com fa-solid fa-circle-info',
             'Sign out - fa-solid fa-right-from-bracket',
         ]);
     });
@@ -765,7 +765,7 @@ describe("NavbarComponent: the app's menu changes (src/custom/nav-changes.ts)", 
             '---',
         ]);
         expect(rows.filter((r) => r === '---')).toHaveLength(2);
-        expect(rows.slice(-4)).toEqual(['---', 'Profile /admin/profile fa-solid fa-user', 'About https://arccms.com/about fa-solid fa-circle-info', 'Sign out - fa-solid fa-right-from-bracket']);
+        expect(rows.slice(-4)).toEqual(['---', 'Profile /admin/profile fa-solid fa-user', 'About https://arccms.com fa-solid fa-circle-info', 'Sign out - fa-solid fa-right-from-bracket']);
     });
 
     it("shows an editor the items the app's changes give that role, with Profile and Logout", () => {
